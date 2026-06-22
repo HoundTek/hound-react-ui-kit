@@ -1,0 +1,16 @@
+{
+  "name": "hound-react-ui-kit",
+  "version": "1.0.0",
+  "main": "src/index.jsx",
+  "author": "Frank-Steven <FrankStevenTool@outlook.com>",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.2",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "vite": "^8.0.16"
+  }
+}
