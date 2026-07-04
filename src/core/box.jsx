@@ -126,17 +126,42 @@ const BoxComponent = ({ builder }) => {
     }
   }
 
+  if (isHorizontal && isLockedY && builder._children.length > 0) {
+    const parentHeight = cHeight > 0 ? cHeight : 
+                         (builder._minHeight === builder._maxHeight ? builder._minHeight : builder._defaultHeight);
+    if (parentHeight > 0) {
+      builder._children.forEach(child => {
+        child._layoutHeight = parentHeight;
+      });
+    }
+  }
+
+  if (isVertical && isLockedX && builder._children.length > 0) {
+    const parentWidth = cWidth > 0 ? cWidth : 
+                        (builder._minWidth === builder._maxWidth ? builder._minWidth : builder._defaultWidth);
+    if (parentWidth > 0) {
+      builder._children.forEach(child => {
+        child._layoutWidth = parentWidth;
+      });
+    }
+  }
+
   const isFreeX = builder._moveX === true;
   const isFreeY = builder._moveY === true;
+
+  const parentLockedX = builder._parent && builder._parent._moveX === false;
+  const parentLockedY = builder._parent && builder._parent._moveY === false;
 
   if (isHorizontal && isFreeX && builder._children.length > 0) {
     const result = builder._calculateFreeLayout('Width');
     let totalWidth = 0;
     builder._children.forEach((child, i) => {
-      child._layoutWidth = result.sizes[i];
-      totalWidth += result.sizes[i];
+      if (child._layoutWidth === undefined) {
+        child._layoutWidth = result.sizes[i];
+      }
+      totalWidth += child._layoutWidth;
     });
-    if (!builder._isViewport) {
+    if (!builder._isViewport && !parentLockedX && builder._layoutWidth === undefined) {
       builder._layoutWidth = totalWidth;
     }
   }
@@ -145,24 +170,14 @@ const BoxComponent = ({ builder }) => {
     const result = builder._calculateFreeLayout('Height');
     let totalHeight = 0;
     builder._children.forEach((child, i) => {
-      child._layoutHeight = result.sizes[i];
-      totalHeight += result.sizes[i];
+      if (child._layoutHeight === undefined) {
+        child._layoutHeight = result.sizes[i];
+      }
+      totalHeight += child._layoutHeight;
     });
-    if (!builder._isViewport) {
+    if (!builder._isViewport && !parentLockedY && builder._layoutHeight === undefined) {
       builder._layoutHeight = totalHeight;
     }
-  }
-
-  if (isVertical && isLockedX && builder._children.length > 0) {
-    builder._children.forEach(child => {
-      child._layoutWidth = cWidth || undefined;
-    });
-  }
-
-  if (isHorizontal && isLockedY && builder._children.length > 0) {
-    builder._children.forEach(child => {
-      child._layoutHeight = cHeight || undefined;
-    });
   }
   
   let computedWidth = width;
@@ -521,7 +536,7 @@ class BoxBuilder {
         
         let targetValue;
         
-        if (hasDefault) {
+        if (hasDefault && child[max] !== Infinity) {
           targetValue = child[def];
         } else if (hasMinMax) {
           targetValue = (childMin + childMax) / 2;
@@ -656,6 +671,8 @@ class BoxBuilder {
             [crossPos]: 0,
             [size]: handleSize,
             [crossSize]: '100%',
+            // animation: width height 0.3s ease-in-out
+            // transition: 'width 0.3s ease-in-out, height 1s ease-in-out',
           }}
         />
       );

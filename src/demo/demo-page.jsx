@@ -230,6 +230,44 @@ const DemoPage = () => {
                         .fixedHeight(30)
                         .backgroundColor('#d8ffd8'),
                     ]),
+
+                  new BoxBuilder("/demo/main/content/horizontal-scroll")
+                    .fixedHeight(80)
+                    .backgroundColor('#e6e6fa')
+                    .moveX(true)
+                    .layout('horizontal')
+                    .children([
+                      new BoxBuilder("/demo/main/content/horizontal-scroll/item1")
+                        .fixedWidth(100)
+                        .backgroundColor('#d8d8ff'),
+                      new BoxBuilder("/demo/main/content/horizontal-scroll/item2")
+                        .fixedWidth(120)
+                        .backgroundColor('#c8c8ff'),
+                      new BoxBuilder("/demo/main/content/horizontal-scroll/item3")
+                        .fixedWidth(100)
+                        .backgroundColor('#d8d8ff'),
+                      new BoxBuilder("/demo/main/content/horizontal-scroll/item4")
+                        .fixedWidth(130)
+                        .backgroundColor('#c8c8ff'),
+                      new BoxBuilder("/demo/main/content/horizontal-scroll/item5")
+                        .fixedWidth(110)
+                        .backgroundColor('#d8d8ff'),
+                      new BoxBuilder("/demo/main/content/horizontal-scroll/item6")
+                        .fixedWidth(120)
+                        .backgroundColor('#c8c8ff'),
+                      new BoxBuilder("/demo/main/content/horizontal-scroll/item7")
+                        .fixedWidth(100)
+                        .backgroundColor('#d8d8ff'),
+                      new BoxBuilder("/demo/main/content/horizontal-scroll/item8")
+                        .fixedWidth(140)
+                        .backgroundColor('#c8c8ff'),
+                      new BoxBuilder("/demo/main/content/horizontal-scroll/item9")
+                        .fixedWidth(110)
+                        .backgroundColor('#d8d8ff'),
+                      new BoxBuilder("/demo/main/content/horizontal-scroll/item10")
+                        .fixedWidth(120)
+                        .backgroundColor('#c8c8ff'),
+                    ]),
                 ]),
 
               new BoxBuilder("/demo/main/right-panel")
