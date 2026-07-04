@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Reflowable, reflowScheduler, animateReflow, pickAnimatable } from './scheduler';
 
 const styleSheet = `
   .drag-handle {
@@ -28,42 +29,86 @@ if (typeof document !== 'undefined' && !document.getElementById('box-drag-styles
 
 const BoxComponent = ({ builder }) => {
   const containerRef = useRef(null);
+  const containerPrevStyle = useRef({});
+  const childRefs = useRef([]);
+  const childPrevStyles = useRef(new Map());
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [viewportSize, setViewportSize] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 0,
     height: typeof window !== 'undefined' ? window.innerHeight : 0,
   });
+  const [, forceUpdate] = useState(0);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     const handleResize = () => {
       setViewportSize({
         width: window.innerWidth,
         height: window.innerHeight,
       });
     };
-    
+
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
     if (!containerRef.current || builder._isViewport) return;
-    
+
     const observer = new ResizeObserver(entries => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         setContainerSize({ width, height });
       }
     });
-    
+
     observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, [builder._isViewport]);
 
-  let isInvalid = false;
-  
+  useEffect(() => {
+    if (builder._isViewport) {
+      reflowScheduler.registerRoot(builder);
+      return () => {
+        reflowScheduler.unregisterRoot(builder);
+      };
+    }
+  }, [builder]);
+
+  useEffect(() => {
+    const width = builder._isViewport ? viewportSize.width : containerSize.width;
+    const height = builder._isViewport ? viewportSize.height : containerSize.height;
+
+    builder._containerSize = { width, height };
+    builder._requestReflow();
+  }, [containerSize, viewportSize]);
+
+  useEffect(() => {
+    let scheduled = false;
+    const handleReflowComplete = () => {
+      if (!scheduled) {
+        scheduled = true;
+        requestAnimationFrame(() => {
+          scheduled = false;
+          forceUpdate(n => n + 1);
+        });
+      }
+    };
+
+    builder._onReflowComplete = handleReflowComplete;
+
+    builder._containerSize = {
+      width: builder._isViewport ? viewportSize.width : containerSize.width,
+      height: builder._isViewport ? viewportSize.height : containerSize.height
+    };
+    builder._performReflow();
+
+    return () => {
+      builder._onReflowComplete = null;
+    };
+  }, []);
+
   let width = 'auto';
   let height = 'auto';
   let maxWidth = 'none';
@@ -98,91 +143,6 @@ const BoxComponent = ({ builder }) => {
     flexDirection = 'column';
   }
 
-  const isHorizontal = builder._layout === 'horizontal';
-  const isVertical = builder._layout === 'vertical';
-
-  const isLockedX = builder._moveX === false;
-  const isLockedY = builder._moveY === false;
-
-  const cWidth = builder._isViewport ? viewportSize.width : containerSize.width;
-  const cHeight = builder._isViewport ? viewportSize.height : containerSize.height;
-
-  if (isHorizontal && isLockedX && builder._children.length > 0 && cWidth > 0) {
-    const result = builder._calculateLayout(cWidth, 'Width');
-    if (!result.isValid) {
-      isInvalid = true;
-    } else {
-      builder._children.forEach((child, i) => {
-        child._layoutWidth = result.sizes[i];
-      });
-    }
-  }
-
-  if (isVertical && isLockedY && builder._children.length > 0 && cHeight > 0) {
-    const result = builder._calculateLayout(cHeight, 'Height');
-    if (!result.isValid) {
-      isInvalid = true;
-    } else {
-      builder._children.forEach((child, i) => {
-        child._layoutHeight = result.sizes[i];
-      });
-    }
-  }
-
-  if (isHorizontal && isLockedY && builder._children.length > 0) {
-    const parentHeight = cHeight > 0 ? cHeight : 
-                         (builder._minHeight === builder._maxHeight ? builder._minHeight : builder._defaultHeight);
-    if (parentHeight > 0) {
-      builder._children.forEach(child => {
-        child._layoutHeight = parentHeight;
-      });
-    }
-  }
-
-  if (isVertical && isLockedX && builder._children.length > 0) {
-    const parentWidth = cWidth > 0 ? cWidth : 
-                        (builder._minWidth === builder._maxWidth ? builder._minWidth : builder._defaultWidth);
-    if (parentWidth > 0) {
-      builder._children.forEach(child => {
-        child._layoutWidth = parentWidth;
-      });
-    }
-  }
-
-  const isFreeX = builder._moveX === true;
-  const isFreeY = builder._moveY === true;
-
-  const parentLockedX = builder._parent && builder._parent._moveX === false;
-  const parentLockedY = builder._parent && builder._parent._moveY === false;
-
-  if (isHorizontal && isFreeX && builder._children.length > 0) {
-    const result = builder._calculateFreeLayout('Width');
-    let totalWidth = 0;
-    builder._children.forEach((child, i) => {
-      if (child._layoutWidth === undefined) {
-        child._layoutWidth = result.sizes[i];
-      }
-      totalWidth += child._layoutWidth;
-    });
-    if (!builder._isViewport && !parentLockedX && builder._layoutWidth === undefined) {
-      builder._layoutWidth = totalWidth;
-    }
-  }
-
-  if (isVertical && isFreeY && builder._children.length > 0) {
-    const result = builder._calculateFreeLayout('Height');
-    let totalHeight = 0;
-    builder._children.forEach((child, i) => {
-      if (child._layoutHeight === undefined) {
-        child._layoutHeight = result.sizes[i];
-      }
-      totalHeight += child._layoutHeight;
-    });
-    if (!builder._isViewport && !parentLockedY && builder._layoutHeight === undefined) {
-      builder._layoutHeight = totalHeight;
-    }
-  }
-  
   let computedWidth = width;
   let computedHeight = height;
 
@@ -229,7 +189,7 @@ const BoxComponent = ({ builder }) => {
     style.alignItems = builder._alignItems;
   }
 
-  if (isInvalid) {
+  if (!builder._layoutValid) {
     style.backgroundColor = 'red';
   }
 
@@ -239,48 +199,59 @@ const BoxComponent = ({ builder }) => {
     }
   });
 
+  const isHorizontal = builder._layout === 'horizontal';
+
+  const getChildStyle = (child) => {
+    const s = {
+      position: 'relative',
+      flex: builder._moveX === false && isHorizontal ? 'none' : undefined,
+      width: child._layoutWidth ? `${child._layoutWidth}px` : undefined,
+      height: child._layoutHeight ? `${child._layoutHeight}px` : undefined,
+    };
+    Object.keys(s).forEach(key => {
+      if (s[key] === undefined) delete s[key];
+    });
+    return s;
+  };
+
   let content;
-  if (isInvalid) {
+  if (!builder._layoutValid) {
     content = '错误';
   } else {
-    const dim = builder._layout === 'horizontal' ? 'Width' : 'Height';
-    
-    const isHorizontal = builder._layout === 'horizontal';
-    
     const renderEdgeHandle = (position) => {
       const isStart = position === 'start';
       const size = isHorizontal ? 'width' : 'height';
       const crossSize = isHorizontal ? 'height' : 'width';
       const crossPos = isHorizontal ? 'top' : 'left';
       const directionClass = isHorizontal ? 'drag-handle-horizontal' : 'drag-handle-vertical';
-      
+
       const edgeSize = 10;
-      
-      const style = {
+
+      const handleStyle = {
         position: 'absolute',
         [crossPos]: 0,
         [size]: edgeSize / 2,
         [crossSize]: '100%',
         pointerEvents: 'auto',
       };
-      
+
       if (isHorizontal) {
-        style[isStart ? 'left' : 'right'] = 0;
+        handleStyle[isStart ? 'left' : 'right'] = 0;
       } else {
-        style[isStart ? 'top' : 'bottom'] = 0;
+        handleStyle[isStart ? 'top' : 'bottom'] = 0;
       }
-      
+
       const cornerSize = 12;
       const children = [];
-      
+
       children.push(
         <div
           key="edge"
           className={`drag-handle ${directionClass}`}
-          style={style}
+          style={handleStyle}
         />
       );
-      
+
       if (isHorizontal) {
         children.push(
           <div
@@ -340,26 +311,21 @@ const BoxComponent = ({ builder }) => {
           />
         );
       }
-      
+
       return <>{children}</>;
     };
-    
+
     content = builder._children.map((child, index) => {
       const isFirst = index === 0;
       const isLast = index === builder._children.length - 1;
-      
-      const childWidth = child._layoutWidth;
-      const childHeight = child._layoutHeight;
-      
+
+      const childStyle = getChildStyle(child);
+
       return (
-        <div 
+        <div
           key={builder._pathResolved.join('-') + '-' + index}
-          style={{ 
-            position: 'relative', 
-            flex: builder._moveX === false && isHorizontal ? 'none' : undefined,
-            width: childWidth ? `${childWidth}px` : undefined,
-            height: childHeight ? `${childHeight}px` : undefined,
-          }}
+          ref={el => { childRefs.current[index] = el; }}
+          style={childStyle}
         >
           {isFirst && renderEdgeHandle('start')}
           {child._content || child.react()}
@@ -370,14 +336,33 @@ const BoxComponent = ({ builder }) => {
     });
   }
 
+  useEffect(() => {
+    const el = containerRef.current;
+    if (el) {
+      const currAnimatable = pickAnimatable(style);
+      animateReflow(el, containerPrevStyle.current, currAnimatable);
+      containerPrevStyle.current = currAnimatable;
+    }
+
+    builder._children.forEach((child, index) => {
+      const childEl = childRefs.current[index];
+      if (!childEl) return;
+      const childStyle = getChildStyle(child);
+      const currAnimatable = pickAnimatable(childStyle);
+      const prev = childPrevStyles.current.get(index) || {};
+      animateReflow(childEl, prev, currAnimatable);
+      childPrevStyles.current.set(index, currAnimatable);
+    });
+  });
+
   return (
-    <div 
+    <div
       ref={containerRef}
-      className={builder._pathResolved.join('-')} 
+      className={builder._pathResolved.join('-')}
       style={{ ...style, position: 'relative' }}
     >
-      <div 
-        className={"inner-" + builder._pathResolved.join('-')} 
+      <div
+        className={"inner-" + builder._pathResolved.join('-')}
         style={{
           width: "100%",
           height: "100%",
@@ -392,25 +377,29 @@ const BoxComponent = ({ builder }) => {
   );
 };
 
-class BoxBuilder {
+class BoxBuilder extends Reflowable {
   constructor(path) {
+    super();
     this._path = path;
     this._pathResolved = path.split('/');
     this._children = [];
     this._moveX = undefined;
     this._moveY = undefined;
-    
+
     this._minWidth = 0;
     this._maxWidth = Infinity;
     this._minHeight = 0;
     this._maxHeight = Infinity;
     this._defaultWidth = null;
     this._defaultHeight = null;
-    
+
     this._explicitMinWidth = false;
     this._explicitMaxWidth = false;
     this._explicitMinHeight = false;
     this._explicitMaxHeight = false;
+
+    this._layoutValid = true;
+    this._containerSize = { width: 0, height: 0 };
   }
 
   maxWidth(width) {
@@ -527,9 +516,11 @@ class BoxBuilder {
   }
 
   _calculateLayout(containerSize, dimension) {
-    const min = `_min${dimension}`;
-    const max = `_max${dimension}`;
-    const def = `_default${dimension}`;
+    const minKey = `_min${dimension}`;
+    const maxKey = `_max${dimension}`;
+    const defKey = `_default${dimension}`;
+    const explicitMinKey = `_explicitMin${dimension}`;
+    const explicitMaxKey = `_explicitMax${dimension}`;
 
     if (this._children.length === 0) {
       return { sizes: [], isValid: true };
@@ -538,105 +529,96 @@ class BoxBuilder {
     const children = this._children;
     const count = children.length;
 
-    const fixedSizes = [];
-    const b = [];
-    const mins = [];
-    const maxs = [];
-
+    const fixedSizes = new Array(count);
+    const nonFixed = [];
     let fixedTotal = 0;
     let knownDefaultTotal = 0;
     let unknownDefaultCount = 0;
+    let midValueTotal = 0;
 
-    children.forEach(child => {
-      if (this._isFixed(child, dimension)) {
-        fixedSizes.push(child[min]);
-        fixedTotal += child[min];
+    for (let i = 0; i < count; i++) {
+      const child = children[i];
+      const childMin = child[minKey];
+      const childMax = child[maxKey];
+
+      if (childMin === childMax) {
+        fixedSizes[i] = childMin;
+        fixedTotal += childMin;
       } else {
-        fixedSizes.push(null);
-        const childMin = this._getMin(child, dimension);
-        const childMax = this._getMax(child, dimension);
-        const hasDefault = this._hasDefault(child, dimension);
-        const hasMinMax = this._hasExplicitMinMax(child, dimension);
-        
-        mins.push(childMin);
-        maxs.push(childMax);
-        
+        fixedSizes[i] = null;
+        const childDefault = child[defKey];
+        const hasDefault = childDefault !== null;
+        const hasMinMax = child[explicitMinKey] === true && child[explicitMaxKey] === true;
+        const mid = (childMin + childMax) / 2;
+
+        nonFixed.push({
+          min: childMin,
+          max: childMax,
+          default: childDefault,
+          hasDefault,
+          hasMinMax,
+          b: 0,
+        });
+
         if (hasDefault) {
-          knownDefaultTotal += child[def];
+          knownDefaultTotal += childDefault;
         } else if (!hasMinMax) {
           unknownDefaultCount++;
         }
+
+        if (!hasDefault && hasMinMax) {
+          midValueTotal += mid;
+        }
       }
-    });
+    }
 
     if (fixedTotal > containerSize) {
       return { sizes: [], isValid: false, error: true };
     }
 
     const remainingSpace = containerSize - fixedTotal;
-    const nonFixedCount = count - fixedSizes.filter(s => s !== null).length;
+    const nonFixedCount = nonFixed.length;
 
     if (nonFixedCount === 0) {
       return { sizes: fixedSizes, isValid: true };
     }
 
-    let midValueTotal = 0;
-    
-    children.forEach(child => {
-      if (!this._isFixed(child, dimension) && !this._hasDefault(child, dimension)) {
-        const childMin = this._getMin(child, dimension);
-        const childMax = this._getMax(child, dimension);
-        if (this._hasExplicitMinMax(child, dimension)) {
-          const mid = (childMin + childMax) / 2;
-          midValueTotal += mid;
-        }
-      }
-    });
-
     const availableForUnknown = Math.max(0, remainingSpace - knownDefaultTotal - midValueTotal);
     const unknownDefaultValue = unknownDefaultCount > 0 ? availableForUnknown / unknownDefaultCount : 0;
 
-    let nonFixedIdx = 0;
-    children.forEach(child => {
-      if (!this._isFixed(child, dimension)) {
-        const childMin = mins[nonFixedIdx];
-        const childMax = maxs[nonFixedIdx];
-        const hasDefault = this._hasDefault(child, dimension);
-        const hasMinMax = this._hasExplicitMinMax(child, dimension);
-        
-        let targetValue;
-        
-        if (hasDefault && child[max] !== Infinity) {
-          targetValue = child[def];
-        } else if (hasMinMax) {
-          targetValue = (childMin + childMax) / 2;
-        } else {
-          targetValue = unknownDefaultValue;
-        }
-        
-        targetValue = Math.max(childMin, Math.min(childMax, targetValue));
-        b.push(targetValue);
-        
-        nonFixedIdx++;
+    for (let i = 0; i < nonFixedCount; i++) {
+      const nf = nonFixed[i];
+      let targetValue;
+
+      if (nf.hasDefault && nf.max !== Infinity) {
+        targetValue = nf.default;
+      } else if (nf.hasMinMax) {
+        targetValue = (nf.min + nf.max) / 2;
+      } else {
+        targetValue = unknownDefaultValue;
       }
-    });
+
+      nf.b = Math.max(nf.min, Math.min(nf.max, targetValue));
+    }
 
     let lambdaMin = Infinity;
     let lambdaMax = -Infinity;
-    
-    for (let i = 0; i < b.length; i++) {
-      const effectiveMax = maxs[i] === Infinity ? 1e10 : maxs[i];
-      const effectiveMin = mins[i] === -Infinity ? -1e10 : mins[i];
-      
-      lambdaMin = Math.min(lambdaMin, b[i] - effectiveMax);
-      lambdaMax = Math.max(lambdaMax, b[i] - effectiveMin);
+
+    for (let i = 0; i < nonFixedCount; i++) {
+      const nf = nonFixed[i];
+      const effectiveMax = nf.max === Infinity ? 1e10 : nf.max;
+      const effectiveMin = nf.min === -Infinity ? -1e10 : nf.min;
+
+      lambdaMin = Math.min(lambdaMin, nf.b - effectiveMax);
+      lambdaMax = Math.max(lambdaMax, nf.b - effectiveMin);
     }
 
     const computeTotal = (lam) => {
       let total = 0;
-      for (let i = 0; i < b.length; i++) {
-        const val = b[i] - lam;
-        total += Math.max(mins[i], Math.min(maxs[i], val));
+      for (let i = 0; i < nonFixedCount; i++) {
+        const nf = nonFixed[i];
+        const val = nf.b - lam;
+        total += Math.max(nf.min, Math.min(nf.max, val));
       }
       return total;
     };
@@ -648,10 +630,12 @@ class BoxBuilder {
       return { sizes: [], isValid: false, error: true };
     }
 
-    for (let iter = 0; iter < 80; iter++) {
+    const LAMBDA_EPSILON = 1e-1;
+
+    while (lambdaMax - lambdaMin > LAMBDA_EPSILON) {
       const lamMid = (lambdaMin + lambdaMax) / 2;
       const total = computeTotal(lamMid);
-      
+
       if (total > remainingSpace) {
         lambdaMin = lamMid;
       } else {
@@ -660,31 +644,20 @@ class BoxBuilder {
     }
 
     const lamOpt = (lambdaMin + lambdaMax) / 2;
-    const nonFixedSizes = [];
-    
-    for (let i = 0; i < b.length; i++) {
-      const val = b[i] - lamOpt;
-      nonFixedSizes.push(Math.max(mins[i], Math.min(maxs[i], val)));
-    }
+    const sizes = new Array(count);
+    let nonFixedIdx = 0;
 
-    const sizes = [];
-    let nonFixedIdx2 = 0;
-    
     for (let i = 0; i < count; i++) {
       if (fixedSizes[i] !== null) {
-        sizes.push(fixedSizes[i]);
+        sizes[i] = fixedSizes[i];
       } else {
-        sizes.push(nonFixedSizes[nonFixedIdx2++]);
+        const nf = nonFixed[nonFixedIdx++];
+        const val = nf.b - lamOpt;
+        sizes[i] = Math.max(nf.min, Math.min(nf.max, val));
       }
     }
 
     return { sizes, isValid: true };
-  }
-
-  _applyLayout(child, width, height) {
-    child._layoutWidth = width;
-    child._layoutHeight = height;
-    child._notify();
   }
 
   _calculateFreeLayout(dimension) {
@@ -697,7 +670,7 @@ class BoxBuilder {
 
     this._children.forEach(child => {
       let size;
-      
+
       if (this._hasDefault(child, dimension)) {
         size = child[def];
       } else if (this._hasExplicitMinMax(child, dimension)) {
@@ -709,15 +682,11 @@ class BoxBuilder {
       } else {
         size = 0;
       }
-      
+
       sizes.push(size);
     });
 
     return { sizes, isValid: true };
-  }
-
-  _renderDragHandles() {
-    return null;
   }
 
   _renderDragHandle() {
@@ -728,13 +697,13 @@ class BoxBuilder {
       const crossSize = isHorizontal ? 'height' : 'width';
       const crossPos = isHorizontal ? 'top' : 'left';
       const directionClass = isHorizontal ? 'drag-handle-horizontal' : 'drag-handle-vertical';
-      
+
       const handleSize = 10;
       const handlePos = -handleSize / 2;
       const cornerSize = 12;
-      
+
       const children = [];
-      
+
       children.push(
         <div
           key="edge"
@@ -748,7 +717,7 @@ class BoxBuilder {
           }}
         />
       );
-      
+
       children.push(
         <div
           key="corner-start"
@@ -762,7 +731,7 @@ class BoxBuilder {
           }}
         />
       );
-      
+
       children.push(
         <div
           key="corner-end"
@@ -776,16 +745,115 @@ class BoxBuilder {
           }}
         />
       );
-      
+
       return <>{children}</>;
     }
     return null;
   }
 
+  _performReflow() {
+    if (!this._needsReflow) return;
+    this._needsReflow = false;
+
+    const isHorizontal = this._layout === 'horizontal';
+    const isVertical = this._layout === 'vertical';
+    const isLockedX = this._moveX === false;
+    const isLockedY = this._moveY === false;
+
+    const { width, height } = this._containerSize;
+    let isValid = true;
+
+    if (isHorizontal && isLockedX && this._children.length > 0 && width > 0) {
+      const result = this._calculateLayout(width, 'Width');
+      if (!result.isValid) {
+        isValid = false;
+      } else {
+        this._children.forEach((child, i) => {
+          child._layoutWidth = result.sizes[i];
+        });
+      }
+    }
+
+    if (isVertical && isLockedY && this._children.length > 0 && height > 0) {
+      const result = this._calculateLayout(height, 'Height');
+      if (!result.isValid) {
+        isValid = false;
+      } else {
+        this._children.forEach((child, i) => {
+          child._layoutHeight = result.sizes[i];
+        });
+      }
+    }
+
+    if (isHorizontal && isLockedY && this._children.length > 0) {
+      const parentHeight = height > 0 ? height :
+                           (this._minHeight === this._maxHeight ? this._minHeight : this._defaultHeight);
+      if (parentHeight > 0) {
+        this._children.forEach(child => {
+          child._layoutHeight = parentHeight;
+        });
+      }
+    }
+
+    if (isVertical && isLockedX && this._children.length > 0) {
+      const parentWidth = width > 0 ? width :
+                          (this._minWidth === this._maxWidth ? this._minWidth : this._defaultWidth);
+      if (parentWidth > 0) {
+        this._children.forEach(child => {
+          child._layoutWidth = parentWidth;
+        });
+      }
+    }
+
+    const isFreeX = this._moveX === true;
+    const isFreeY = this._moveY === true;
+    const parentLockedX = this._parent && this._parent._moveX === false;
+    const parentLockedY = this._parent && this._parent._moveY === false;
+
+    if (isHorizontal && isFreeX && this._children.length > 0) {
+      const result = this._calculateFreeLayout('Width');
+      let totalWidth = 0;
+      this._children.forEach((child, i) => {
+        if (child._layoutWidth === undefined) {
+          child._layoutWidth = result.sizes[i];
+        }
+        totalWidth += child._layoutWidth;
+      });
+      if (!this._isViewport && !parentLockedX && this._layoutWidth === undefined) {
+        this._layoutWidth = totalWidth;
+      }
+    }
+
+    if (isVertical && isFreeY && this._children.length > 0) {
+      const result = this._calculateFreeLayout('Height');
+      let totalHeight = 0;
+      this._children.forEach((child, i) => {
+        if (child._layoutHeight === undefined) {
+          child._layoutHeight = result.sizes[i];
+        }
+        totalHeight += child._layoutHeight;
+      });
+      if (!this._isViewport && !parentLockedY && this._layoutHeight === undefined) {
+        this._layoutHeight = totalHeight;
+      }
+    }
+
+    this._layoutValid = isValid;
+
+    this._children.forEach(child => {
+      child._containerSize = {
+        width: child._layoutWidth || width,
+        height: child._layoutHeight || height,
+      };
+      child._performReflow();
+    });
+
+    this._notifyReflowComplete();
+  }
+
   react() {
     return <BoxComponent builder={this} />;
   }
-  
 }
 
 export default BoxBuilder;
