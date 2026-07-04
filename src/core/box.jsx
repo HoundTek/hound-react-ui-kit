@@ -4,6 +4,7 @@ const styleSheet = `
   .drag-handle {
     z-index: 100;
     background: rgba(100, 150, 255, 0.5);
+    pointer-events: auto;
   }
   .drag-handle-horizontal {
     cursor: e-resize;
@@ -13,6 +14,8 @@ const styleSheet = `
   }
   .drag-handle-horizontal.drag-handle-vertical {
     cursor: move;
+    background: rgba(255, 100, 150, 0.6);
+    z-index: 200;
   }
 `;
 
@@ -251,13 +254,14 @@ const BoxComponent = ({ builder }) => {
       const crossPos = isHorizontal ? 'top' : 'left';
       const directionClass = isHorizontal ? 'drag-handle-horizontal' : 'drag-handle-vertical';
       
-      const edgeSize = 5;
+      const edgeSize = 10;
       
       const style = {
         position: 'absolute',
         [crossPos]: 0,
-        [size]: edgeSize,
+        [size]: edgeSize / 2,
         [crossSize]: '100%',
+        pointerEvents: 'auto',
       };
       
       if (isHorizontal) {
@@ -266,12 +270,78 @@ const BoxComponent = ({ builder }) => {
         style[isStart ? 'top' : 'bottom'] = 0;
       }
       
-      return (
+      const cornerSize = 12;
+      const children = [];
+      
+      children.push(
         <div
+          key="edge"
           className={`drag-handle ${directionClass}`}
           style={style}
         />
       );
+      
+      if (isHorizontal) {
+        children.push(
+          <div
+            key="corner-top"
+            className={`drag-handle drag-handle-horizontal drag-handle-vertical`}
+            style={{
+              position: 'absolute',
+              [isStart ? 'left' : 'right']: 0,
+              top: 0,
+              width: cornerSize / 2,
+              height: cornerSize / 2,
+              pointerEvents: 'auto',
+            }}
+          />
+        );
+        children.push(
+          <div
+            key="corner-bottom"
+            className={`drag-handle drag-handle-horizontal drag-handle-vertical`}
+            style={{
+              position: 'absolute',
+              [isStart ? 'left' : 'right']: 0,
+              bottom: 0,
+              width: cornerSize / 2,
+              height: cornerSize / 2,
+              pointerEvents: 'auto',
+            }}
+          />
+        );
+      } else {
+        children.push(
+          <div
+            key="corner-left"
+            className={`drag-handle drag-handle-horizontal drag-handle-vertical`}
+            style={{
+              position: 'absolute',
+              [isStart ? 'top' : 'bottom']: 0,
+              left: 0,
+              width: cornerSize / 2,
+              height: cornerSize / 2,
+              pointerEvents: 'auto',
+            }}
+          />
+        );
+        children.push(
+          <div
+            key="corner-right"
+            className={`drag-handle drag-handle-horizontal drag-handle-vertical`}
+            style={{
+              position: 'absolute',
+              [isStart ? 'top' : 'bottom']: 0,
+              right: 0,
+              width: cornerSize / 2,
+              height: cornerSize / 2,
+              pointerEvents: 'auto',
+            }}
+          />
+        );
+      }
+      
+      return <>{children}</>;
     };
     
     content = builder._children.map((child, index) => {
@@ -661,9 +731,13 @@ class BoxBuilder {
       
       const handleSize = 10;
       const handlePos = -handleSize / 2;
+      const cornerSize = 12;
       
-      return (
+      const children = [];
+      
+      children.push(
         <div
+          key="edge"
           className={`drag-handle ${directionClass}`}
           style={{
             position: 'absolute',
@@ -671,11 +745,39 @@ class BoxBuilder {
             [crossPos]: 0,
             [size]: handleSize,
             [crossSize]: '100%',
-            // animation: width height 0.3s ease-in-out
-            // transition: 'width 0.3s ease-in-out, height 1s ease-in-out',
           }}
         />
       );
+      
+      children.push(
+        <div
+          key="corner-start"
+          className={`drag-handle drag-handle-horizontal drag-handle-vertical`}
+          style={{
+            position: 'absolute',
+            [pos]: -cornerSize / 2,
+            [crossPos]: 0,
+            width: isHorizontal ? cornerSize : cornerSize / 2,
+            height: isHorizontal ? cornerSize / 2 : cornerSize,
+          }}
+        />
+      );
+      
+      children.push(
+        <div
+          key="corner-end"
+          className={`drag-handle drag-handle-horizontal drag-handle-vertical`}
+          style={{
+            position: 'absolute',
+            [pos]: -cornerSize / 2,
+            [isHorizontal ? 'bottom' : 'right']: 0,
+            width: isHorizontal ? cornerSize : cornerSize / 2,
+            height: isHorizontal ? cornerSize / 2 : cornerSize,
+          }}
+        />
+      );
+      
+      return <>{children}</>;
     }
     return null;
   }
