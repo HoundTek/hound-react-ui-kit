@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { reflowScheduler, animateReflow, pickAnimatable } from './scheduler';
+import FloatingScrollbar from './floating-scrollbar';
 
 const styleSheet = `
   .drag-handle {
@@ -356,23 +357,27 @@ const BoxComponent = ({ builder }) => {
   });
 
   return (
-    <div
-      ref={containerRef}
-      className={builder._pathResolved.join('-')}
-      style={{ ...style, position: 'relative' }}
-    >
+    <div style={{ position: 'relative' }}>
       <div
-        className={"inner-" + builder._pathResolved.join('-')}
-        style={{
-          width: "100%",
-          height: "100%",
-          display: 'flex',
-          flexDirection,
-          position: 'relative'
-        }}
+        ref={containerRef}
+        className={builder._pathResolved.join('-')}
+        style={{ ...style }}
       >
-        {content}
+        <div
+          className={"inner-" + builder._pathResolved.join('-')}
+          style={{
+            width: "100%",
+            height: "100%",
+            display: 'flex',
+            flexDirection,
+            position: 'relative'
+          }}
+        >
+          {content}
+        </div>
       </div>
+      {builder._moveY === true && <FloatingScrollbar containerRef={containerRef} orientation="vertical" />}
+      {builder._moveX === true && <FloatingScrollbar containerRef={containerRef} orientation="horizontal" />}
     </div>
   );
 };
