@@ -626,11 +626,24 @@ class BoxBuilder extends Reflowable {
     const minPossible = computeTotal(lambdaMax);
     const maxPossible = computeTotal(lambdaMin);
 
-    if (remainingSpace < minPossible || remainingSpace > maxPossible) {
+    if (remainingSpace < minPossible) {
       return { sizes: [], isValid: false, error: true };
     }
 
-    const LAMBDA_EPSILON = 1e-1;
+    if (remainingSpace > maxPossible) {
+      const sizes = new Array(count);
+      let nonFixedIdx = 0;
+      for (let i = 0; i < count; i++) {
+        if (fixedSizes[i] !== null) {
+          sizes[i] = fixedSizes[i];
+        } else {
+          sizes[i] = nonFixed[nonFixedIdx++].max;
+        }
+      }
+      return { sizes, isValid: true };
+    }
+
+    const LAMBDA_EPSILON = 1;
 
     while (lambdaMax - lambdaMin > LAMBDA_EPSILON) {
       const lamMid = (lambdaMin + lambdaMax) / 2;
