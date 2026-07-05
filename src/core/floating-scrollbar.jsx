@@ -138,6 +138,43 @@ const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
       const clickX = e.clientX - rect.left - INSET;
       el.scrollLeft = Math.max(0, (clickX / trackSize) * (el.scrollWidth - el.clientWidth));
     }
+
+    // 点击后自动进入拖拽模式
+    dragging.current = true;
+    if (isVertical) {
+      dragStart.current = { pos: e.clientY, scroll: el.scrollTop };
+    } else {
+      dragStart.current = { pos: e.clientX, scroll: el.scrollLeft };
+    }
+
+    const onMove = (moveEvent) => {
+      if (!dragging.current || !el) return;
+      const currentPos = isVertical ? moveEvent.clientY : moveEvent.clientX;
+      const delta = currentPos - dragStart.current.pos;
+      const trackSize = isVertical
+        ? el.clientHeight - 2 * INSET
+        : el.clientWidth - 2 * INSET;
+      const ratio = isVertical
+        ? (el.scrollHeight - el.clientHeight) / (trackSize - thumbSizeRef.current)
+        : (el.scrollWidth - el.clientWidth) / (trackSize - thumbSizeRef.current);
+
+      if (isVertical) {
+        el.scrollTop = dragStart.current.scroll + delta * ratio;
+      } else {
+        el.scrollLeft = dragStart.current.scroll + delta * ratio;
+      }
+    };
+
+    const onUp = () => {
+      dragging.current = false;
+      setThumbActive(false);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    setThumbActive(true);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   }, [containerRef, isVertical, hasScroll]);
 
   const barStyle = {
