@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { reflowScheduler, animateReflow, pickAnimatable } from './scheduler';
+import { reflowScheduler, animateReflow, pickAnimatable } from '../scheduler';
 import FloatingScrollbar from './floating-scrollbar';
 
 const styleSheet = `

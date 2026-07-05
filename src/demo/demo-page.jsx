@@ -1,5 +1,5 @@
 import React from 'react';
-import BoxBuilder from '../core/box';
+import BoxBuilder from '../core/box/box';
 
 const DemoPage = () => {
   return (
