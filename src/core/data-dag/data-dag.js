@@ -13,10 +13,13 @@ class DataDagNode {
     this._children.set("..", parent);
   }
   get(path) {
-    path = path.split('/');
+    const parts = path.split('/').filter(p => p !== '');
     let node = this;
-    for (let id of path) {
-      node = node.get(id);
+    for (let id of parts) {
+      node = node._children.get(id);
+      if (!node) {
+        return null;
+      }
     }
     return node;
   }
@@ -57,3 +60,5 @@ class DataDag {
     return this._root.get(path);
   }
 }
+
+export { DataDagNode, DataDag };

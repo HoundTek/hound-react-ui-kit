@@ -33,6 +33,7 @@ const BoxComponent = ({ builder }) => {
   const containerPrevStyle = useRef({});
   const childRefs = useRef([]);
   const childPrevStyles = useRef(new Map());
+  const isFirstRender = useRef(true);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [viewportSize, setViewportSize] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 0,
@@ -338,6 +339,11 @@ const BoxComponent = ({ builder }) => {
   }
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
     const el = containerRef.current;
     if (el) {
       const currAnimatable = pickAnimatable(style);

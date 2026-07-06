@@ -1,5 +1,5 @@
 import React from 'react';
-import DemoPage from './demo/demo-page';
+import CellDemoPage from './demo/cell-demo-page';
 
 const App = () => {
   return (
@@ -12,7 +12,7 @@ const App = () => {
       justifyContent: "center",
       alignItems: "center",
     }}>
-      <DemoPage />
+      <CellDemoPage />
     </div>
   );
 };
