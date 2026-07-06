@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { reflowScheduler, animateReflow, pickAnimatable } from '../box/scheduler';
+import { reflowScheduler, animateReflow, pickAnimatable } from './scheduler';
 import FloatingScrollbar from './floating-scrollbar';
+import { useHoveredEdges } from './hovered-edges-context';
 
 const styleSheet = `
   .drag-handle {
-    z-index: 100;
     background: rgba(100, 150, 255, 0.5);
     pointer-events: auto;
   }
@@ -17,7 +17,6 @@ const styleSheet = `
   .drag-handle-horizontal.drag-handle-vertical {
     cursor: move;
     background: rgba(255, 100, 150, 0.6);
-    z-index: 200;
   }
 `;
 
@@ -40,6 +39,7 @@ const BoxComponent = ({ builder }) => {
     height: typeof window !== 'undefined' ? window.innerHeight : 0,
   });
   const [, forceUpdate] = useState(0);
+  const { hoveredEdges, addHoveredEdge, removeHoveredEdge, addHoveredEdges, removeHoveredEdges } = useHoveredEdges();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -220,122 +220,255 @@ const BoxComponent = ({ builder }) => {
   if (!builder._layoutValid) {
     content = '错误';
   } else {
-    const renderEdgeHandle = (position) => {
-      const isStart = position === 'start';
-      const size = isHorizontal ? 'width' : 'height';
-      const crossSize = isHorizontal ? 'height' : 'width';
-      const crossPos = isHorizontal ? 'top' : 'left';
-      const directionClass = isHorizontal ? 'drag-handle-horizontal' : 'drag-handle-vertical';
+    const EDGE_SIZE = 10;
+    const CORNER_SIZE = 12;
+    const EDGE_COLOR = 'rgba(255, 100, 50, 0.7)';
+    const CORNER_COLOR = 'rgba(255, 50, 100, 0.8)';
 
-      const edgeSize = 10;
+    const safeNum = (v) => (typeof v === 'number' && !isNaN(v) && isFinite(v)) ? v : 0;
 
-      const handleStyle = {
+    const makeEdgeId = (box, side) => `${box._path}:${side}`;
+
+    const getCornerEdgeIds = (box, side, crossSide, isHorizontal) => {
+      const ids = [makeEdgeId(box, side)];
+
+      const parent = box._parent;
+      if (!parent || !parent._parent) return ids;
+
+      const grandParent = parent._parent;
+      const parentIndex = grandParent._children.indexOf(parent);
+      const parentIsFirst = parentIndex === 0;
+      const parentIsLast = parentIndex === grandParent._children.length - 1;
+
+      const isStartSide = (isHorizontal && crossSide === 'top') || (!isHorizontal && crossSide === 'left');
+
+      if (isStartSide) {
+        if (parentIsFirst) {
+          ids.push(makeEdgeId(parent, 'start'));
+        } else {
+          const prevSibling = grandParent._children[parentIndex - 1];
+          ids.push(makeEdgeId(prevSibling, 'handle'));
+        }
+      } else {
+        if (parentIsLast) {
+          ids.push(makeEdgeId(parent, 'end'));
+        } else {
+          ids.push(makeEdgeId(parent, 'handle'));
+        }
+      }
+
+      return ids;
+    };
+
+    const renderEdge = (box, side, isStart, offset) => {
+      const edgeId = makeEdgeId(box, side);
+      const isHovered = hoveredEdges.has(edgeId);
+      const depth = box._pathResolved.length;
+
+      const style = {
         position: 'absolute',
-        [crossPos]: 0,
-        [size]: edgeSize / 2,
-        [crossSize]: '100%',
         pointerEvents: 'auto',
+        zIndex: 100 + depth,
+        backgroundColor: isHovered ? EDGE_COLOR : undefined,
       };
 
       if (isHorizontal) {
-        handleStyle[isStart ? 'left' : 'right'] = 0;
+        const w = safeNum(box._layoutWidth);
+        style.left = isStart ? offset : offset + w - EDGE_SIZE / 2;
+        style.top = 0;
+        style.width = EDGE_SIZE / 2;
+        style.height = '100%';
       } else {
-        handleStyle[isStart ? 'top' : 'bottom'] = 0;
+        const h = safeNum(box._layoutHeight);
+        style.top = isStart ? offset : offset + h - EDGE_SIZE / 2;
+        style.left = 0;
+        style.width = '100%';
+        style.height = EDGE_SIZE / 2;
       }
 
-      const cornerSize = 12;
-      const children = [];
-
-      children.push(
-        <div
-          key="edge"
-          className={`drag-handle ${directionClass}`}
-          style={handleStyle}
-        />
-      );
-
-      if (isHorizontal) {
-        children.push(
-          <div
-            key="corner-top"
-            className={`drag-handle drag-handle-horizontal drag-handle-vertical`}
-            style={{
-              position: 'absolute',
-              [isStart ? 'left' : 'right']: 0,
-              top: 0,
-              width: cornerSize / 2,
-              height: cornerSize / 2,
-              pointerEvents: 'auto',
-            }}
-          />
-        );
-        children.push(
-          <div
-            key="corner-bottom"
-            className={`drag-handle drag-handle-horizontal drag-handle-vertical`}
-            style={{
-              position: 'absolute',
-              [isStart ? 'left' : 'right']: 0,
-              bottom: 0,
-              width: cornerSize / 2,
-              height: cornerSize / 2,
-              pointerEvents: 'auto',
-            }}
-          />
-        );
-      } else {
-        children.push(
-          <div
-            key="corner-left"
-            className={`drag-handle drag-handle-horizontal drag-handle-vertical`}
-            style={{
-              position: 'absolute',
-              [isStart ? 'top' : 'bottom']: 0,
-              left: 0,
-              width: cornerSize / 2,
-              height: cornerSize / 2,
-              pointerEvents: 'auto',
-            }}
-          />
-        );
-        children.push(
-          <div
-            key="corner-right"
-            className={`drag-handle drag-handle-horizontal drag-handle-vertical`}
-            style={{
-              position: 'absolute',
-              [isStart ? 'top' : 'bottom']: 0,
-              right: 0,
-              width: cornerSize / 2,
-              height: cornerSize / 2,
-              pointerEvents: 'auto',
-            }}
-          />
-        );
-      }
-
-      return <>{children}</>;
-    };
-
-    content = builder._children.map((child, index) => {
-      const isFirst = index === 0;
-      const isLast = index === builder._children.length - 1;
-
-      const childStyle = getChildStyle(child);
+      const dirClass = isHorizontal ? 'drag-handle-horizontal' : 'drag-handle-vertical';
 
       return (
         <div
-          key={builder._pathResolved.join('-') + '-' + index}
-          ref={el => { childRefs.current[index] = el; }}
-          style={childStyle}
-        >
-          {isFirst && renderEdgeHandle('start')}
-          {child._content || child.react()}
-          {!isLast && child._renderDragHandle ? child._renderDragHandle() : null}
-          {isLast && renderEdgeHandle('end')}
-        </div>
+          key={`edge-${box._path}-${side}`}
+          className={`drag-handle ${dirClass}`}
+          style={style}
+          onMouseEnter={() => addHoveredEdge(edgeId)}
+          onMouseLeave={() => removeHoveredEdge(edgeId)}
+        />
       );
-    });
+    };
+
+    const renderHandle = (box, offset) => {
+      const edgeId = makeEdgeId(box, 'handle');
+      const isHovered = hoveredEdges.has(edgeId);
+      const depth = box._pathResolved.length;
+      const dirClass = isHorizontal ? 'drag-handle-horizontal' : 'drag-handle-vertical';
+
+      const style = {
+        position: 'absolute',
+        pointerEvents: 'auto',
+        zIndex: 100 + depth,
+        backgroundColor: isHovered ? EDGE_COLOR : undefined,
+      };
+
+      if (isHorizontal) {
+        const w = safeNum(box._layoutWidth);
+        style.left = offset + w - EDGE_SIZE / 2;
+        style.top = 0;
+        style.width = EDGE_SIZE;
+        style.height = '100%';
+      } else {
+        const h = safeNum(box._layoutHeight);
+        style.top = offset + h - EDGE_SIZE / 2;
+        style.left = 0;
+        style.width = '100%';
+        style.height = EDGE_SIZE;
+      }
+
+      return (
+        <div
+          key={`edge-${box._path}-handle`}
+          className={`drag-handle ${dirClass}`}
+          style={style}
+          onMouseEnter={() => addHoveredEdge(edgeId)}
+          onMouseLeave={() => removeHoveredEdge(edgeId)}
+        />
+      );
+    };
+
+    const renderCorner = (box, side, crossSide, offset) => {
+      const edgeIds = getCornerEdgeIds(box, side, crossSide, isHorizontal);
+      const isHovered = edgeIds.some(e => hoveredEdges.has(e));
+      const depth = box._pathResolved.length;
+      const isHandle = side === 'handle';
+
+      const style = {
+        position: 'absolute',
+        pointerEvents: 'auto',
+        zIndex: 200 + depth,
+        backgroundColor: isHovered ? CORNER_COLOR : undefined,
+      };
+
+      if (isHorizontal) {
+        const w = safeNum(box._layoutWidth);
+        style.width = isHandle ? CORNER_SIZE : CORNER_SIZE / 2;
+        style.height = CORNER_SIZE / 2;
+        if (side === 'start') {
+          style.left = offset;
+        } else {
+          style.left = offset + w - CORNER_SIZE / 2;
+        }
+        style[crossSide] = 0;
+      } else {
+        const h = safeNum(box._layoutHeight);
+        style.width = CORNER_SIZE / 2;
+        style.height = isHandle ? CORNER_SIZE : CORNER_SIZE / 2;
+        if (side === 'start') {
+          style.top = offset;
+        } else {
+          style.top = offset + h - CORNER_SIZE / 2;
+        }
+        style[crossSide] = 0;
+      }
+
+      return (
+        <div
+          key={`corner-${box._path}-${side}-${crossSide}`}
+          className="drag-handle drag-handle-horizontal drag-handle-vertical"
+          style={style}
+          onMouseEnter={() => addHoveredEdges(edgeIds)}
+          onMouseLeave={() => removeHoveredEdges(edgeIds)}
+        />
+      );
+    };
+
+    content = (() => {
+      const childrenCount = builder._children.length;
+
+      let cumulative = 0;
+      const offsets = builder._children.map(child => {
+        const offset = cumulative;
+        cumulative += isHorizontal ? safeNum(child._layoutWidth) : safeNum(child._layoutHeight);
+        return offset;
+      });
+
+      // 第一层：Box 内容
+      const contentLayer = builder._children.map((child, index) => {
+        const childStyle = getChildStyle(child);
+        return (
+          <div
+            key={builder._pathResolved.join('-') + '-' + index}
+            ref={el => { childRefs.current[index] = el; }}
+            style={childStyle}
+          >
+            {child._content || child.react()}
+          </div>
+        );
+      });
+
+      // 第二层：边界
+      const edgeLayer = builder._children.flatMap((child, index) => {
+        const isFirst = index === 0;
+        const isLast = index === childrenCount - 1;
+        const edges = [];
+
+        if (isFirst) {
+          edges.push(renderEdge(child, 'start', true, offsets[index]));
+        }
+        if (!isLast) {
+          edges.push(renderHandle(child, offsets[index]));
+        }
+        if (isLast) {
+          edges.push(renderEdge(child, 'end', false, offsets[index]));
+        }
+        return edges;
+      });
+
+      // 第三层：节点（仅嵌套层渲染，最外层无上层交叉边界）
+      const cornerLayer = builder._parent ? builder._children.flatMap((child, index) => {
+        const isFirst = index === 0;
+        const isLast = index === childrenCount - 1;
+        const corners = [];
+
+        if (isHorizontal) {
+          if (isFirst) {
+            corners.push(renderCorner(child, 'start', 'top', offsets[index]));
+            corners.push(renderCorner(child, 'start', 'bottom', offsets[index]));
+          }
+          if (!isLast) {
+            corners.push(renderCorner(child, 'handle', 'top', offsets[index]));
+            corners.push(renderCorner(child, 'handle', 'bottom', offsets[index]));
+          }
+          if (isLast) {
+            corners.push(renderCorner(child, 'end', 'top', offsets[index]));
+            corners.push(renderCorner(child, 'end', 'bottom', offsets[index]));
+          }
+        } else {
+          if (isFirst) {
+            corners.push(renderCorner(child, 'start', 'left', offsets[index]));
+            corners.push(renderCorner(child, 'start', 'right', offsets[index]));
+          }
+          if (!isLast) {
+            corners.push(renderCorner(child, 'handle', 'left', offsets[index]));
+            corners.push(renderCorner(child, 'handle', 'right', offsets[index]));
+          }
+          if (isLast) {
+            corners.push(renderCorner(child, 'end', 'left', offsets[index]));
+            corners.push(renderCorner(child, 'end', 'right', offsets[index]));
+          }
+        }
+        return corners;
+      }) : [];
+
+      return (
+        <>
+          {contentLayer}
+          {edgeLayer}
+          {cornerLayer}
+        </>
+      );
+    })();
   }
 
   useEffect(() => {

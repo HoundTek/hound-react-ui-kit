@@ -6,8 +6,11 @@ class BoxBuilder extends Reflowable {
   constructor(path) {
     super();
     this._path = path;
-    this._pathResolved = path.split('/');
+    this._pathResolved = path.replace(/^@/, '').split('/').filter(Boolean);
     this._children = [];
+    this._childrenMap = new Map();
+    this._childrenMap.set('.', this);
+    this._root = this;
     this._moveX = undefined;
     this._moveY = undefined;
 
@@ -81,10 +84,33 @@ class BoxBuilder extends Reflowable {
 
   children(childrenBox) {
     this._children = childrenBox;
-    this._children.forEach(child => {
+    this._children.forEach((child, index) => {
       child._parent = this;
+      child._root = this._root;
+      this._childrenMap.set(child._pathResolved[child._pathResolved.length - 1], child);
     });
     return this;
+  }
+
+  get(path) {
+    if (path === '.') return this;
+    if (path === '..') return this._parent || null;
+    if (path === '@') return this._root;
+
+    const parts = path.split('/').filter(p => p !== '');
+    let node = this;
+    for (const part of parts) {
+      if (part === '.') continue;
+      if (part === '..') {
+        node = node._parent;
+      } else if (part === '@') {
+        node = node._root;
+      } else {
+        node = node._childrenMap.get(part);
+      }
+      if (!node) return null;
+    }
+    return node;
   }
 
   layout(layoutType) {
@@ -325,68 +351,6 @@ class BoxBuilder extends Reflowable {
     });
 
     return { sizes, isValid: true };
-  }
-
-  _renderDragHandle() {
-    if (this._parent && this._parent._layout) {
-      const isHorizontal = this._parent._layout === 'horizontal';
-      const pos = isHorizontal ? 'right' : 'bottom';
-      const size = isHorizontal ? 'width' : 'height';
-      const crossSize = isHorizontal ? 'height' : 'width';
-      const crossPos = isHorizontal ? 'top' : 'left';
-      const directionClass = isHorizontal ? 'drag-handle-horizontal' : 'drag-handle-vertical';
-
-      const handleSize = 10;
-      const handlePos = -handleSize / 2;
-      const cornerSize = 12;
-
-      const children = [];
-
-      children.push(
-        <div
-          key="edge"
-          className={`drag-handle ${directionClass}`}
-          style={{
-            position: 'absolute',
-            [pos]: handlePos,
-            [crossPos]: 0,
-            [size]: handleSize,
-            [crossSize]: '100%',
-          }}
-        />
-      );
-
-      children.push(
-        <div
-          key="corner-start"
-          className={`drag-handle drag-handle-horizontal drag-handle-vertical`}
-          style={{
-            position: 'absolute',
-            [pos]: -cornerSize / 2,
-            [crossPos]: 0,
-            width: isHorizontal ? cornerSize : cornerSize / 2,
-            height: isHorizontal ? cornerSize / 2 : cornerSize,
-          }}
-        />
-      );
-
-      children.push(
-        <div
-          key="corner-end"
-          className={`drag-handle drag-handle-horizontal drag-handle-vertical`}
-          style={{
-            position: 'absolute',
-            [pos]: -cornerSize / 2,
-            [isHorizontal ? 'bottom' : 'right']: 0,
-            width: isHorizontal ? cornerSize : cornerSize / 2,
-            height: isHorizontal ? cornerSize / 2 : cornerSize,
-          }}
-        />
-      );
-
-      return <>{children}</>;
-    }
-    return null;
   }
 
   _performReflow() {
