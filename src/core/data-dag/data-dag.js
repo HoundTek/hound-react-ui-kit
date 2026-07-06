@@ -13,6 +13,9 @@ class DataDagNode {
     this._children.set("..", parent);
   }
   get(path) {
+    if (path[0] === '/') {
+      path = '@' + path;
+    }
     const parts = path.split('/').filter(p => p !== '');
     let node = this;
     for (let id of parts) {
