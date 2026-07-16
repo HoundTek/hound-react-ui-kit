@@ -8,7 +8,9 @@ function useScrollTracking(containerRef, isVertical) {
   const [thumbPos, setThumbPos] = useState(0);
   const [thumbSize, setThumbSize] = useState(MIN_THUMB);
   const [hasScroll, setHasScroll] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
   const thumbSizeRef = useRef(MIN_THUMB);
+  const scrollTimerRef = useRef(null);
 
   const update = useCallback(() => {
     const el = containerRef.current;
@@ -45,25 +47,33 @@ function useScrollTracking(containerRef, isVertical) {
     }
   }, [containerRef, isVertical]);
 
+  const handleScroll = useCallback(() => {
+    setIsScrolling(true);
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => setIsScrolling(false), 1000);
+    update();
+  }, [update]);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     update();
-    el.addEventListener('scroll', update, { passive: true });
+    el.addEventListener('scroll', handleScroll, { passive: true });
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => {
-      el.removeEventListener('scroll', update);
+      el.removeEventListener('scroll', handleScroll);
       ro.disconnect();
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
     };
-  }, [containerRef, update]);
+  }, [containerRef, handleScroll, update]);
 
-  return { thumbPos, thumbSize, hasScroll, thumbSizeRef };
+  return { thumbPos, thumbSize, hasScroll, isScrolling, thumbSizeRef };
 }
 
 const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
   const isVertical = orientation === 'vertical';
-  const { thumbPos, thumbSize, hasScroll, thumbSizeRef } = useScrollTracking(containerRef, isVertical);
+  const { thumbPos, thumbSize, hasScroll, isScrolling, thumbSizeRef } = useScrollTracking(containerRef, isVertical);
 
   const [containerHovered, setContainerHovered] = useState(false);
   const [barHovered, setBarHovered] = useState(false);
@@ -71,7 +81,7 @@ const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
   const dragging = useRef(false);
   const dragStart = useRef({ pos: 0, scroll: 0 });
   const thumbRef = useRef(null);
-  const show = (containerHovered || barHovered) && hasScroll;
+  const show = (containerHovered || barHovered || thumbActive || isScrolling) && hasScroll;
 
   useEffect(() => {
     const el = containerRef.current;

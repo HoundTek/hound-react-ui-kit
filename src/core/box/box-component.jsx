@@ -28,6 +28,17 @@ if (typeof document !== 'undefined' && !document.getElementById('box-drag-styles
 }
 
 // === 辅助函数（纯计算，无 hook）===
+let _animCount = 0;
+const _animListeners = new Set();
+
+function subscribeToAnimChanges(listener) {
+  _animListeners.add(listener);
+  return () => _animListeners.delete(listener);
+}
+
+function _notifyAnimListeners() {
+  _animListeners.forEach(cb => cb());
+}
 
 const safeNum = (v) => (typeof v === 'number' && !isNaN(v) && isFinite(v)) ? v : 0;
 
@@ -263,10 +274,18 @@ function useBoxContent(builder) {
       isFirstRender.current = false;
       return;
     }
+
+    const onStart = () => { _animCount++; _notifyAnimListeners(); };
+    const onFinish = () => {
+      _animCount--;
+      _notifyAnimListeners();
+    };
+
+
     const el = containerRef.current;
     if (el) {
       const currAnimatable = pickAnimatable(style);
-      animateReflow(el, containerPrevStyle.current, currAnimatable);
+      animateReflow(el, containerPrevStyle.current, currAnimatable, onStart, onFinish);
       containerPrevStyle.current = currAnimatable;
     }
     builder._children.forEach((child, index) => {
@@ -275,7 +294,7 @@ function useBoxContent(builder) {
       const childStyle = getChildStyle(child);
       const currAnimatable = pickAnimatable(childStyle);
       const prev = childPrevStyles.current.get(index) || {};
-      animateReflow(childEl, prev, currAnimatable);
+      animateReflow(childEl, prev, currAnimatable, onStart, onFinish);
       childPrevStyles.current.set(index, currAnimatable);
     });
   });
@@ -316,6 +335,10 @@ function useBoxOverlayScroll(layerRef, builder) {
     ro.observe(contentRefObj.current);
     return () => ro.disconnect();
   }, [builder._path]);
+  // 动画状态变化时强制刷新（隐藏/显示 Edge/Corner）
+  useEffect(() => {
+    return subscribeToAnimChanges(() => forceUpdate(n => n + 1));
+  }, []);
 }
 
 // === 公共布局框架组件 ===
@@ -393,10 +416,10 @@ const EdgeLayer = ({ builder }) => {
   const layout = computeBuilderLayout(builder);
   const { style, isHorizontal, offsets, getChildStyle, containerClassName, innerClassName, innerStyle } = layout;
 
-  // 对无子节点的 builder 不渲染
-  if (builder._children.length === 0 || !builder._layoutValid) return null;
-
   useBoxOverlayScroll(edgeRef, builder);
+
+  // 无子节点或布局未稳定时跳过渲染
+  if (builder._children.length === 0 || !builder._layoutValid) return null;
 
   const EDGE_SIZE = 10;
   const EDGE_COLOR = 'rgba(255, 100, 50, 0.7)';
@@ -519,10 +542,10 @@ const CornerLayer = ({ builder }) => {
   const layout = computeBuilderLayout(builder);
   const { style, isHorizontal, offsets, getChildStyle, containerClassName, innerClassName, innerStyle } = layout;
 
-  // 没子节点或布局无效，不渲染
-  if (builder._children.length === 0 || !builder._layoutValid) return null;
-
   useBoxOverlayScroll(cornerRef, builder);
+
+  // 无子节点或布局未稳定时跳过渲染
+  if (builder._children.length === 0 || !builder._layoutValid) return null;
 
   const CORNER_SIZE = 12;
   const CORNER_COLOR = 'rgba(255, 50, 100, 0.8)';

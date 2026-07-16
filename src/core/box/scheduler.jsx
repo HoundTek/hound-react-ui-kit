@@ -82,7 +82,7 @@ class Reflowable {
   }
 }
 
-function animateReflow(element, prevStyle, nextStyle) {
+function animateReflow(element, prevStyle, nextStyle, onAnimStart, onAnimFinish) {
   if (!element || !prevStyle) return;
 
   const oldKeyframe = {};
@@ -106,6 +106,11 @@ function animateReflow(element, prevStyle, nextStyle) {
       easing: 'ease-out',
     });
     element._currentReflowAnim = anim;
+    if (onAnimStart) onAnimStart();
+    anim.onfinish = () => {
+      element._currentReflowAnim = null;
+      if (onAnimFinish) onAnimFinish();
+    };
   }
 }
 
