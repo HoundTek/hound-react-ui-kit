@@ -304,25 +304,45 @@ function useBoxContent(builder) {
 
 /**
  * useBoxOverlayScroll — EdgeLayer / CornerLayer 共用 hook
- * 将覆盖层容器的 scrollTop/scrollLeft 同步到内容层，
+ * 双向同步覆盖层与内容层的滚动位置，
  * 并在内容容器尺寸变化时强制重新渲染（保持尺寸同步）
  */
 function useBoxOverlayScroll(layerRef, builder) {
   const [, forceUpdate] = useState(0);
 
-  // 滚动同步
+  // 双向滚动同步
   useEffect(() => {
     const contentRefObj = getContentRef(builder._path);
     if (!contentRefObj?.current || !layerRef.current) return;
     const contentEl = contentRefObj.current;
     const layerEl = layerRef.current;
-    const handler = () => {
+
+    let syncing = false;
+
+    const syncToLayer = () => {
+      if (syncing) return;
+      syncing = true;
       layerEl.scrollTop = contentEl.scrollTop;
       layerEl.scrollLeft = contentEl.scrollLeft;
+      syncing = false;
     };
-    contentEl.addEventListener('scroll', handler, { passive: true });
-    handler();
-    return () => contentEl.removeEventListener('scroll', handler);
+
+    const syncToContent = () => {
+      if (syncing) return;
+      syncing = true;
+      contentEl.scrollTop = layerEl.scrollTop;
+      contentEl.scrollLeft = layerEl.scrollLeft;
+      syncing = false;
+    };
+
+    contentEl.addEventListener('scroll', syncToLayer, { passive: true });
+    layerEl.addEventListener('scroll', syncToContent, { passive: true });
+    syncToLayer();
+
+    return () => {
+      contentEl.removeEventListener('scroll', syncToLayer);
+      layerEl.removeEventListener('scroll', syncToContent);
+    };
   }, [builder._path, layerRef]);
 
   // 尺寸同步：观察内容容器尺寸变化时强制刷新
