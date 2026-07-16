@@ -555,33 +555,43 @@ const CornerLayer = ({ builder }) => {
   const getCornerEdgeIds = (box, side, crossSide) => {
     const ids = [makeEdgeId(box, side)];
 
-    // 往上找到排列方向变化的边界，再回退一层作为容器
-    let childLevel = box._parent;
+    // 从当前层开始，逐层往外跳
+    let childLevel = box;
     let containerLevel = childLevel?._parent;
-    if (containerLevel && childLevel._layout === (isHorizontal ? 'horizontal' : 'vertical')) {
-      let diffAncestor = containerLevel;
-      let diffChild = childLevel;
-      while (diffAncestor && diffAncestor._layout === (isHorizontal ? 'horizontal' : 'vertical')) {
-        diffChild = diffAncestor;
-        diffAncestor = diffAncestor._parent;
-      }
-      if (!diffAncestor) return ids;
-      childLevel = diffChild;
-      containerLevel = diffAncestor;
-    }
-
     if (!containerLevel) return ids;
 
-    const childIndex = containerLevel._children.indexOf(childLevel);
-    const isFirst = childIndex === 0;
-    const isLast = childIndex === containerLevel._children.length - 1;
     const isStartSide = (isHorizontal && crossSide === 'top') || (!isHorizontal && crossSide === 'left');
-    if (isStartSide) {
-      if (isFirst) ids.push(makeEdgeId(childLevel, 'start'));
-      else ids.push(makeEdgeId(containerLevel._children[childIndex - 1], 'handle'));
-    } else {
-      if (isLast) ids.push(makeEdgeId(childLevel, 'end'));
-      else ids.push(makeEdgeId(childLevel, 'handle'));
+    const boundaryDir = isHorizontal ? 'horizontal' : 'vertical';
+
+    while (true) {
+      // 规则 1：这个 Edge 在排列的两头位置
+      const childIndex = containerLevel._children.indexOf(childLevel);
+      const isFirst = childIndex === 0;
+      const isLast = childIndex === containerLevel._children.length - 1;
+      const atEitherEnd = (side === 'start' && isFirst) || (side === 'end' && isLast);
+      // 往 start 方向跳但已是第一个子元素时，没有前一个元素可引用，也视为边缘
+      const noPrev = isStartSide && isFirst;
+
+      // 规则 2：这一层的排列方向导致 Corner 所在的位置没有 Edge
+      const wrongDirection = containerLevel._layout === boundaryDir;
+
+      if (atEitherEnd || noPrev || wrongDirection) {
+        // 遇到边缘，往外跳一层
+        const nextChild = containerLevel;
+        const nextContainer = containerLevel._parent;
+        if (!nextContainer) {
+          ids.push(makeEdgeId(childLevel, isStartSide ? 'start' : 'end'));
+          break;
+        }
+        childLevel = nextChild;
+        containerLevel = nextContainer;
+      } else {
+        // 不是边缘，这就是匹配的 Edge
+        ids.push(isStartSide
+          ? makeEdgeId(containerLevel._children[childIndex - 1], 'handle')
+          : makeEdgeId(childLevel, 'handle'));
+        break;
+      }
     }
     return ids;
   };
