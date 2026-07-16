@@ -531,19 +531,34 @@ const CornerLayer = ({ builder }) => {
 
   const getCornerEdgeIds = (box, side, crossSide) => {
     const ids = [makeEdgeId(box, side)];
-    const parent = box._parent;
-    if (!parent || !parent._parent) return ids;
-    const grandParent = parent._parent;
-    const parentIndex = grandParent._children.indexOf(parent);
-    const parentIsFirst = parentIndex === 0;
-    const parentIsLast = parentIndex === grandParent._children.length - 1;
+
+    // 往上找到排列方向变化的边界，再回退一层作为容器
+    let childLevel = box._parent;
+    let containerLevel = childLevel?._parent;
+    if (containerLevel && childLevel._layout === (isHorizontal ? 'horizontal' : 'vertical')) {
+      let diffAncestor = containerLevel;
+      let diffChild = childLevel;
+      while (diffAncestor && diffAncestor._layout === (isHorizontal ? 'horizontal' : 'vertical')) {
+        diffChild = diffAncestor;
+        diffAncestor = diffAncestor._parent;
+      }
+      if (!diffAncestor) return ids;
+      childLevel = diffChild;
+      containerLevel = diffAncestor;
+    }
+
+    if (!containerLevel) return ids;
+
+    const childIndex = containerLevel._children.indexOf(childLevel);
+    const isFirst = childIndex === 0;
+    const isLast = childIndex === containerLevel._children.length - 1;
     const isStartSide = (isHorizontal && crossSide === 'top') || (!isHorizontal && crossSide === 'left');
     if (isStartSide) {
-      if (parentIsFirst) ids.push(makeEdgeId(parent, 'start'));
-      else ids.push(makeEdgeId(grandParent._children[parentIndex - 1], 'handle'));
+      if (isFirst) ids.push(makeEdgeId(childLevel, 'start'));
+      else ids.push(makeEdgeId(containerLevel._children[childIndex - 1], 'handle'));
     } else {
-      if (parentIsLast) ids.push(makeEdgeId(parent, 'end'));
-      else ids.push(makeEdgeId(parent, 'handle'));
+      if (isLast) ids.push(makeEdgeId(childLevel, 'end'));
+      else ids.push(makeEdgeId(childLevel, 'handle'));
     }
     return ids;
   };
