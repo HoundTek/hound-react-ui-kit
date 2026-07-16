@@ -1,6 +1,6 @@
 import React from 'react';
 import { Reflowable, reflowScheduler } from './scheduler';
-import BoxComponent from './box-component';
+import { ContentLayer, EdgeLayer, CornerLayer } from './box-component';
 
 class BoxBuilder extends Reflowable {
   constructor(path) {
@@ -454,7 +454,19 @@ class BoxBuilder extends Reflowable {
   }
 
   react() {
-    return <BoxComponent builder={this} />;
+    return this.reactContent();
+  }
+
+  reactContent() {
+    return <ContentLayer builder={this} />;
+  }
+
+  reactEdge() {
+    return <EdgeLayer builder={this} />;
+  }
+
+  reactCorner() {
+    return <CornerLayer builder={this} />;
   }
 }
 

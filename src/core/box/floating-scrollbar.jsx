@@ -4,19 +4,11 @@ const BAR_SIZE = 6;
 const MIN_THUMB = 28;
 const INSET = 12;
 
-const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
+function useScrollTracking(containerRef, isVertical) {
   const [thumbPos, setThumbPos] = useState(0);
   const [thumbSize, setThumbSize] = useState(MIN_THUMB);
   const [hasScroll, setHasScroll] = useState(false);
-  const [containerHovered, setContainerHovered] = useState(false);
-  const [barHovered, setBarHovered] = useState(false);
-  const [thumbActive, setThumbActive] = useState(false);
-  const dragging = useRef(false);
-  const dragStart = useRef({ pos: 0, scroll: 0 });
   const thumbSizeRef = useRef(MIN_THUMB);
-  const thumbRef = useRef(null);
-  const show = (containerHovered || barHovered) && hasScroll;
-  const isVertical = orientation === 'vertical';
 
   const update = useCallback(() => {
     const el = containerRef.current;
@@ -65,6 +57,21 @@ const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
       ro.disconnect();
     };
   }, [containerRef, update]);
+
+  return { thumbPos, thumbSize, hasScroll, thumbSizeRef };
+}
+
+const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
+  const isVertical = orientation === 'vertical';
+  const { thumbPos, thumbSize, hasScroll, thumbSizeRef } = useScrollTracking(containerRef, isVertical);
+
+  const [containerHovered, setContainerHovered] = useState(false);
+  const [barHovered, setBarHovered] = useState(false);
+  const [thumbActive, setThumbActive] = useState(false);
+  const dragging = useRef(false);
+  const dragStart = useRef({ pos: 0, scroll: 0 });
+  const thumbRef = useRef(null);
+  const show = (containerHovered || barHovered) && hasScroll;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -120,7 +127,7 @@ const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
     setThumbActive(true);
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [containerRef, isVertical]);
+  }, [containerRef, isVertical, thumbSizeRef]);
 
   const handleTrackClick = useCallback((e) => {
     if (e.target === thumbRef.current) return;
@@ -175,7 +182,7 @@ const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
     setThumbActive(true);
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [containerRef, isVertical, hasScroll]);
+  }, [containerRef, isVertical, hasScroll, thumbSizeRef]);
 
   const barStyle = {
     position: 'absolute',

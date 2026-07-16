@@ -1,18 +1,18 @@
 import React from 'react';
-import CellDemoPage from './demo/cell-demo-page';
+import { DemoPageContent, DemoPageEdge, DemoPageCorner } from './demo/box-demo-page';
 
 const App = () => {
   return (
     <div id="app" className="app"
     style={{
-      display: "flex",
+      position: 'relative',
       width: "100vw",
       height: "100vh",
-      backgroundColor: "aqua", 
-      justifyContent: "center",
-      alignItems: "center",
+      backgroundColor: "aqua",
     }}>
-      <CellDemoPage />
+      <DemoPageContent />
+      <DemoPageEdge />
+      <DemoPageCorner />
     </div>
   );
 };
