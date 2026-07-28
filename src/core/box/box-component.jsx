@@ -575,44 +575,56 @@ const CornerLayer = ({ builder }) => {
   const getCornerEdgeIds = (box, side, crossSide) => {
     const ids = [makeEdgeId(box, side)];
 
-    // 从当前层开始，逐层往外跳
+    const isStartSide = (isHorizontal && crossSide === 'top') || (!isHorizontal && crossSide === 'left');
+    // 只有交叉轴上的滚动会让 Corner 与外层 Edge 错位（当前层 horizontal 时交叉轴为竖直方向）
+    const crossScrollKey = isHorizontal ? '_moveY' : '_moveX';
+
+    // 该层内容在主轴（方向不同的层，其主轴即 Corner 的交叉轴）上是否填满到 box 末端
+    const isFilledToEnd = (container) => {
+      const dimKey = isHorizontal ? 'height' : 'width';
+      const layoutKey = isHorizontal ? '_layoutHeight' : '_layoutWidth';
+      const boxSize = safeNum(container._containerSize?.[dimKey]);
+      const contentSize = container._children.reduce((sum, c) => sum + safeNum(c[layoutKey]), 0);
+      return Math.abs(contentSize - boxSize) <= Math.max(1, container._children.length);
+    };
+
+    // 从当前层开始逐层往外跳，停止时最后的候选 Edge 入选
+    let candidate = null;
     let childLevel = box;
     let containerLevel = childLevel?._parent;
-    if (!containerLevel) return ids;
 
-    const isStartSide = (isHorizontal && crossSide === 'top') || (!isHorizontal && crossSide === 'left');
-    const boundaryDir = isHorizontal ? 'horizontal' : 'vertical';
-
-    while (true) {
-      // 规则 1：这个 Edge 在排列的两头位置
+    while (containerLevel) {
       const childIndex = containerLevel._children.indexOf(childLevel);
       const isFirst = childIndex === 0;
       const isLast = childIndex === containerLevel._children.length - 1;
-      const atEitherEnd = (side === 'start' && isFirst) || (side === 'end' && isLast);
-      // 往 start 方向跳但已是第一个子元素时，没有前一个元素可引用，也视为边缘
-      const noPrev = isStartSide && isFirst;
+      // 排列方向是否与当前级相同（无 _layout 视为 vertical，与各层渲染口径一致）
+      const sameDir = (containerLevel._layout === 'horizontal') === isHorizontal;
 
-      // 规则 2：这一层的排列方向导致 Corner 所在的位置没有 Edge
-      const wrongDirection = containerLevel._layout === boundaryDir;
-
-      if (atEitherEnd || noPrev || wrongDirection) {
-        // 遇到边缘，往外跳一层
-        const nextChild = containerLevel;
-        const nextContainer = containerLevel._parent;
-        if (!nextContainer) {
-          ids.push(makeEdgeId(childLevel, isStartSide ? 'start' : 'end'));
+      if (!sameDir) {
+        // 方向不同：childLevel 在交叉方向上的边界处必有一条垂直 Edge
+        const atBoundary = isStartSide ? isFirst : isLast;
+        if (atBoundary) {
+          // Corner 同时落在这一层自己的边缘上：成为候选
+          candidate = makeEdgeId(childLevel, isStartSide ? 'start' : 'end');
+          // 朝 end 侧时若内容未填满到 box 末端，Corner 撞不到这一层的边边，停止
+          if (!isStartSide && !isFilledToEnd(containerLevel)) break;
+        } else {
+          // 不在边缘：handle Edge 入选，停止
+          candidate = isStartSide
+            ? makeEdgeId(containerLevel._children[childIndex - 1], 'handle')
+            : makeEdgeId(childLevel, 'handle');
           break;
         }
-        childLevel = nextChild;
-        containerLevel = nextContainer;
-      } else {
-        // 不是边缘，这就是匹配的 Edge
-        ids.push(isStartSide
-          ? makeEdgeId(containerLevel._children[childIndex - 1], 'handle')
-          : makeEdgeId(childLevel, 'handle'));
-        break;
       }
+
+      // 这一层在交叉轴上滚动开启时，Corner 与外层 Edge 不再重合，停止
+      if (containerLevel[crossScrollKey] === true) break;
+      // 往外跳一层
+      childLevel = containerLevel;
+      containerLevel = containerLevel._parent;
     }
+
+    if (candidate) ids.push(candidate);
     return ids;
   };
 
@@ -653,7 +665,8 @@ const CornerLayer = ({ builder }) => {
 
   const childrenCount = builder._children.length;
 
-  const cornerHandles = builder._children.flatMap((child, index) => {
+  // 根 box（viewport）的子 box 的 Edge 两端无 Corner，但仍需递归渲染子层的 Corner
+  const cornerHandles = builder._isViewport ? [] : builder._children.flatMap((child, index) => {
     const isFirst = index === 0;
     const isLast = index === childrenCount - 1;
     const corners = [];
