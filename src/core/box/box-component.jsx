@@ -19,6 +19,10 @@ const styleSheet = `
     cursor: move;
     background: rgba(255, 100, 150, 0.6);
   }
+  /* 拖拽会话期间光标全局锁定（* + !important 压过子元素自身 cursor） */
+  body.box-dragging-x, body.box-dragging-x * { cursor: e-resize !important; }
+  body.box-dragging-y, body.box-dragging-y * { cursor: n-resize !important; }
+  body.box-dragging-xy, body.box-dragging-xy * { cursor: move !important; }
 `;
 
 if (typeof document !== 'undefined' && !document.getElementById('box-drag-styles')) {
@@ -104,6 +108,10 @@ function startDragSession(targets, edgeIds, event, hover) {
   const root = targets[0].container._root;
   const prevUserSelect = document.body.style.userSelect;
   document.body.style.userSelect = 'none';
+  // 拖拽期间光标全局锁定：Edge 单轴（x/y），Corner 双轴（xy）
+  const cursorMode = targets.every(t => t.axis === targets[0].axis) ? targets[0].axis : 'xy';
+  const cursorClass = `box-dragging-${cursorMode}`;
+  document.body.classList.add(cursorClass);
 
   const onMove = (ev) => {
     const dx = ev.clientX - startX;
@@ -128,6 +136,7 @@ function startDragSession(targets, edgeIds, event, hover) {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     document.body.style.userSelect = prevUserSelect;
+    document.body.classList.remove(cursorClass);
     hover.removeHoveredEdges(edgeIds);
     _dragSession = null;
     // 拖拽结束：更新尺寸分配比并触发一次正式 reflow
@@ -618,8 +627,8 @@ const EdgeLayer = ({ builder }) => {
         key={`edge-${box._path}-${side}`}
         className={`drag-handle ${dirClass}`}
         style={s}
-        onMouseEnter={() => addHoveredEdge(edgeId)}
-        onMouseLeave={() => removeHoveredEdge(edgeId)}
+        onMouseEnter={() => { if (!_dragSession) addHoveredEdge(edgeId); }}
+        onMouseLeave={() => { if (!_dragSession) removeHoveredEdge(edgeId); }}
         onMouseDown={(e) => handleEdgeMouseDown(box, side, edgeId, e)}
       />
     );
@@ -655,8 +664,8 @@ const EdgeLayer = ({ builder }) => {
         key={`edge-${box._path}-handle`}
         className={`drag-handle ${dirClass}`}
         style={s}
-        onMouseEnter={() => addHoveredEdge(edgeId)}
-        onMouseLeave={() => removeHoveredEdge(edgeId)}
+        onMouseEnter={() => { if (!_dragSession) addHoveredEdge(edgeId); }}
+        onMouseLeave={() => { if (!_dragSession) removeHoveredEdge(edgeId); }}
         onMouseDown={(e) => handleEdgeMouseDown(box, 'handle', edgeId, e)}
       />
     );
@@ -830,8 +839,8 @@ const CornerLayer = ({ builder }) => {
         key={`corner-${box._path}-${side}-${crossSide}`}
         className="drag-handle drag-handle-horizontal drag-handle-vertical"
         style={s}
-        onMouseEnter={() => addHoveredEdges(edgeIds)}
-        onMouseLeave={() => removeHoveredEdges(edgeIds)}
+        onMouseEnter={() => { if (!_dragSession) addHoveredEdges(edgeIds); }}
+        onMouseLeave={() => { if (!_dragSession) removeHoveredEdges(edgeIds); }}
         onMouseDown={(e) => handleCornerMouseDown(box, side, crossSide, edgeIds, e)}
       />
     );
