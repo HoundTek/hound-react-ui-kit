@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { reflowScheduler, animateReflow, pickAnimatable } from './scheduler';
 import FloatingScrollbar from './floating-scrollbar';
 import { useHoveredEdges } from './hovered-edges-context';
+import { resolveContainerDrag, getDraggableEdgeId, commitContainerRatios, makeEdgeId } from './drag-resize';
 
 const styleSheet = `
   .drag-handle {
@@ -38,6 +39,102 @@ function subscribeToAnimChanges(listener) {
 
 function _notifyAnimListeners() {
   _animListeners.forEach(cb => cb());
+}
+
+// === 拖拽会话（模块级，Edge / Corner 共用）===
+// session.targets: [{ container, dividerIndex, dim, axis, baseSizes }]
+// axis 为 'x' 时鼠标横向位移驱动（竖直边，调 Width），为 'y' 时反之
+let _dragSession = null;
+
+// 标记整棵 builder 树需要 reflow（拖拽期间替代 ResizeObserver 的逐轮驱动）
+function markNeedsReflow(builder) {
+  builder._needsReflow = true;
+  builder._children.forEach(markNeedsReflow);
+}
+
+/**
+ * 把一条边解析为可拖拽目标
+ * handle 边直接在所属容器拖拽；start/end 边先向外解析重合的 handle 边
+ * 容器主轴非锁定（可滚动或未设置）时不可拖，返回 null
+ */
+function resolveDragTarget(rootBuilder, box, side) {
+  let targetBox = box;
+  let edgeId = makeEdgeId(box, side);
+  if (side !== 'handle') {
+    const resolvedId = getDraggableEdgeId(box, side);
+    if (!resolvedId) return null;
+    const resolvedPath = resolvedId.slice(0, resolvedId.lastIndexOf(':'));
+    const segments = resolvedPath.replace(/^@/, '').split('/').filter(Boolean);
+    let node = rootBuilder;
+    for (let i = rootBuilder._pathResolved.length; i < segments.length; i++) {
+      node = node?._childrenMap.get(segments[i]);
+    }
+    if (!node) return null;
+    targetBox = node;
+    edgeId = resolvedId;
+  }
+  const container = targetBox._parent;
+  if (!container) return null;
+  const containerHorizontal = container._layout === 'horizontal';
+  const dim = containerHorizontal ? 'Width' : 'Height';
+  if (container[containerHorizontal ? '_moveX' : '_moveY'] !== false) return null;
+  return {
+    container,
+    dividerIndex: container._children.indexOf(targetBox),
+    dim,
+    axis: containerHorizontal ? 'x' : 'y',
+    edgeId,
+  };
+}
+
+function startDragSession(targets, edgeIds, event, hover) {
+  if (_dragSession || targets.length === 0) return;
+  event.preventDefault();
+  event.stopPropagation();
+
+  targets.forEach(t => {
+    t.baseSizes = t.container._children.map(c => safeNum(c[`_layout${t.dim}`]));
+  });
+  _dragSession = { targets };
+  hover.addHoveredEdges(edgeIds);
+
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const root = targets[0].container._root;
+  const prevUserSelect = document.body.style.userSelect;
+  document.body.style.userSelect = 'none';
+
+  const onMove = (ev) => {
+    const dx = ev.clientX - startX;
+    const dy = ev.clientY - startY;
+    targets.forEach(t => {
+      const delta = t.axis === 'x' ? dx : dy;
+      const sizes = resolveContainerDrag(t.container._children, t.dividerIndex, delta, t.dim, t.baseSizes);
+      t.container._children.forEach((c, i) => {
+        c[`_layout${t.dim}`] = sizes[i];
+      });
+      // 记录实际比例，使 reflow 复现当前尺寸并同步子层级
+      commitContainerRatios(t.container, t.dim, false);
+    });
+    // reflow 级联依赖各 builder 自身的 _needsReflow（平时由 ResizeObserver 逐轮置位），
+    // 拖拽期间没有这轮驱动，手动标记整棵树后同步执行，保证嵌套子层交叉轴尺寸即时跟随
+    markNeedsReflow(root);
+    root._performReflow();
+    _notifyAnimListeners();
+  };
+
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.style.userSelect = prevUserSelect;
+    hover.removeHoveredEdges(edgeIds);
+    _dragSession = null;
+    // 拖拽结束：更新尺寸分配比并触发一次正式 reflow
+    targets.forEach(t => commitContainerRatios(t.container, t.dim));
+  };
+
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 }
 
 const safeNum = (v) => (typeof v === 'number' && !isNaN(v) && isFinite(v)) ? v : 0;
@@ -285,7 +382,7 @@ function useBoxContent(builder) {
     const el = containerRef.current;
     if (el) {
       const currAnimatable = pickAnimatable(style);
-      animateReflow(el, containerPrevStyle.current, currAnimatable, onStart, onFinish);
+      if (!_dragSession) animateReflow(el, containerPrevStyle.current, currAnimatable, onStart, onFinish);
       containerPrevStyle.current = currAnimatable;
     }
     builder._children.forEach((child, index) => {
@@ -294,7 +391,7 @@ function useBoxContent(builder) {
       const childStyle = getChildStyle(child);
       const currAnimatable = pickAnimatable(childStyle);
       const prev = childPrevStyles.current.get(index) || {};
-      animateReflow(childEl, prev, currAnimatable, onStart, onFinish);
+      if (!_dragSession) animateReflow(childEl, prev, currAnimatable, onStart, onFinish);
       childPrevStyles.current.set(index, currAnimatable);
     });
   });
@@ -432,7 +529,7 @@ const ContentLayer = ({ builder }) => {
 // ===========================================================================
 const EdgeLayer = ({ builder }) => {
   const edgeRef = useRef(null);
-  const { hoveredEdges, addHoveredEdge, removeHoveredEdge } = useHoveredEdges();
+  const { hoveredEdges, addHoveredEdge, removeHoveredEdge, addHoveredEdges, removeHoveredEdges } = useHoveredEdges();
   const layout = computeBuilderLayout(builder);
   const { style, isHorizontal, offsets, getChildStyle, containerClassName, innerClassName, innerStyle } = layout;
 
@@ -444,7 +541,14 @@ const EdgeLayer = ({ builder }) => {
   const EDGE_SIZE = 10;
   const EDGE_COLOR = 'rgba(255, 100, 50, 0.7)';
 
-  const makeEdgeId = (box, side) => `${box._path}:${side}`;
+  // 鼠标按下：解析可拖拽目标并开启拖拽会话（不可拖则无操作）
+  const handleEdgeMouseDown = (box, side, edgeId, e) => {
+    if (e.button !== 0) return;
+    const target = resolveDragTarget(builder._root, box, side);
+    if (!target) return;
+    const ids = target.edgeId === edgeId ? [edgeId] : [edgeId, target.edgeId];
+    startDragSession([target], ids, e, { addHoveredEdges, removeHoveredEdges });
+  };
 
   const renderEdge = (box, side, isStart, offset) => {
     const edgeId = makeEdgeId(box, side);
@@ -477,6 +581,7 @@ const EdgeLayer = ({ builder }) => {
         style={s}
         onMouseEnter={() => addHoveredEdge(edgeId)}
         onMouseLeave={() => removeHoveredEdge(edgeId)}
+        onMouseDown={(e) => handleEdgeMouseDown(box, side, edgeId, e)}
       />
     );
   };
@@ -512,19 +617,25 @@ const EdgeLayer = ({ builder }) => {
         style={s}
         onMouseEnter={() => addHoveredEdge(edgeId)}
         onMouseLeave={() => removeHoveredEdge(edgeId)}
+        onMouseDown={(e) => handleEdgeMouseDown(box, 'handle', edgeId, e)}
       />
     );
   };
 
   const childrenCount = builder._children.length;
 
+  // 禁用拖拽：两相邻 box 均禁用则中间不产生 Edge；一级的 box 均禁用则两端也不产生 Edge
+  const allDisabled = builder._children.every(c => c._draggable === false);
+  const pairDisabled = (index) =>
+    builder._children[index]._draggable === false && builder._children[index + 1]?._draggable === false;
+
   const edgeHandles = builder._children.flatMap((child, index) => {
     const isFirst = index === 0;
     const isLast = index === childrenCount - 1;
     const items = [];
-    if (isFirst) items.push(renderEdge(child, 'start', true, offsets[index]));
-    if (!isLast) items.push(renderHandle(child, offsets[index]));
-    if (isLast) items.push(renderEdge(child, 'end', false, offsets[index]));
+    if (isFirst && !allDisabled) items.push(renderEdge(child, 'start', true, offsets[index]));
+    if (!isLast && !pairDisabled(index)) items.push(renderHandle(child, offsets[index]));
+    if (isLast && !allDisabled) items.push(renderEdge(child, 'end', false, offsets[index]));
     return items;
   });
 
@@ -570,10 +681,9 @@ const CornerLayer = ({ builder }) => {
   const CORNER_SIZE = 12;
   const CORNER_COLOR = 'rgba(255, 50, 100, 0.8)';
 
-  const makeEdgeId = (box, side) => `${box._path}:${side}`;
-
-  const getCornerEdgeIds = (box, side, crossSide) => {
-    const ids = [makeEdgeId(box, side)];
+  // 返回 [{ id, box, side }]，悬停用 id，拖拽用 box/side 解析目标
+  const getCornerEdges = (box, side, crossSide) => {
+    const edges = [{ id: makeEdgeId(box, side), box, side }];
 
     const isStartSide = (isHorizontal && crossSide === 'top') || (!isHorizontal && crossSide === 'left');
     // 只有交叉轴上的滚动会让 Corner 与外层 Edge 错位（当前层 horizontal 时交叉轴为竖直方向）
@@ -605,14 +715,14 @@ const CornerLayer = ({ builder }) => {
         const atBoundary = isStartSide ? isFirst : isLast;
         if (atBoundary) {
           // Corner 同时落在这一层自己的边缘上：成为候选
-          candidate = makeEdgeId(childLevel, isStartSide ? 'start' : 'end');
+          candidate = { box: childLevel, side: isStartSide ? 'start' : 'end' };
           // 朝 end 侧时若内容未填满到 box 末端，Corner 撞不到这一层的边边，停止
           if (!isStartSide && !isFilledToEnd(containerLevel)) break;
         } else {
           // 不在边缘：handle Edge 入选，停止
           candidate = isStartSide
-            ? makeEdgeId(containerLevel._children[childIndex - 1], 'handle')
-            : makeEdgeId(childLevel, 'handle');
+            ? { box: containerLevel._children[childIndex - 1], side: 'handle' }
+            : { box: childLevel, side: 'handle' };
           break;
         }
       }
@@ -624,8 +734,29 @@ const CornerLayer = ({ builder }) => {
       containerLevel = containerLevel._parent;
     }
 
-    if (candidate) ids.push(candidate);
-    return ids;
+    if (candidate) edges.push({ id: makeEdgeId(candidate.box, candidate.side), ...candidate });
+    return edges;
+  };
+
+  const getCornerEdgeIds = (box, side, crossSide) => getCornerEdges(box, side, crossSide).map(e => e.id);
+
+  // 鼠标按下：Corner 的两条相交边各自解析为可拖拽目标，双轴同时调整
+  const handleCornerMouseDown = (box, side, crossSide, edgeIds, e) => {
+    if (e.button !== 0) return;
+    const targets = [];
+    const highlightIds = [];
+    getCornerEdges(box, side, crossSide).forEach(({ box: edgeBox, side: edgeSide }) => {
+      const target = resolveDragTarget(builder._root, edgeBox, edgeSide);
+      if (target) {
+        targets.push(target);
+        if (!highlightIds.includes(target.edgeId)) highlightIds.push(target.edgeId);
+      }
+    });
+    if (targets.length === 0) return;
+    edgeIds.forEach(id => {
+      if (!highlightIds.includes(id)) highlightIds.push(id);
+    });
+    startDragSession(targets, highlightIds, e, { addHoveredEdges, removeHoveredEdges });
   };
 
   const renderCorner = (box, side, crossSide, offset) => {
@@ -659,11 +790,17 @@ const CornerLayer = ({ builder }) => {
         style={s}
         onMouseEnter={() => addHoveredEdges(edgeIds)}
         onMouseLeave={() => removeHoveredEdges(edgeIds)}
+        onMouseDown={(e) => handleCornerMouseDown(box, side, crossSide, edgeIds, e)}
       />
     );
   };
 
   const childrenCount = builder._children.length;
+
+  // 禁用拖拽：两相邻 box 均禁用则中间不产生 Corner；一级的 box 均禁用则两端也不产生 Corner
+  const allDisabled = builder._children.every(c => c._draggable === false);
+  const pairDisabled = (index) =>
+    builder._children[index]._draggable === false && builder._children[index + 1]?._draggable === false;
 
   // 根 box（viewport）的子 box 的 Edge 两端无 Corner，但仍需递归渲染子层的 Corner
   const cornerHandles = builder._isViewport ? [] : builder._children.flatMap((child, index) => {
@@ -671,28 +808,28 @@ const CornerLayer = ({ builder }) => {
     const isLast = index === childrenCount - 1;
     const corners = [];
     if (isHorizontal) {
-      if (isFirst) {
+      if (isFirst && !allDisabled) {
         corners.push(renderCorner(child, 'start', 'top', offsets[index]));
         corners.push(renderCorner(child, 'start', 'bottom', offsets[index]));
       }
-      if (!isLast) {
+      if (!isLast && !pairDisabled(index)) {
         corners.push(renderCorner(child, 'handle', 'top', offsets[index]));
         corners.push(renderCorner(child, 'handle', 'bottom', offsets[index]));
       }
-      if (isLast) {
+      if (isLast && !allDisabled) {
         corners.push(renderCorner(child, 'end', 'top', offsets[index]));
         corners.push(renderCorner(child, 'end', 'bottom', offsets[index]));
       }
     } else {
-      if (isFirst) {
+      if (isFirst && !allDisabled) {
         corners.push(renderCorner(child, 'start', 'left', offsets[index]));
         corners.push(renderCorner(child, 'start', 'right', offsets[index]));
       }
-      if (!isLast) {
+      if (!isLast && !pairDisabled(index)) {
         corners.push(renderCorner(child, 'handle', 'left', offsets[index]));
         corners.push(renderCorner(child, 'handle', 'right', offsets[index]));
       }
-      if (isLast) {
+      if (isLast && !allDisabled) {
         corners.push(renderCorner(child, 'end', 'left', offsets[index]));
         corners.push(renderCorner(child, 'end', 'right', offsets[index]));
       }

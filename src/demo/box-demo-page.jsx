@@ -366,7 +366,8 @@ const _builder = new BoxBuilder("@demo")
           .backgroundColor('#444444'),
         new BoxBuilder("@demo/footer/links")
           .minWidth(400)
-          .backgroundColor('#555555'),
+          .backgroundColor('#555555')
+          .draggable(false),
         new BoxBuilder("@demo/footer/social")
           .fixedWidth(150)
           .backgroundColor('#444444'),

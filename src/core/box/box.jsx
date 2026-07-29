@@ -133,6 +133,11 @@ class BoxBuilder extends Reflowable {
     return this;
   }
 
+  draggable(allow) {
+    this._draggable = allow;
+    return this;
+  }
+
   viewport() {
     this._isViewport = true;
     return this;
@@ -197,6 +202,9 @@ class BoxBuilder extends Reflowable {
         fixedTotal += childMin;
       } else {
         fixedSizes[i] = null;
+        const childRatio = child[`_ratio${dimension}`];
+        const hasRatio = typeof childRatio === 'number';
+        const ratioTarget = hasRatio ? childRatio * containerSize : null;
         const childDefault = child[defKey];
         const hasDefault = childDefault !== null;
         const hasMinMax = child[explicitMinKey] === true && child[explicitMaxKey] === true;
@@ -208,16 +216,19 @@ class BoxBuilder extends Reflowable {
           default: childDefault,
           hasDefault,
           hasMinMax,
+          ratioTarget,
           b: 0,
         });
 
-        if (hasDefault) {
+        if (hasRatio) {
+          knownDefaultTotal += ratioTarget;
+        } else if (hasDefault) {
           knownDefaultTotal += childDefault;
         } else if (!hasMinMax) {
           unknownDefaultCount++;
         }
 
-        if (!hasDefault && hasMinMax) {
+        if (!hasRatio && !hasDefault && hasMinMax) {
           midValueTotal += mid;
         }
       }
@@ -241,7 +252,9 @@ class BoxBuilder extends Reflowable {
       const nf = nonFixed[i];
       let targetValue;
 
-      if (nf.hasDefault && nf.max !== Infinity) {
+      if (nf.ratioTarget !== null) {
+        targetValue = nf.ratioTarget;
+      } else if (nf.hasDefault && nf.max !== Infinity) {
         targetValue = nf.default;
       } else if (nf.hasMinMax) {
         targetValue = (nf.min + nf.max) / 2;
