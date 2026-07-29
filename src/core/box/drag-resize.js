@@ -15,8 +15,9 @@ const makeEdgeId = (box, side) => `${box._path}:${side}`;
  * @param delta  期望位移，> 0 表示分界线向 end 方向移动
  * @param dim  'Width' | 'Height'
  * @param baseSizes  拖拽起始时的尺寸快照（缺省取当前 _layout 尺寸）
- * @param containerSize  容器主轴尺寸；大于内容总尺寸时，末端空隙作为 [0, +∞) 的
- *                       虚拟 child 参与调整（未填满容器的 slack）
+ * @param containerSize  容器主轴尺寸；明显大于内容总尺寸时，末端空隙作为 [0, +∞) 的
+ *                       虚拟 child 参与调整（未填满容器的 slack）；空隙不超过拟合误差
+ *                       容差（max(1, child 数)）时视为已填满，slack 不参与调整
  * @returns 新尺寸数组：容器尺寸守恒、满足全部 min/max、_draggable === false 的 child 冻结
  */
 function resolveContainerDrag(children, dividerIndex, delta, dim, baseSizes = null, containerSize = null) {
@@ -29,14 +30,17 @@ function resolveContainerDrag(children, dividerIndex, delta, dim, baseSizes = nu
   const lo = children.map((c, i) => c._draggable === false ? s[i] : c[minKey]);
   const hi = children.map((c, i) => c._draggable === false ? s[i] : c[maxKey]);
 
-  // 末端空隙（slack）视为虚拟 child：仅在容器当前未填满时参与（[0, +∞)），
-  // 已填满的容器不允许通过拖出空隙来"解锁"（reflow 的 λ 拟合会重新填满，拖完会回弹）
+  // 末端空隙（slack）视为虚拟 child：容器明显未填满时以 [0, +∞) 参与调整，
+  // 可被吃掉（child 拖大）也可被拖大（child 拖小），左右对偶；
+  // 空隙不超过容差（max(1, child 数)，与 isMainFilledToEnd 口径一致）视为已填满、
+  // 不参与——上一轮 reflow 的 λ 拟合有亚像素漂移，若被误判为空隙，+∞ 的上限
+  // 会让 min/max 钳制整个失效（已到 max 的 child 继续拖会带动其他 child）
   const contentSize = s.reduce((sum, v) => sum + v, 0);
   const C = (typeof containerSize === 'number' && containerSize > contentSize) ? containerSize : contentSize;
   const slackSize = C - contentSize;
   s.push(slackSize);
   lo.push(0);
-  hi.push(slackSize > 0 ? Infinity : 0);
+  hi.push(slackSize > Math.max(1, n) ? Infinity : 0);
 
   const count = n + 1;
   const prefix = [0];

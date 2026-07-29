@@ -222,10 +222,14 @@ function computeBuilderLayout(builder) {
     flexDirection,
     position: 'relative',
   };
-  // Grid：单元格换行排列，内容从起点对齐
-  if (isGrid) {
-    innerStyle.flexWrap = 'wrap';
-    innerStyle.alignContent = 'flex-start';
+  // Grid：单元格按 gridMetrics 绝对定位（见 ContentLayer），不用 flex-wrap——
+  // 浏览器的换行决策会与 reflow 过渡态（容器尺寸与 gridMetrics 短暂不一致）
+  // 叠加产生闪烁。inner 尺寸撑到内容大小，frame 的 overflow:auto 才有滚动区域
+  // （rows*cellH ≥ height、cols*cellW ≥ width 由 _performGridLayout 保证，不留空底）
+  if (isGrid && builder._gridMetrics) {
+    const { cols, rows, cellW, cellH, rowMajor } = builder._gridMetrics;
+    innerStyle.width = rowMajor ? '100%' : cols * cellW;
+    innerStyle.height = rowMajor ? rows * cellH : '100%';
   }
 
   // 计算子节点偏移量
@@ -505,7 +509,7 @@ const BoxLayerFrame = ({ containerRef, containerClassName, containerStyle, inner
 // ===========================================================================
 const ContentLayer = ({ builder }) => {
   const { containerRef, childRefs, layout } = useBoxContent(builder);
-  const { style, getChildStyle, containerClassName, innerClassName, innerStyle } = layout;
+  const { style, getChildStyle, isHorizontal, isGrid, offsets, positions, containerClassName, innerClassName, innerStyle } = layout;
 
   const wrapperStyle = { position: 'relative' };
 
@@ -538,7 +542,11 @@ const ContentLayer = ({ builder }) => {
       </>}
     >
       {builder._children.map((child, index) => {
-        const childStyle = getChildStyle(child);
+        // Grid 子节点按 gridMetrics 绝对定位（与覆盖层同一定位口径），
+        // 不经浏览器 flex 换行；positions 为空（首次渲染）时回退主轴偏移
+        const childStyle = isGrid
+          ? getChildPositionStyle(getChildStyle(child), offsets[index], isHorizontal, positions[index])
+          : getChildStyle(child);
         return (
           <div
             key={builder._pathResolved.join('-') + '-' + index}
