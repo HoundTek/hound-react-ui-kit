@@ -293,7 +293,9 @@ const _builder = new BoxBuilder("@demo")
                   .layout('vertical')
                   .children([
                     new BoxBuilder("@demo/main/content/gallery/cell1/line1")
-                      .fixedHeight(20)
+                      .minHeight(20)
+                      .defaultHeight(30)
+                      .maxHeight(40)
                       .backgroundColor('#d9c0f5'),
                     new BoxBuilder("@demo/main/content/gallery/cell1/line2")
                       .backgroundColor('#cfb0ee'),

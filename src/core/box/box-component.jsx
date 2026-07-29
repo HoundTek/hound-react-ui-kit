@@ -594,7 +594,9 @@ const EdgeLayer = ({ builder }) => {
     const s = {
       position: 'absolute',
       pointerEvents: 'auto',
-      zIndex: 100 - depth,
+      // 须高于 FloatingScrollbar 的 zIndex 1000：滚动条显示时（hover/滚动中）
+      // 其条带与 box 右/下边缘重合，zIndex 低于它会吞掉边的按下事件
+      zIndex: 1100 - depth,
       backgroundColor: isHovered ? EDGE_COLOR : undefined,
     };
     if (isHorizontal) {
@@ -631,7 +633,8 @@ const EdgeLayer = ({ builder }) => {
     const s = {
       position: 'absolute',
       pointerEvents: 'auto',
-      zIndex: 100 - depth,
+      // 同 renderEdge：高于 FloatingScrollbar 的 1000，不被滚动条吞事件
+      zIndex: 1100 - depth,
       backgroundColor: isHovered ? EDGE_COLOR : undefined,
     };
     if (isHorizontal) {
@@ -805,7 +808,8 @@ const CornerLayer = ({ builder }) => {
     const s = {
       position: 'absolute',
       pointerEvents: 'auto',
-      zIndex: 200 - depth,
+      // 同 Edge：高于 FloatingScrollbar 的 1000，不被滚动条吞事件
+      zIndex: 1200 - depth,
       backgroundColor: isHovered ? CORNER_COLOR : undefined,
     };
     if (isHorizontal) {

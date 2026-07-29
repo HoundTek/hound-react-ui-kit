@@ -92,7 +92,8 @@ function resolveContainerDrag(children, dividerIndex, delta, dim, baseSizes = nu
  * 边由 box._parent 层渲染。沿父链向外：
  * - 与边平行的层（方向相同）：该层的边可能与边重合——childLevel 非首/末位时命中
  *   前一个兄弟的 handle（start 侧）或自身 handle（end 侧），即为可拖拽边；
- *   首/末位时与该层 start/end 边重合，继续向外（end 侧需内容填满到 box 末端）
+ *   首/末位时与该层 start/end 边重合，继续向外（end 侧未填满到 box 末端时
+ *   改为命中末位 child 与末端空隙的虚拟 handle，slack 参与调整）
  * - 方向不同的层：无平行边，仅靠交叉轴拉伸保持位置对齐，直接穿过
  * - 沿途任一层沿边法线方向滚动开启即失配；到达 viewport 边界返回 null
  *
@@ -128,8 +129,12 @@ function getDraggableEdgeId(box, side) {
     if (parallelDir) {
       const atBoundary = side === 'start' ? isFirst : isLast;
       if (atBoundary) {
-        // 与该层 start/end 边重合，可继续向外；end 侧需填满到 box 末端才重合
-        if (side === 'end' && !isMainFilledToEnd(containerLevel)) return null;
+        // 与该层 start/end 边重合，可继续向外；end 侧未填满到 box 末端时
+        // 与外层任何边都不重合——解析为末位 child 与末端空隙的虚拟 handle
+        // （slack 由 resolveContainerDrag 作为虚拟 child 参与调整）
+        if (side === 'end' && !isMainFilledToEnd(containerLevel)) {
+          return makeEdgeId(childLevel, 'handle');
+        }
       } else {
         // 命中：边与这一层的 handle 重合
         return side === 'start'
