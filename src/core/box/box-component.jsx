@@ -94,6 +94,7 @@ function startDragSession(targets, edgeIds, event, hover) {
 
   targets.forEach(t => {
     t.baseSizes = t.container._children.map(c => safeNum(c[`_layout${t.dim}`]));
+    t.containerSize = safeNum(t.container._containerSize?.[t.dim.toLowerCase()]);
   });
   _dragSession = { targets };
   hover.addHoveredEdges(edgeIds);
@@ -109,7 +110,7 @@ function startDragSession(targets, edgeIds, event, hover) {
     const dy = ev.clientY - startY;
     targets.forEach(t => {
       const delta = t.axis === 'x' ? dx : dy;
-      const sizes = resolveContainerDrag(t.container._children, t.dividerIndex, delta, t.dim, t.baseSizes);
+      const sizes = resolveContainerDrag(t.container._children, t.dividerIndex, delta, t.dim, t.baseSizes, t.containerSize);
       t.container._children.forEach((c, i) => {
         c[`_layout${t.dim}`] = sizes[i];
       });

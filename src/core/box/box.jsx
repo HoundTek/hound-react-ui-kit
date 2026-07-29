@@ -10,7 +10,6 @@ class BoxBuilder extends Reflowable {
     this._children = [];
     this._childrenMap = new Map();
     this._childrenMap.set('.', this);
-    this._root = this;
     this._moveX = undefined;
     this._moveY = undefined;
 
@@ -86,10 +85,16 @@ class BoxBuilder extends Reflowable {
     this._children = childrenBox;
     this._children.forEach((child, index) => {
       child._parent = this;
-      child._root = this._root;
       this._childrenMap.set(child._pathResolved[child._pathResolved.length - 1], child);
     });
     return this;
+  }
+
+  // 根节点沿 _parent 链上溯求值（建树顺序不影响正确性）
+  get _root() {
+    let node = this;
+    while (node._parent) node = node._parent;
+    return node;
   }
 
   get(path) {
@@ -302,11 +307,15 @@ class BoxBuilder extends Reflowable {
     if (remainingSpace > maxPossible) {
       const sizes = new Array(count);
       let nonFixedIdx = 0;
+      // 未填满时目标值不再被 max 覆盖：全部非固定 child 都带有拖拽记录的比例时，
+      // 按比例目标分配（钳在 min/max 内），保留拖拽结果；否则维持全分 max
+      const allRatio = nonFixed.every(nf => nf.ratioTarget !== null);
       for (let i = 0; i < count; i++) {
         if (fixedSizes[i] !== null) {
           sizes[i] = fixedSizes[i];
         } else {
-          sizes[i] = nonFixed[nonFixedIdx++].max;
+          const nf = nonFixed[nonFixedIdx++];
+          sizes[i] = allRatio ? Math.max(nf.min, Math.min(nf.max, nf.ratioTarget)) : nf.max;
         }
       }
       return { sizes, isValid: true };

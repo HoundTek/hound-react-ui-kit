@@ -15,9 +15,11 @@ const makeEdgeId = (box, side) => `${box._path}:${side}`;
  * @param delta  期望位移，> 0 表示分界线向 end 方向移动
  * @param dim  'Width' | 'Height'
  * @param baseSizes  拖拽起始时的尺寸快照（缺省取当前 _layout 尺寸）
- * @returns 新尺寸数组：总和守恒、满足全部 min/max、_draggable === false 的 child 冻结
+ * @param containerSize  容器主轴尺寸；大于内容总尺寸时，末端空隙作为 [0, +∞) 的
+ *                       虚拟 child 参与调整（未填满容器的 slack）
+ * @returns 新尺寸数组：容器尺寸守恒、满足全部 min/max、_draggable === false 的 child 冻结
  */
-function resolveContainerDrag(children, dividerIndex, delta, dim, baseSizes = null) {
+function resolveContainerDrag(children, dividerIndex, delta, dim, baseSizes = null, containerSize = null) {
   const sizeKey = `_layout${dim}`;
   const minKey = `_min${dim}`;
   const maxKey = `_max${dim}`;
@@ -27,9 +29,19 @@ function resolveContainerDrag(children, dividerIndex, delta, dim, baseSizes = nu
   const lo = children.map((c, i) => c._draggable === false ? s[i] : c[minKey]);
   const hi = children.map((c, i) => c._draggable === false ? s[i] : c[maxKey]);
 
+  // 末端空隙（slack）视为虚拟 child：仅在容器当前未填满时参与（[0, +∞)），
+  // 已填满的容器不允许通过拖出空隙来"解锁"（reflow 的 λ 拟合会重新填满，拖完会回弹）
+  const contentSize = s.reduce((sum, v) => sum + v, 0);
+  const C = (typeof containerSize === 'number' && containerSize > contentSize) ? containerSize : contentSize;
+  const slackSize = C - contentSize;
+  s.push(slackSize);
+  lo.push(0);
+  hi.push(slackSize > 0 ? Infinity : 0);
+
+  const count = n + 1;
   const prefix = [0];
-  for (let i = 0; i < n; i++) prefix.push(prefix[i] + s[i]);
-  const L = prefix[n];
+  for (let i = 0; i < count; i++) prefix.push(prefix[i] + s[i]);
+  const L = prefix[count];
 
   const sumRange = (arr, a, b) => {
     let t = 0;
@@ -40,8 +52,8 @@ function resolveContainerDrag(children, dividerIndex, delta, dim, baseSizes = nu
   const k = dividerIndex;
   const loL = sumRange(lo, 0, k);
   const hiL = sumRange(hi, 0, k);
-  const loR = sumRange(lo, k + 1, n - 1);
-  const hiR = sumRange(hi, k + 1, n - 1);
+  const loR = sumRange(lo, k + 1, count - 1);
+  const hiR = sumRange(hi, k + 1, count - 1);
 
   // 分界线位置钳制到可行域：左段总和须落在 [loL, hiL]，右段总和须落在 [loR, hiR]
   const startPos = prefix[k + 1];
@@ -58,13 +70,15 @@ function resolveContainerDrag(children, dividerIndex, delta, dim, baseSizes = nu
     out[i] = Math.min(Math.max(target, lo[i]), hi[i]);
     remaining -= out[i];
   }
-  // 右段（k+1..n-1）：从分界线向右贪心
+  // 右段（k+1..n-1 及末端 slack）：从分界线向右贪心
   remaining = L - pos;
-  for (let i = k + 1; i < n; i++) {
-    const target = remaining - (prefix[n] - prefix[i + 1]);
+  for (let i = k + 1; i < count; i++) {
+    const target = remaining - (prefix[count] - prefix[i + 1]);
     out[i] = Math.min(Math.max(target, lo[i]), hi[i]);
     remaining -= out[i];
   }
+  // 丢弃虚拟的 slack 项
+  out.length = n;
   return out;
 }
 
