@@ -197,11 +197,12 @@ function computeBuilderLayout(builder) {
   });
 
   const isHorizontal = builder._layout === 'horizontal';
+  const isGrid = !!builder._grid;
 
   const getChildStyle = (child) => {
     const s = {
       position: 'relative',
-      flex: builder._moveX === false && isHorizontal ? 'none' : undefined,
+      flex: (builder._moveX === false && isHorizontal) || isGrid ? 'none' : undefined,
       width: child._layoutWidth ? `${child._layoutWidth}px` : undefined,
       height: child._layoutHeight ? `${child._layoutHeight}px` : undefined,
     };
@@ -220,6 +221,11 @@ function computeBuilderLayout(builder) {
     flexDirection,
     position: 'relative',
   };
+  // Grid：单元格换行排列，内容从起点对齐
+  if (isGrid) {
+    innerStyle.flexWrap = 'wrap';
+    innerStyle.alignContent = 'flex-start';
+  }
 
   // 计算子节点偏移量
   const offsets = builder._children.map(() => 0);
@@ -229,12 +235,25 @@ function computeBuilderLayout(builder) {
     cumulative += isHorizontal ? safeNum(child._layoutWidth) : safeNum(child._layoutHeight);
   });
 
+  // Grid 子节点的二维位置（供覆盖层递归定位）
+  const positions = builder._children.map(() => null);
+  if (isGrid && builder._gridMetrics) {
+    const { cols, rows, cellW, cellH, rowMajor } = builder._gridMetrics;
+    builder._children.forEach((child, i) => {
+      positions[i] = rowMajor
+        ? { left: (i % cols) * cellW, top: Math.floor(i / cols) * cellH }
+        : { left: Math.floor(i / rows) * cellW, top: (i % rows) * cellH };
+    });
+  }
+
   return {
     style,
     flexDirection,
     isHorizontal,
+    isGrid,
     getChildStyle,
     offsets,
+    positions,
     containerClassName,
     innerClassName,
     innerStyle,
@@ -271,7 +290,16 @@ function getOverlayStyle(style) {
   };
 }
 
-function getChildPositionStyle(childStyle, offset, isHorizontal) {
+function getChildPositionStyle(childStyle, offset, isHorizontal, position) {
+  if (position) {
+    return {
+      position: 'absolute',
+      left: position.left,
+      top: position.top,
+      width: childStyle.width || 'auto',
+      height: childStyle.height || 'auto',
+    };
+  }
   return isHorizontal
     ? { position: 'absolute', left: offset, top: 0, width: childStyle.width || 'auto', height: '100%' }
     : { position: 'absolute', top: offset, left: 0, height: childStyle.height || 'auto', width: '100%' };
@@ -531,7 +559,7 @@ const EdgeLayer = ({ builder }) => {
   const edgeRef = useRef(null);
   const { hoveredEdges, addHoveredEdge, removeHoveredEdge, addHoveredEdges, removeHoveredEdges } = useHoveredEdges();
   const layout = computeBuilderLayout(builder);
-  const { style, isHorizontal, offsets, getChildStyle, containerClassName, innerClassName, innerStyle } = layout;
+  const { style, isHorizontal, isGrid, offsets, positions, getChildStyle, containerClassName, innerClassName, innerStyle } = layout;
 
   useBoxOverlayScroll(edgeRef, builder);
 
@@ -629,7 +657,8 @@ const EdgeLayer = ({ builder }) => {
   const pairDisabled = (index) =>
     builder._children[index]._draggable === false && builder._children[index + 1]?._draggable === false;
 
-  const edgeHandles = builder._children.flatMap((child, index) => {
+  // Grid 单元格等尺寸，自身不产生 Edge，但仍需递归渲染子层的 Edge
+  const edgeHandles = isGrid ? [] : builder._children.flatMap((child, index) => {
     const isFirst = index === 0;
     const isLast = index === childrenCount - 1;
     const items = [];
@@ -650,10 +679,10 @@ const EdgeLayer = ({ builder }) => {
       innerStyle={innerStyle}
     >
       {edgeHandles}
-      {/* 递归：子节点的 EdgeLayer 定位到对应偏移处 */}
+      {/* 递归：子节点的 EdgeLayer 定位到对应偏移处（Grid 为二维坐标） */}
       {builder._children.map((child, index) => {
         const childStyle = getChildStyle(child);
-        const posStyle = getChildPositionStyle(childStyle, offsets[index], isHorizontal);
+        const posStyle = getChildPositionStyle(childStyle, offsets[index], isHorizontal, positions[index]);
         return (
           <div key={`edge-child-${builder._pathResolved.join('-')}-${index}`} style={posStyle}>
             <EdgeLayer builder={child} />
@@ -671,7 +700,7 @@ const CornerLayer = ({ builder }) => {
   const cornerRef = useRef(null);
   const { hoveredEdges, addHoveredEdges, removeHoveredEdges } = useHoveredEdges();
   const layout = computeBuilderLayout(builder);
-  const { style, isHorizontal, offsets, getChildStyle, containerClassName, innerClassName, innerStyle } = layout;
+  const { style, isHorizontal, isGrid, offsets, positions, getChildStyle, containerClassName, innerClassName, innerStyle } = layout;
 
   useBoxOverlayScroll(cornerRef, builder);
 
@@ -802,8 +831,9 @@ const CornerLayer = ({ builder }) => {
   const pairDisabled = (index) =>
     builder._children[index]._draggable === false && builder._children[index + 1]?._draggable === false;
 
-  // 根 box（viewport）的子 box 的 Edge 两端无 Corner，但仍需递归渲染子层的 Corner
-  const cornerHandles = builder._isViewport ? [] : builder._children.flatMap((child, index) => {
+  // 根 box（viewport）的子 box 的 Edge 两端无 Corner，Grid 单元格等尺寸不产生 Corner，
+  // 但仍需递归渲染子层的 Corner
+  const cornerHandles = (builder._isViewport || isGrid) ? [] : builder._children.flatMap((child, index) => {
     const isFirst = index === 0;
     const isLast = index === childrenCount - 1;
     const corners = [];
@@ -848,10 +878,10 @@ const CornerLayer = ({ builder }) => {
       innerStyle={innerStyle}
     >
       {cornerHandles}
-      {/* 递归：子节点的 CornerLayer 定位到对应偏移处 */}
+      {/* 递归：子节点的 CornerLayer 定位到对应偏移处（Grid 为二维坐标） */}
       {builder._children.map((child, index) => {
         const childStyle = getChildStyle(child);
-        const posStyle = getChildPositionStyle(childStyle, offsets[index], isHorizontal);
+        const posStyle = getChildPositionStyle(childStyle, offsets[index], isHorizontal, positions[index]);
         return (
           <div key={`corner-child-${builder._pathResolved.join('-')}-${index}`} style={posStyle}>
             <CornerLayer builder={child} />

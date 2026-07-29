@@ -143,6 +143,11 @@ class BoxBuilder extends Reflowable {
     return this;
   }
 
+  grid(minCellWidth, minCellHeight) {
+    this._grid = { minCellWidth, minCellHeight };
+    return this;
+  }
+
   _getMin(child, dimension) {
     return child[`_min${dimension}`];
   }
@@ -366,10 +371,41 @@ class BoxBuilder extends Reflowable {
     return { sizes, isValid: true };
   }
 
+  _performGridLayout(width, height) {
+    const { minCellWidth, minCellHeight } = this._grid;
+    const n = this._children.length;
+    // 排列方向由 box 决定：horizontal（或未定义）→ 行优先；vertical → 列优先
+    const rowMajor = this._layout !== 'vertical';
+
+    let cols, rows, cellW, cellH;
+    if (rowMajor) {
+      // 每行 ⌊W/w⌋ 个单元格并平分宽度；行平分高度，不足最小高度时溢出滚动
+      cols = Math.max(1, Math.floor(width / minCellWidth));
+      cellW = width / cols;
+      rows = Math.max(1, Math.ceil(n / cols));
+      cellH = height / rows;
+      if (cellH < minCellHeight) cellH = minCellHeight;
+    } else {
+      // 每列 ⌊H/h⌋ 个单元格并平分高度；列平分宽度，不足最小宽度时溢出滚动
+      rows = Math.max(1, Math.floor(height / minCellHeight));
+      cellH = height / rows;
+      cols = Math.max(1, Math.ceil(n / rows));
+      cellW = width / cols;
+      if (cellW < minCellWidth) cellW = minCellWidth;
+    }
+
+    this._gridMetrics = { cols, rows, cellW, cellH, rowMajor };
+    this._children.forEach(child => {
+      child._layoutWidth = cellW;
+      child._layoutHeight = cellH;
+    });
+  }
+
   _performReflow() {
     if (!this._needsReflow) return;
     this._needsReflow = false;
 
+    const isGrid = !!this._grid;
     const isHorizontal = this._layout === 'horizontal';
     const isVertical = this._layout === 'vertical';
     const isLockedX = this._moveX === false;
@@ -378,7 +414,11 @@ class BoxBuilder extends Reflowable {
     const { width, height } = this._containerSize;
     let isValid = true;
 
-    if (isHorizontal && isLockedX && this._children.length > 0 && width > 0) {
+    if (isGrid && this._children.length > 0 && width > 0 && height > 0) {
+      this._performGridLayout(width, height);
+    }
+
+    if (!isGrid && isHorizontal && isLockedX && this._children.length > 0 && width > 0) {
       const result = this._calculateLayout(width, 'Width');
       if (!result.isValid) {
         isValid = false;
@@ -389,7 +429,7 @@ class BoxBuilder extends Reflowable {
       }
     }
 
-    if (isVertical && isLockedY && this._children.length > 0 && height > 0) {
+    if (!isGrid && isVertical && isLockedY && this._children.length > 0 && height > 0) {
       const result = this._calculateLayout(height, 'Height');
       if (!result.isValid) {
         isValid = false;
@@ -400,7 +440,7 @@ class BoxBuilder extends Reflowable {
       }
     }
 
-    if (isHorizontal && isLockedY && this._children.length > 0) {
+    if (!isGrid && isHorizontal && isLockedY && this._children.length > 0) {
       const parentHeight = height > 0 ? height :
                            (this._minHeight === this._maxHeight ? this._minHeight : this._defaultHeight);
       if (parentHeight > 0) {
@@ -410,7 +450,7 @@ class BoxBuilder extends Reflowable {
       }
     }
 
-    if (isVertical && isLockedX && this._children.length > 0) {
+    if (!isGrid && isVertical && isLockedX && this._children.length > 0) {
       const parentWidth = width > 0 ? width :
                           (this._minWidth === this._maxWidth ? this._minWidth : this._defaultWidth);
       if (parentWidth > 0) {
@@ -425,7 +465,7 @@ class BoxBuilder extends Reflowable {
     const parentLockedX = this._parent && this._parent._moveX === false;
     const parentLockedY = this._parent && this._parent._moveY === false;
 
-    if (isHorizontal && isFreeX && this._children.length > 0) {
+    if (!isGrid && isHorizontal && isFreeX && this._children.length > 0) {
       const result = this._calculateFreeLayout('Width');
       let totalWidth = 0;
       this._children.forEach((child, i) => {
@@ -439,7 +479,7 @@ class BoxBuilder extends Reflowable {
       }
     }
 
-    if (isVertical && isFreeY && this._children.length > 0) {
+    if (!isGrid && isVertical && isFreeY && this._children.length > 0) {
       const result = this._calculateFreeLayout('Height');
       let totalHeight = 0;
       this._children.forEach((child, i) => {

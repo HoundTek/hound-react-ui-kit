@@ -266,6 +266,30 @@ const _builder = new BoxBuilder("@demo")
                   .fixedWidth(120)
                   .backgroundColor('#c8c8ff'),
               ]),
+
+            new BoxBuilder("@demo/main/content/gallery")
+              .fixedHeight(140)
+              .backgroundColor('#f5e6ff')
+              .moveY(true)
+              .layout('horizontal')
+              .grid(160, 60)
+              .children([
+                new BoxBuilder("@demo/main/content/gallery/cell1")
+                  .backgroundColor('#e6d0ff')
+                  .moveY(false)
+                  .moveX(false)
+                  .layout('vertical')
+                  .children([
+                    new BoxBuilder("@demo/main/content/gallery/cell1/line1")
+                      .fixedHeight(20)
+                      .backgroundColor('#d9c0f5'),
+                    new BoxBuilder("@demo/main/content/gallery/cell1/line2")
+                      .backgroundColor('#cfb0ee'),
+                  ]),
+                ...Array.from({ length: 17 }, (_, i) =>
+                  new BoxBuilder(`@demo/main/content/gallery/cell${i + 2}`)
+                    .backgroundColor(i % 2 === 0 ? '#e2d4f7' : '#d4c2f0')),
+              ]),
           ]),
 
         new BoxBuilder("@demo/main/right-panel")
