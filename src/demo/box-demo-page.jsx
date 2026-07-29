@@ -15,7 +15,9 @@ const _builder = new BoxBuilder("@demo")
       .layout('horizontal')
       .children([
         new BoxBuilder("@demo/header/logo")
-          .fixedWidth(120)
+          .minWidth(80)
+          .defaultWidth(120)
+          .maxWidth(200)
           .backgroundColor('#357abd')
           .children([
             new BoxBuilder("@demo/header/logo/inner")
@@ -26,7 +28,9 @@ const _builder = new BoxBuilder("@demo")
           .defaultWidth(400)
           .backgroundColor('#5aa0e9'),
         new BoxBuilder("@demo/header/user")
-          .fixedWidth(100)
+          .minWidth(60)
+          .defaultWidth(100)
+          .maxWidth(160)
           .backgroundColor('#357abd'),
       ]),
 
@@ -39,17 +43,23 @@ const _builder = new BoxBuilder("@demo")
       .layout('horizontal')
       .children([
         new BoxBuilder("@demo/main/sidebar")
-          .fixedWidth(200)
+          .minWidth(150)
+          .defaultWidth(200)
+          .maxWidth(320)
           .backgroundColor('#e0e0e0')
           .moveY(false)
           .moveX(false)
           .layout('vertical')
           .children([
             new BoxBuilder("@demo/main/sidebar/menu1")
-              .fixedHeight(50)
+              .minHeight(30)
+              .defaultHeight(50)
+              .maxHeight(90)
               .backgroundColor('#d0d0d0'),
             new BoxBuilder("@demo/main/sidebar/menu2")
-              .fixedHeight(50)
+              .minHeight(30)
+              .defaultHeight(50)
+              .maxHeight(90)
               .backgroundColor('#c0c0c0'),
             new BoxBuilder("@demo/main/sidebar/scroll-menu")
               .fixedHeight(150)
@@ -83,7 +93,9 @@ const _builder = new BoxBuilder("@demo")
                   .backgroundColor('#e0e0e0'),
               ]),
             new BoxBuilder("@demo/main/sidebar/menu3")
-              .fixedHeight(50)
+              .minHeight(30)
+              .defaultHeight(50)
+              .maxHeight(90)
               .backgroundColor('#c0c0c0'),
           ]),
 
@@ -293,7 +305,9 @@ const _builder = new BoxBuilder("@demo")
           ]),
 
         new BoxBuilder("@demo/main/right-panel")
-          .fixedWidth(250)
+          .minWidth(200)
+          .defaultWidth(250)
+          .maxWidth(400)
           .backgroundColor('#e8e8e8')
           .moveY(false)
           .moveX(false)
@@ -393,7 +407,9 @@ const _builder = new BoxBuilder("@demo")
           .backgroundColor('#555555')
           .draggable(false),
         new BoxBuilder("@demo/footer/social")
-          .fixedWidth(150)
+          .minWidth(100)
+          .defaultWidth(150)
+          .maxWidth(240)
           .backgroundColor('#444444'),
       ]),
   ]);
