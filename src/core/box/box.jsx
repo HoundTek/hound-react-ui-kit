@@ -39,6 +39,7 @@ class BoxBuilder extends Reflowable {
 
     this._layoutValid = true;
     this._containerSize = { width: 0, height: 0 };
+    this._showChildOverlays = true;
   }
 
   /**
@@ -240,6 +241,18 @@ class BoxBuilder extends Reflowable {
    */
   draggable(allow) {
     this._draggable = allow;
+    return this;
+  }
+
+  /**
+   * 设置是否显示下一级子 Box 的 Edge 与 Corner 覆盖层（拖拽手柄）。
+   * false 时本 Box 的 EdgeLayer/CornerLayer 不再递归渲染子层，子层的拖拽手柄全部隐藏。
+   * 本 Box 自身的分界线（直接子项间的 Edge/Corner）不受影响。
+   * @param {boolean} show 是否显示下一级覆盖层
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  showChildOverlays(show) {
+    this._showChildOverlays = show;
     return this;
   }
 

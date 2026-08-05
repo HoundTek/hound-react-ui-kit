@@ -683,6 +683,9 @@ const EdgeLayer = ({ builder }) => {
   // 无子节点或布局未稳定时跳过渲染
   if (builder._children.length === 0 || !builder._layoutValid) return null;
 
+  // _showChildOverlays 为 false 时本层 Edge 完全不渲染（含自身分界线与递归子层）
+  if (builder._showChildOverlays === false) return null;
+
   const EDGE_SIZE = 10;
   const EDGE_COLOR = 'rgba(255, 100, 50, 0.7)';
 
@@ -814,7 +817,8 @@ const EdgeLayer = ({ builder }) => {
     >
       {edgeHandles}
       {/* 递归：子节点的 EdgeLayer 定位到对应偏移处（Grid 为二维坐标） */}
-      {builder._children.map((child, index) => {
+      {/* _showChildOverlays 为 false 时不递归渲染子层 Edge，隐藏下一级拖拽手柄 */}
+      {builder._showChildOverlays && builder._children.map((child, index) => {
         const childStyle = getChildStyle(child);
         const posStyle = getChildPositionStyle(childStyle, offsets[index], isHorizontal, positions[index]);
         return (
@@ -847,6 +851,9 @@ const CornerLayer = ({ builder }) => {
 
   // 无子节点或布局未稳定时跳过渲染
   if (builder._children.length === 0 || !builder._layoutValid) return null;
+
+  // _showChildOverlays 为 false 时本层 Corner 完全不渲染（含自身角点与递归子层）
+  if (builder._showChildOverlays === false) return null;
 
   const CORNER_SIZE = 12;
   const CORNER_COLOR = 'rgba(255, 50, 100, 0.8)';
@@ -1051,7 +1058,8 @@ const CornerLayer = ({ builder }) => {
     >
       {cornerHandles}
       {/* 递归：子节点的 CornerLayer 定位到对应偏移处（Grid 为二维坐标） */}
-      {builder._children.map((child, index) => {
+      {/* _showChildOverlays 为 false 时不递归渲染子层 Corner，隐藏下一级拖拽手柄 */}
+      {builder._showChildOverlays && builder._children.map((child, index) => {
         const childStyle = getChildStyle(child);
         const posStyle = getChildPositionStyle(childStyle, offsets[index], isHorizontal, positions[index]);
         return (
