@@ -1,6 +1,14 @@
+/**
+ * @file Box 演示页。以链式 API 构建一棵完整的布局树（header / main / footer，
+ *        含侧栏、卡片、滚动列表、横向滚动、网格画廊等），并导出三层渲染组件。
+ */
 import React from 'react';
 import BoxBuilder from '../core/box/box';
 
+/**
+ * 演示页布局树根 builder。viewport 锁定双轴，纵向排列三大区域。
+ * @type {BoxBuilder}
+ */
 const _builder = new BoxBuilder("@demo")
   .viewport()
   .layout('vertical')
@@ -109,7 +117,7 @@ const _builder = new BoxBuilder("@demo")
             new BoxBuilder("@demo/main/content/title")
               .fixedHeight(40)
               .backgroundColor('#ffe4c4'),
-            
+
             new BoxBuilder("@demo/main/content/cards")
               .fixedHeight(120)
               .backgroundColor('#fffacd')
@@ -416,8 +424,11 @@ const _builder = new BoxBuilder("@demo")
       ]),
   ]);
 
+/** 演示页内容层组件 */
 const DemoPageContent = () => _builder.reactContent();
+/** 演示页边覆盖层组件 */
 const DemoPageEdge = () => _builder.reactEdge();
+/** 演示页角覆盖层组件 */
 const DemoPageCorner = () => _builder.reactCorner();
 
 export { DemoPageContent, DemoPageEdge, DemoPageCorner };

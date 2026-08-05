@@ -1,24 +1,36 @@
-// 拖拽调整尺寸的纯逻辑（无 React 依赖）
-// - resolveContainerDrag：就近原则的分配算法
-// - getDraggableEdgeId：start/end 边向外解析重合的 handle 边
-// - commitContainerRatios：拖拽结束后记录实际比例，更新尺寸分配比
+/**
+ * @file 拖拽调整尺寸的纯逻辑（无 React 依赖）。
+ *        - resolveContainerDrag：就近原则的分配算法
+ *        - getDraggableEdgeId：start/end 边向外解析重合的 handle 边
+ *        - commitContainerRatios：拖拽结束后记录实际比例，更新尺寸分配比
+ */
 
+/**
+ * 把任意值安全转为有限数，非有限数返回 0
+ * @param {*} v 输入值
+ * @returns {number} 有限数值
+ */
 const safeNum = (v) => (typeof v === 'number' && !isNaN(v) && isFinite(v)) ? v : 0;
 
+/**
+ * 由 box 路径与边类型构造唯一边 id
+ * @param {BoxBuilder} box 边所属 box
+ * @param {'start'|'end'|'handle'} side 边类型
+ * @returns {string} 形如 `@path/to/box:side` 的边 id
+ */
 const makeEdgeId = (box, side) => `${box._path}:${side}`;
 
 /**
  * resolveContainerDrag — 就近原则：分界线两侧从近到远吸收调整量
  *
- * @param children  BoxBuilder 数组
- * @param dividerIndex  分界线左侧最后一个 child 的下标（k 与 k+1 之间）
- * @param delta  期望位移，> 0 表示分界线向 end 方向移动
- * @param dim  'Width' | 'Height'
- * @param baseSizes  拖拽起始时的尺寸快照（缺省取当前 _layout 尺寸）
- * @param containerSize  容器主轴尺寸；明显大于内容总尺寸时，末端空隙作为 [0, +∞) 的
- *                       虚拟 child 参与调整（未填满容器的 slack）；空隙不超过拟合误差
- *                       容差（max(1, child 数)）时视为已填满，slack 不参与调整
- * @returns 新尺寸数组：容器尺寸守恒、满足全部 min/max、_draggable === false 的 child 冻结
+ * @param {BoxBuilder[]} children BoxBuilder 数组
+ * @param {number} dividerIndex 分界线左侧最后一个 child 的下标（k 与 k+1 之间）
+ * @param {number} delta 期望位移，> 0 表示分界线向 end 方向移动
+ * @param {'Width'|'Height'} dim 维度
+ * @param {number[]|null} [baseSizes] 拖拽起始时的尺寸快照（缺省取当前 _layout 尺寸）
+ * @param {number|null} [containerSize] 容器主轴尺寸；明显大于内容总尺寸时，末端空隙作为 [0, +∞) 的
+ *   虚拟 child 参与调整（未填满容器的 slack）；空隙不超过拟合误差容差（max(1, child 数)）时视为已填满，slack 不参与调整
+ * @returns {number[]} 新尺寸数组：容器尺寸守恒、满足全部 min/max、_draggable === false 的 child 冻结
  */
 function resolveContainerDrag(children, dividerIndex, delta, dim, baseSizes = null, containerSize = null) {
   const sizeKey = `_layout${dim}`;
@@ -97,7 +109,9 @@ function resolveContainerDrag(children, dividerIndex, delta, dim, baseSizes = nu
  * - 方向不同的层：无平行边，仅靠交叉轴拉伸保持位置对齐，直接穿过
  * - 沿途任一层沿边法线方向滚动开启即失配；到达 viewport 边界返回 null
  *
- * @returns 重合的 handle 边 id（可拖拽）；不可拖拽返回 null
+ * @param {BoxBuilder} box 边所属 box
+ * @param {'start'|'end'} side 边类型
+ * @returns {string|null} 重合的 handle 边 id（可拖拽）；不可拖拽返回 null
  */
 function getDraggableEdgeId(box, side) {
   const builder = box._parent;
@@ -109,7 +123,11 @@ function getDraggableEdgeId(box, side) {
   const dimKey = isHorizontal ? 'width' : 'height';
   const layoutKey = isHorizontal ? '_layoutWidth' : '_layoutHeight';
 
-  // 该层内容在主轴（即边的法线方向）上是否填满到 box 末端
+  /**
+   * 该层内容在主轴（即边的法线方向）上是否填满到 box 末端
+   * @param {BoxBuilder} container 容器
+   * @returns {boolean} 是否填满到末端（容差 max(1, child 数)）
+   */
   const isMainFilledToEnd = (container) => {
     const boxSize = safeNum(container._containerSize?.[dimKey]);
     const contentSize = container._children.reduce((sum, c) => sum + safeNum(c[layoutKey]), 0);
@@ -155,6 +173,9 @@ function getDraggableEdgeId(box, side) {
 /**
  * commitContainerRatios — 记录最终实际比例，更新尺寸分配比
  * 把容器内每个 child 的实际占比写入 _ratio{dim}，供 _calculateLayout 作为目标值
+ * @param {BoxBuilder} container 容器
+ * @param {'Width'|'Height'} dim 维度
+ * @param {boolean} [requestReflow=true] 是否在提交后触发一次 reflow
  */
 function commitContainerRatios(container, dim, requestReflow = true) {
   const dimKey = dim.toLowerCase();

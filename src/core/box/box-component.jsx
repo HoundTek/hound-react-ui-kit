@@ -1,3 +1,8 @@
+/**
+ * @file Box 三层 React 组件实现。ContentLayer 承担布局与子项渲染，
+ *        EdgeLayer/CornerLayer 为绝对定位覆盖层，负责拖拽分界线与双轴交点。
+ *        模块级维护拖拽会话、滚动同步注册表与动画监听，跨组件共享。
+ */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { reflowScheduler, animateReflow, pickAnimatable } from './scheduler';
 import FloatingScrollbar from './floating-scrollbar';
@@ -36,11 +41,19 @@ if (typeof document !== 'undefined' && !document.getElementById('box-drag-styles
 let _animCount = 0;
 const _animListeners = new Set();
 
+/**
+ * 订阅 reflow 动画状态变化（开始/结束计数变化时触发）
+ * @param {() => void} listener 监听回调
+ * @returns {() => void} 取消订阅函数
+ */
 function subscribeToAnimChanges(listener) {
   _animListeners.add(listener);
   return () => _animListeners.delete(listener);
 }
 
+/**
+ * 通知所有动画状态监听者
+ */
 function _notifyAnimListeners() {
   _animListeners.forEach(cb => cb());
 }
@@ -50,7 +63,10 @@ function _notifyAnimListeners() {
 // axis 为 'x' 时鼠标横向位移驱动（竖直边，调 Width），为 'y' 时反之
 let _dragSession = null;
 
-// 标记整棵 builder 树需要 reflow（拖拽期间替代 ResizeObserver 的逐轮驱动）
+/**
+ * 标记整棵 builder 树需要 reflow（拖拽期间替代 ResizeObserver 的逐轮驱动）
+ * @param {BoxBuilder} builder 起始节点
+ */
 function markNeedsReflow(builder) {
   builder._needsReflow = true;
   builder._children.forEach(markNeedsReflow);
@@ -60,6 +76,11 @@ function markNeedsReflow(builder) {
  * 把一条边解析为可拖拽目标
  * handle 边直接在所属容器拖拽；start/end 边先向外解析重合的 handle 边
  * 容器主轴非锁定（可滚动或未设置）时不可拖，返回 null
+ * @param {BoxBuilder} rootBuilder 根 builder（用于按路径解析重合边）
+ * @param {BoxBuilder} box 边所属 box
+ * @param {'start'|'end'|'handle'} side 边类型
+ * @returns {{container: BoxBuilder, dividerIndex: number, dim: 'Width'|'Height', axis: 'x'|'y', edgeId: string}|null}
+ *   可拖拽目标；不可拖拽返回 null
  */
 function resolveDragTarget(rootBuilder, box, side) {
   let targetBox = box;
@@ -91,6 +112,14 @@ function resolveDragTarget(rootBuilder, box, side) {
   };
 }
 
+/**
+ * 开启拖拽会话：记录起始快照，注册全局 mousemove/mouseup，
+ * 移动时按就近原则重分配尺寸并同步 reflow，结束时提交比例并触发正式 reflow
+ * @param {Array} targets resolveDragTarget 返回的目标数组
+ * @param {string[]} edgeIds 需高亮的边 id 列表
+ * @param {React.MouseEvent} event 触发事件
+ * @param {{addHoveredEdges: Function, removeHoveredEdges: Function}} hover 悬停状态操作接口
+ */
 function startDragSession(targets, edgeIds, event, hover) {
   if (_dragSession || targets.length === 0) return;
   event.preventDefault();
@@ -147,8 +176,23 @@ function startDragSession(targets, edgeIds, event, hover) {
   document.addEventListener('mouseup', onUp);
 }
 
+/**
+ * 把任意值安全转为有限数，非有限数返回 0
+ * @param {*} v 输入值
+ * @returns {number} 有限数值
+ */
 const safeNum = (v) => (typeof v === 'number' && !isNaN(v) && isFinite(v)) ? v : 0;
 
+/**
+ * 由 builder 计算内容层/覆盖层所需的布局样式与子项定位信息
+ * @param {BoxBuilder} builder 当前层 builder
+ * @returns {{
+ *   style: Object, flexDirection: string, isHorizontal: boolean, isGrid: boolean,
+ *   getChildStyle: Function, offsets: number[], positions: Array<Object|null>,
+ *   containerClassName: string, innerClassName: string, innerStyle: Object,
+ *   computedWidth: string|number, computedHeight: string|number
+ * }} 布局相关样式与定位信息
+ */
 function computeBuilderLayout(builder) {
   let width = 'auto';
   let height = 'auto';
@@ -279,20 +323,39 @@ function computeBuilderLayout(builder) {
 // === 滚动同步注册表（模块级，跨组件共享） ===
 const _contentRefRegistry = {};
 
+/**
+ * 登记内容层容器 ref，供覆盖层（Edge/Corner）双向同步滚动
+ * @param {string} path builder 路径
+ * @param {React.RefObject} ref 容器 ref
+ */
 function registerContentRef(path, ref) {
   _contentRefRegistry[path] = ref;
 }
 
+/**
+ * 注销内容层容器 ref
+ * @param {string} path builder 路径
+ */
 function unregisterContentRef(path) {
   delete _contentRefRegistry[path];
 }
 
+/**
+ * 取内容层容器 ref
+ * @param {string} path builder 路径
+ * @returns {React.RefObject|undefined} 容器 ref
+ */
 function getContentRef(path) {
   return _contentRefRegistry[path];
 }
 
 // === 工具函数（无 hook，纯计算）===
 
+/**
+ * 由内容层样式派生覆盖层样式：绝对定位、透明背景、不接收指针事件
+ * @param {Object} style 内容层样式
+ * @returns {Object} 覆盖层样式
+ */
 function getOverlayStyle(style) {
   return {
     ...style,
@@ -304,6 +367,14 @@ function getOverlayStyle(style) {
   };
 }
 
+/**
+ * 计算子项在覆盖层中的绝对定位样式。Grid 用二维 position；其余按主轴 offset 一维排列
+ * @param {Object} childStyle 子项基础样式（取 width/height）
+ * @param {number} offset 主轴累计偏移
+ * @param {boolean} isHorizontal 是否水平排列
+ * @param {{left: number, top: number}|null} position Grid 二维坐标；非 Grid 时为 null
+ * @returns {Object} 绝对定位样式对象
+ */
 function getChildPositionStyle(childStyle, offset, isHorizontal, position) {
   if (position) {
     return {
@@ -501,6 +572,20 @@ function useBoxOverlayScroll(layerRef, builder) {
 }
 
 // === 公共布局框架组件 ===
+/**
+ * 三层共用的布局框架。外层 div（容器，绑定 ref 与容器样式）包裹内层 div（inner，
+ * 承载子项与布局方向），可选 wrapper 用于相对定位包裹；extra 渲染附加节点（如浮动滚动条）
+ * @param {Object} props 组件属性
+ * @param {React.RefObject} props.containerRef 容器 ref
+ * @param {string} props.containerClassName 容器类名
+ * @param {Object} props.containerStyle 容器样式
+ * @param {string} props.innerClassName 内层类名
+ * @param {Object} props.innerStyle 内层样式
+ * @param {Object} [props.wrapperStyle] 外层包裹样式（提供时多套一层 div）
+ * @param {React.ReactNode} props.children 子节点
+ * @param {React.ReactNode} [props.extra] 附加节点
+ * @returns {JSX.Element} 框架元素
+ */
 const BoxLayerFrame = ({ containerRef, containerClassName, containerStyle, innerClassName, innerStyle, wrapperStyle, children, extra }) => {
   const frame = (
     <div ref={containerRef} className={containerClassName} style={containerStyle}>
@@ -516,6 +601,13 @@ const BoxLayerFrame = ({ containerRef, containerClassName, containerStyle, inner
 // ===========================================================================
 //  第一层：Box 内容
 // ===========================================================================
+/**
+ * 内容层组件。承担实际布局：监听容器/视口尺寸变化触发 reflow，渲染子项，
+ * 并对 reflow 产生的尺寸变化做过渡动画。布局非法时渲染错误占位。
+ * @param {Object} props 组件属性
+ * @param {BoxBuilder} props.builder 当前层 builder
+ * @returns {JSX.Element} 内容层元素
+ */
 const ContentLayer = ({ builder }) => {
   const { containerRef, childRefs, layout } = useBoxContent(builder);
   const { style, getChildStyle, isHorizontal, isGrid, offsets, positions, containerClassName, innerClassName, innerStyle } = layout;
@@ -573,6 +665,13 @@ const ContentLayer = ({ builder }) => {
 // ===========================================================================
 //  第二层：边界（覆盖层，无布局干预）
 // ===========================================================================
+/**
+ * 边覆盖层组件。绝对定位叠在内容层之上，渲染子项间的拖拽分界线（start/handle/end 边），
+ * 按需递归渲染子层的边。无子项或布局未稳定时不渲染。滚动位置与内容层双向同步。
+ * @param {Object} props 组件属性
+ * @param {BoxBuilder} props.builder 当前层 builder
+ * @returns {JSX.Element|null} 边覆盖层元素；无可渲染内容时返回 null
+ */
 const EdgeLayer = ({ builder }) => {
   const edgeRef = useRef(null);
   const { hoveredEdges, addHoveredEdge, removeHoveredEdge, addHoveredEdges, removeHoveredEdges } = useHoveredEdges();
@@ -596,6 +695,14 @@ const EdgeLayer = ({ builder }) => {
     startDragSession([target], ids, e, { addHoveredEdges, removeHoveredEdges });
   };
 
+  /**
+   * 渲染一条 start/end 边的拖拽手柄
+   * @param {BoxBuilder} box 边所属 box
+   * @param {'start'|'end'} side 边类型
+   * @param {boolean} isStart 是否为起始边
+   * @param {number} offset 主轴偏移
+   * @returns {JSX.Element} 边手柄元素
+   */
   const renderEdge = (box, side, isStart, offset) => {
     const edgeId = makeEdgeId(box, side);
     const isHovered = hoveredEdges.has(edgeId);
@@ -634,6 +741,12 @@ const EdgeLayer = ({ builder }) => {
     );
   };
 
+  /**
+   * 渲染相邻子项之间的 handle 拖拽手柄
+   * @param {BoxBuilder} box 左侧/上侧的 box
+   * @param {number} offset 主轴偏移
+   * @returns {JSX.Element} handle 手柄元素
+   */
   const renderHandle = (box, offset) => {
     const edgeId = makeEdgeId(box, 'handle');
     const isHovered = hoveredEdges.has(edgeId);
@@ -717,6 +830,13 @@ const EdgeLayer = ({ builder }) => {
 // ===========================================================================
 //  第三层：节点（覆盖层，仅嵌套层渲染）
 // ===========================================================================
+/**
+ * 角覆盖层组件。渲染主轴边与交叉轴边相交的角点，按下时同时解析两条相交边为
+ * 可拖拽目标，实现双轴同步调整。根 viewport 与 Grid 层不产生角点，但仍递归子层。
+ * @param {Object} props 组件属性
+ * @param {BoxBuilder} props.builder 当前层 builder
+ * @returns {JSX.Element|null} 角覆盖层元素；无可渲染内容时返回 null
+ */
 const CornerLayer = ({ builder }) => {
   const cornerRef = useRef(null);
   const { hoveredEdges, addHoveredEdges, removeHoveredEdges } = useHoveredEdges();
@@ -732,6 +852,13 @@ const CornerLayer = ({ builder }) => {
   const CORNER_COLOR = 'rgba(255, 50, 100, 0.8)';
 
   // 返回 [{ id, box, side }]，悬停用 id，拖拽用 box/side 解析目标
+  /**
+   * 收集角点关联的边：当前层主轴边 + 沿交叉轴向外解析到的重合边
+   * @param {BoxBuilder} box 主轴边所属 box
+   * @param {'start'|'end'|'handle'} side 主轴边类型
+   * @param {'top'|'bottom'|'left'|'right'} crossSide 交叉轴方向
+   * @returns {Array<{id: string, box: BoxBuilder, side: string}>} 关联边列表
+   */
   const getCornerEdges = (box, side, crossSide) => {
     const edges = [{ id: makeEdgeId(box, side), box, side }];
 
@@ -788,9 +915,24 @@ const CornerLayer = ({ builder }) => {
     return edges;
   };
 
+  /**
+   * 取角点关联边的 id 列表
+   * @param {BoxBuilder} box 主轴边所属 box
+   * @param {'start'|'end'|'handle'} side 主轴边类型
+   * @param {'top'|'bottom'|'left'|'right'} crossSide 交叉轴方向
+   * @returns {string[]} 关联边 id 列表
+   */
   const getCornerEdgeIds = (box, side, crossSide) => getCornerEdges(box, side, crossSide).map(e => e.id);
 
   // 鼠标按下：Corner 的两条相交边各自解析为可拖拽目标，双轴同时调整
+  /**
+   * 角点按下处理：两条相交边各自解析为可拖拽目标，合并高亮 id 后开启拖拽会话
+   * @param {BoxBuilder} box 主轴边所属 box
+   * @param {'start'|'end'|'handle'} side 主轴边类型
+   * @param {'top'|'bottom'|'left'|'right'} crossSide 交叉轴方向
+   * @param {string[]} edgeIds 关联边 id 列表
+   * @param {React.MouseEvent} e 触发事件
+   */
   const handleCornerMouseDown = (box, side, crossSide, edgeIds, e) => {
     if (e.button !== 0) return;
     const targets = [];
@@ -809,6 +951,14 @@ const CornerLayer = ({ builder }) => {
     startDragSession(targets, highlightIds, e, { addHoveredEdges, removeHoveredEdges });
   };
 
+  /**
+   * 渲染一个角点手柄
+   * @param {BoxBuilder} box 主轴边所属 box
+   * @param {'start'|'end'|'handle'} side 主轴边类型
+   * @param {'top'|'bottom'|'left'|'right'} crossSide 交叉轴方向
+   * @param {number} offset 主轴偏移
+   * @returns {JSX.Element} 角点手柄元素
+   */
   const renderCorner = (box, side, crossSide, offset) => {
     const edgeIds = getCornerEdgeIds(box, side, crossSide);
     const isHovered = edgeIds.some(e => hoveredEdges.has(e));

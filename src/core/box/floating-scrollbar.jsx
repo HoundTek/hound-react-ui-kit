@@ -1,9 +1,25 @@
+/**
+ * @file 浮动滚动条组件。为 Box 容器提供悬浮显示、可拖拽滑块、可点击轨道的
+ *        自定义滚动条，支持垂直/水平两个方向，按需显示（悬停/滚动中）。
+ */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
+/** 滑块粗细（px） */
 const BAR_SIZE = 6;
+/** 滑块最小长度（px） */
 const MIN_THUMB = 28;
+/** 轨道上下/左右内边距（px） */
 const INSET = 12;
 
+/**
+ * 滚动跟踪 hook。监听容器滚动与尺寸变化，计算滑块位置/大小、是否有滚动、是否滚动中
+ * @param {React.RefObject<HTMLElement>} containerRef 容器 ref
+ * @param {boolean} isVertical 是否垂直方向
+ * @returns {{
+ *   thumbPos: number, thumbSize: number, hasScroll: boolean,
+ *   isScrolling: boolean, thumbSizeRef: React.MutableRefObject<number>
+ * }} 滑块位置、大小、滚动状态及滑块大小 ref（供拖拽时读取最新值）
+ */
 function useScrollTracking(containerRef, isVertical) {
   const [thumbPos, setThumbPos] = useState(0);
   const [thumbSize, setThumbSize] = useState(MIN_THUMB);
@@ -12,6 +28,9 @@ function useScrollTracking(containerRef, isVertical) {
   const thumbSizeRef = useRef(MIN_THUMB);
   const scrollTimerRef = useRef(null);
 
+  /**
+   * 依据容器当前 scroll 位置与内容/视口尺寸刷新滑块位置/大小与 hasScroll
+   */
   const update = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -47,6 +66,9 @@ function useScrollTracking(containerRef, isVertical) {
     }
   }, [containerRef, isVertical]);
 
+  /**
+   * 滚动事件处理：置为滚动中，刷新滑块；停止滚动 1s 后复位
+   */
   const handleScroll = useCallback(() => {
     setIsScrolling(true);
     if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
@@ -71,6 +93,13 @@ function useScrollTracking(containerRef, isVertical) {
   return { thumbPos, thumbSize, hasScroll, isScrolling, thumbSizeRef };
 }
 
+/**
+ * 浮动滚动条组件。按容器悬停/滚动中状态显示，支持滑块拖拽与轨道点击跳转
+ * @param {Object} props 组件属性
+ * @param {React.RefObject<HTMLElement>} props.containerRef 监听的容器 ref
+ * @param {'vertical'|'horizontal'} [props.orientation='vertical'] 方向
+ * @returns {JSX.Element} 滚动条元素
+ */
 const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
   const isVertical = orientation === 'vertical';
   const { thumbPos, thumbSize, hasScroll, isScrolling, thumbSizeRef } = useScrollTracking(containerRef, isVertical);
@@ -96,6 +125,11 @@ const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
     };
   }, [containerRef]);
 
+  /**
+   * 滑块拖拽起始：记录起始指针位置与滚动量，注册全局 mousemove/mouseup，
+   * 移动时按轨道/内容尺寸比换算为容器滚动位置
+   * @param {React.MouseEvent} e 拖拽起始事件
+   */
   const startDrag = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -139,6 +173,11 @@ const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
     document.addEventListener('mouseup', onUp);
   }, [containerRef, isVertical, thumbSizeRef]);
 
+  /**
+   * 轨道点击：将点击位置换算为容器滚动位置（跳转），随后自动进入拖拽模式，
+   * 便于点击后继续拖动滑块
+   * @param {React.MouseEvent} e 点击事件
+   */
   const handleTrackClick = useCallback((e) => {
     if (e.target === thumbRef.current) return;
     const el = containerRef.current;

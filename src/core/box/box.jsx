@@ -1,8 +1,20 @@
+/**
+ * @file Box 布局构建器。BoxBuilder 以链式 API 描述一棵可嵌套的布局树，
+ *        负责尺寸约束建模与 reflow 计算；React 渲染由 box-component 中的三层组件承担。
+ */
 import React from 'react';
 import { Reflowable, reflowScheduler } from './scheduler';
 import { ContentLayer, EdgeLayer, CornerLayer } from './box-component';
 
+/**
+ * Box 布局构建器。继承 Reflowable 获得 reflow 调度能力，通过链式方法配置尺寸约束、
+ * 排列方向、滚动开关等属性，最终由 reactContent/reactEdge/reactCorner 产出三层 React 元素。
+ * 路径以 `@` 开头表示绝对路径（如 `@demo/header/logo`），`_pathResolved` 为去掉前缀后的段数组。
+ */
 class BoxBuilder extends Reflowable {
+  /**
+   * @param {string} path Box 路径，`@` 开头为绝对路径，用 `/` 分隔层级
+   */
   constructor(path) {
     super();
     this._path = path;
@@ -29,58 +41,113 @@ class BoxBuilder extends Reflowable {
     this._containerSize = { width: 0, height: 0 };
   }
 
+  /**
+   * 设置最大宽度（标记为显式设置）
+   * @param {number} width 最大宽度（px）
+   * @returns {BoxBuilder} self（链式调用）
+   */
   maxWidth(width) {
     this._maxWidth = width;
     this._explicitMaxWidth = true;
     return this;
   }
 
+  /**
+   * 设置最大高度（标记为显式设置）
+   * @param {number} height 最大高度（px）
+   * @returns {BoxBuilder} self（链式调用）
+   */
   maxHeight(height) {
     this._maxHeight = height;
     this._explicitMaxHeight = true;
     return this;
   }
 
+  /**
+   * 设置最小宽度（标记为显式设置）
+   * @param {number} width 最小宽度（px）
+   * @returns {BoxBuilder} self（链式调用）
+   */
   minWidth(width) {
     this._minWidth = width;
     this._explicitMinWidth = true;
     return this;
   }
 
+  /**
+   * 设置最小高度（标记为显式设置）
+   * @param {number} height 最小高度（px）
+   * @returns {BoxBuilder} self（链式调用）
+   */
   minHeight(height) {
     this._minHeight = height;
     this._explicitMinHeight = true;
     return this;
   }
 
+  /**
+   * 设置默认宽度（reflow 时的目标尺寸，未指定 min/max 时作为初始值）
+   * @param {number} width 默认宽度（px）
+   * @returns {BoxBuilder} self（链式调用）
+   */
   defaultWidth(width) {
     this._defaultWidth = width;
     return this;
   }
 
+  /**
+   * 设置默认高度（reflow 时的目标尺寸，未指定 min/max 时作为初始值）
+   * @param {number} height 默认高度（px）
+   * @returns {BoxBuilder} self（链式调用）
+   */
   defaultHeight(height) {
     this._defaultHeight = height;
     return this;
   }
 
+  /**
+   * 固定宽度：等价于 maxWidth(w).minWidth(w)
+   * @param {number} width 固定宽度（px）
+   * @returns {BoxBuilder} self（链式调用）
+   */
   fixedWidth(width) {
     return this.maxWidth(width).minWidth(width);
   }
 
+  /**
+   * 固定高度：等价于 maxHeight(h).minHeight(h)
+   * @param {number} height 固定高度（px）
+   * @returns {BoxBuilder} self（链式调用）
+   */
   fixedHeight(height) {
     return this.maxHeight(height).minHeight(height);
   }
 
+  /**
+   * 设置背景色
+   * @param {string} color CSS 颜色值
+   * @returns {BoxBuilder} self（链式调用）
+   */
   backgroundColor(color) {
     this._backgroundColor = color;
     return this;
   }
 
+  /**
+   * 设置该 Box 的自定义内容（React 节点）；设置后不再递归渲染子 Box 的内容层
+   * @param {React.ReactNode} content 自定义内容
+   * @returns {BoxBuilder} self（链式调用）
+   */
   content(content) {
     this._content = content;
     return this;
   }
 
+  /**
+   * 设置子 Box 列表，建立父子关系与按段名索引的 childrenMap
+   * @param {BoxBuilder[]} childrenBox 子 Box 数组
+   * @returns {BoxBuilder} self（链式调用）
+   */
   children(childrenBox) {
     this._children = childrenBox;
     this._children.forEach((child, index) => {
@@ -90,13 +157,21 @@ class BoxBuilder extends Reflowable {
     return this;
   }
 
-  // 根节点沿 _parent 链上溯求值（建树顺序不影响正确性）
+  /**
+   * 根节点：沿 _parent 链上溯求值（建树顺序不影响正确性）
+   * @returns {BoxBuilder} 根 BoxBuilder
+   */
   get _root() {
     let node = this;
     while (node._parent) node = node._parent;
     return node;
   }
 
+  /**
+   * 按路径取相对节点。支持 `.`（自身）、`..`（父级）、`@`（根）及 `/` 分隔的段名
+   * @param {string} path 相对/绝对路径
+   * @returns {BoxBuilder|null} 命中节点；不存在返回 null
+   */
   get(path) {
     if (path === '.') return this;
     if (path === '..') return this._parent || null;
@@ -118,69 +193,147 @@ class BoxBuilder extends Reflowable {
     return node;
   }
 
+  /**
+   * 设置排列方向
+   * @param {'horizontal'|'vertical'} layoutType 排列方向
+   * @returns {BoxBuilder} self（链式调用）
+   */
   layout(layoutType) {
     this._layout = layoutType;
     return this;
   }
 
+  /**
+   * 设置交叉轴对齐方式（透传到 React 层 alignItems）
+   * @param {string} alignment CSS align-items 值
+   * @returns {BoxBuilder} self（链式调用）
+   */
   alignItems(alignment) {
     this._alignItems = alignment;
     return this;
   }
 
+  /**
+   * 设置 X 轴滚动开关。true=自由滚动（内容可超出容器）、false=锁定（容器尺寸约束子项）、undefined=未设置
+   * @param {boolean} allow 是否允许滚动
+   * @returns {BoxBuilder} self（链式调用）
+   */
   moveX(allow) {
     this._moveX = allow;
     return this;
   }
 
+  /**
+   * 设置 Y 轴滚动开关。true=自由滚动、false=锁定、undefined=未设置
+   * @param {boolean} allow 是否允许滚动
+   * @returns {BoxBuilder} self（链式调用）
+   */
   moveY(allow) {
     this._moveY = allow;
     return this;
   }
 
+  /**
+   * 设置该 Box 是否可拖拽调整尺寸（false 时其相邻分界线不产生拖拽手柄）
+   * @param {boolean} allow 是否可拖拽
+   * @returns {BoxBuilder} self（链式调用）
+   */
   draggable(allow) {
     this._draggable = allow;
     return this;
   }
 
+  /**
+   * 标记为视口根节点（尺寸取 100vw/100vh，并向 reflowScheduler 注册为 reflow 根）
+   * @returns {BoxBuilder} self（链式调用）
+   */
   viewport() {
     this._isViewport = true;
     return this;
   }
 
+  /**
+   * 启用网格布局，按最小单元格尺寸自动排列子项
+   * @param {number} minCellWidth 最小单元格宽（px）
+   * @param {number} minCellHeight 最小单元格高（px）
+   * @returns {BoxBuilder} self（链式调用）
+   */
   grid(minCellWidth, minCellHeight) {
     this._grid = { minCellWidth, minCellHeight };
     return this;
   }
 
+  /**
+   * 取子项在指定维度上的最小尺寸
+   * @param {BoxBuilder} child 子项
+   * @param {'Width'|'Height'} dimension 维度
+   * @returns {number} 最小尺寸
+   */
   _getMin(child, dimension) {
     return child[`_min${dimension}`];
   }
 
+  /**
+   * 取子项在指定维度上的最大尺寸
+   * @param {BoxBuilder} child 子项
+   * @param {'Width'|'Height'} dimension 维度
+   * @returns {number} 最大尺寸
+   */
   _getMax(child, dimension) {
     return child[`_max${dimension}`];
   }
 
+  /**
+   * 取子项在指定维度上的默认尺寸
+   * @param {BoxBuilder} child 子项
+   * @param {'Width'|'Height'} dimension 维度
+   * @returns {number|null} 默认尺寸；未设置返回 null
+   */
   _getDefault(child, dimension) {
     return child[`_default${dimension}`];
   }
 
+  /**
+   * 子项在指定维度上是否设置了默认尺寸
+   * @param {BoxBuilder} child 子项
+   * @param {'Width'|'Height'} dimension 维度
+   * @returns {boolean} 是否设置默认尺寸
+   */
   _hasDefault(child, dimension) {
     return child[`_default${dimension}`] !== null;
   }
 
+  /**
+   * 子项在指定维度上是否同时显式设置了 min 与 max
+   * @param {BoxBuilder} child 子项
+   * @param {'Width'|'Height'} dimension 维度
+   * @returns {boolean} 是否显式设置了 min 与 max
+   */
   _hasExplicitMinMax(child, dimension) {
     const minKey = `_explicitMin${dimension}`;
     const maxKey = `_explicitMax${dimension}`;
     return child[minKey] === true && child[maxKey] === true;
   }
 
+  /**
+   * 子项在指定维度上是否为固定尺寸（min === max）
+   * @param {BoxBuilder} child 子项
+   * @param {'Width'|'Height'} dimension 维度
+   * @returns {boolean} 是否固定尺寸
+   */
   _isFixed(child, dimension) {
     const min = child[`_min${dimension}`];
     const max = child[`_max${dimension}`];
     return min === max;
   }
 
+  /**
+   * 锁定主轴上的布局计算：在给定容器尺寸下，按 min/max/default/ratio 求解
+   * 各子项尺寸（min/max 守恒，非固定项按比例/默认/中值分配，剩余空间用 λ 二分拟合）
+   * @param {number} containerSize 容器在主轴上的尺寸
+   * @param {'Width'|'Height'} dimension 维度
+   * @returns {{sizes: number[], isValid: boolean, error?: boolean}} 各子项尺寸数组与合法性
+   */
   _calculateLayout(containerSize, dimension) {
     const minKey = `_min${dimension}`;
     const maxKey = `_max${dimension}`;
@@ -351,6 +504,12 @@ class BoxBuilder extends Reflowable {
     return { sizes, isValid: true };
   }
 
+  /**
+   * 自由滚动主轴上的布局计算：不受容器尺寸约束，各子项按
+   * default > (min+max)/2 > min > max > 0 的优先级取目标尺寸
+   * @param {'Width'|'Height'} dimension 维度
+   * @returns {{sizes: number[], isValid: boolean}} 各子项尺寸数组（恒为合法）
+   */
   _calculateFreeLayout(dimension) {
     const sizes = [];
     const min = `_min${dimension}`;
@@ -380,6 +539,12 @@ class BoxBuilder extends Reflowable {
     return { sizes, isValid: true };
   }
 
+  /**
+   * 执行网格布局：按 minCellWidth/minCellHeight 计算行列数与单元格尺寸，
+   * 结果写入 _gridMetrics 并设置各子项的 _layoutWidth/_layoutHeight
+   * @param {number} width 容器宽
+   * @param {number} height 容器高
+   */
   _performGridLayout(width, height) {
     const { minCellWidth, minCellHeight } = this._grid;
     const n = this._children.length;
@@ -410,6 +575,11 @@ class BoxBuilder extends Reflowable {
     });
   }
 
+  /**
+   * 执行 reflow：根据当前 _containerSize、_layout、_moveX/_moveY 与 _grid，
+   * 分支到网格/锁定主轴/锁定交叉轴/自由滚动等计算路径，写出各子项的
+   * _layoutWidth/_layoutHeight 与 _containerSize，再递归子项；完成后回调通知。
+   */
   _performReflow() {
     if (!this._needsReflow) return;
     this._needsReflow = false;
@@ -515,18 +685,34 @@ class BoxBuilder extends Reflowable {
     this._notifyReflowComplete();
   }
 
+  /**
+   * 渲染该 Box 的默认 React 元素（等价于内容层）
+   * @returns {JSX.Element} 内容层元素
+   */
   react() {
     return this.reactContent();
   }
 
+  /**
+   * 渲染内容层（承担实际布局与子项渲染）
+   * @returns {JSX.Element} ContentLayer 元素
+   */
   reactContent() {
     return <ContentLayer builder={this} />;
   }
 
+  /**
+   * 渲染边覆盖层（拖拽分界线，无布局干预，仅绝对定位叠在内容层之上）
+   * @returns {JSX.Element} EdgeLayer 元素
+   */
   reactEdge() {
     return <EdgeLayer builder={this} />;
   }
 
+  /**
+   * 渲染角覆盖层（双轴交点，仅嵌套层渲染）
+   * @returns {JSX.Element} CornerLayer 元素
+   */
   reactCorner() {
     return <CornerLayer builder={this} />;
   }
