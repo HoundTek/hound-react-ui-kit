@@ -4,6 +4,7 @@
  */
 import React from 'react';
 import BoxBuilder from '../core/box/box';
+import { FloatingLayer } from '../core/box/box-component';
 
 /**
  * 演示页布局树根 builder。viewport 锁定双轴，纵向排列三大区域。
@@ -424,11 +425,93 @@ const _builder = new BoxBuilder("@demo")
       ]),
   ]);
 
-/** 演示页内容层组件 */
+/**
+ * 浮动窗口演示：浮动视口脱离主布局树，以屏幕坐标悬浮于页面上层（独立窗口形态）。
+ * 固定位置/尺寸，内部为完整 Box 布局树（标题栏 + 可滚动正文），拖拽分界线同样可用。
+ * @type {BoxBuilder}
+ */
+const _floatingWin = new BoxBuilder('@float/win')
+  .floatingViewport()
+  .posX(80)
+  .posY(120)
+  .fixedWidth(280)
+  .fixedHeight(180)
+  .zIndex(2100)
+  .backgroundColor('#ffffff')
+  .layout('vertical')
+  .moveY(false)
+  .moveX(false)
+  .children([
+    new BoxBuilder('@float/win/title')
+      .fixedHeight(32)
+      .backgroundColor('#4a90d9')
+      .moveY(false)
+      .moveX(false),
+    new BoxBuilder('@float/win/body')
+      .moveY(true)
+      .layout('vertical')
+      .children([
+        new BoxBuilder('@float/win/body/line1').fixedHeight(26).backgroundColor('#e8f0fa'),
+        new BoxBuilder('@float/win/body/line2').fixedHeight(26).backgroundColor('#f0f0f0'),
+        new BoxBuilder('@float/win/body/line3').fixedHeight(26).backgroundColor('#e8f0fa'),
+        new BoxBuilder('@float/win/body/line4').fixedHeight(26).backgroundColor('#f0f0f0'),
+        new BoxBuilder('@float/win/body/line5').fixedHeight(26).backgroundColor('#e8f0fa'),
+      ]),
+  ]);
+
+/**
+ * 模态浮动视口演示：modal() 模态视口自带遮罩（层级 = 视口层级 - 1），阻塞下层交互。
+ * @type {BoxBuilder}
+ */
+const _floatingModal = new BoxBuilder('@float/modal')
+  .floatingViewport()
+  .modal()
+  .posX(300)
+  .posY(220)
+  .fixedWidth(240)
+  .fixedHeight(100)
+  .zIndex(2200)
+  .backgroundColor('#ffffff')
+  .layout('vertical')
+  .moveY(false)
+  .moveX(false)
+  .children([
+    new BoxBuilder('@float/modal/title')
+      .fixedHeight(28)
+      .backgroundColor('#ffdab9')
+      .moveY(false)
+      .moveX(false),
+    new BoxBuilder('@float/modal/body')
+      .moveY(true)
+      .layout('vertical')
+      .children([
+        new BoxBuilder('@float/modal/body/line1').fixedHeight(20).backgroundColor('#fff5ee'),
+        new BoxBuilder('@float/modal/body/line2').fixedHeight(20).backgroundColor('#f8f8f8'),
+      ]),
+  ]);
+
+/**
+ * 演示页内容层组件：渲染布局树的内容层（承担实际布局与子项渲染）
+ * @returns {JSX.Element} 内容层元素
+ */
 const DemoPageContent = () => _builder.reactContent();
-/** 演示页边覆盖层组件 */
+
+/**
+ * 演示页边覆盖层组件：渲染拖拽分界线（EdgeLayer）
+ * @returns {JSX.Element} 边覆盖层元素
+ */
 const DemoPageEdge = () => _builder.reactEdge();
-/** 演示页角覆盖层组件 */
+
+/**
+ * 演示页角覆盖层组件：渲染双轴交点（CornerLayer）
+ * @returns {JSX.Element} 角覆盖层元素
+ */
 const DemoPageCorner = () => _builder.reactCorner();
 
-export { DemoPageContent, DemoPageEdge, DemoPageCorner };
+/**
+ * 演示页浮动层组件：FloatingLayer 统一渲染所有浮动视口（含模态遮罩）
+ * @returns {JSX.Element|null} 浮动层元素；无浮动视口时返回 null
+ */
+const DemoPageFloating = () => <FloatingLayer />;
+
+export { DemoPageContent, DemoPageEdge, DemoPageCorner, DemoPageFloating };
