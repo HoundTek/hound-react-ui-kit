@@ -217,12 +217,14 @@ function computeBuilderLayout(builder) {
   if (builder._isViewport) {
     computedWidth = '100vw';
     computedHeight = '100vh';
+  } else if (builder._isFloatingViewport) {
+    // 浮动视口：不强制 100%，尺寸取显式值（fixed/default），未指定时保持 auto 由内容撑开
   } else {
     if (computedWidth === 'auto') computedWidth = '100%';
     if (computedHeight === 'auto') computedHeight = '100%';
   }
-  if (!builder._isViewport && builder._layoutWidth !== undefined) computedWidth = `${builder._layoutWidth}px`;
-  if (!builder._isViewport && builder._layoutHeight !== undefined) computedHeight = `${builder._layoutHeight}px`;
+  if (!builder._isViewport && !builder._isFloatingViewport && builder._layoutWidth !== undefined) computedWidth = `${builder._layoutWidth}px`;
+  if (!builder._isViewport && !builder._isFloatingViewport && builder._layoutHeight !== undefined) computedHeight = `${builder._layoutHeight}px`;
 
   const style = {
     display: 'flex',
@@ -441,9 +443,9 @@ function useBoxContent(builder) {
     return () => observer.disconnect();
   }, [builder._isViewport]);
 
-  // reflow scheduler 根节点注册
+  // reflow scheduler 根节点注册（viewport 与 floating-viewport 均为独立 reflow 根）
   useEffect(() => {
-    if (builder._isViewport) {
+    if (builder._isViewport || builder._isFloatingViewport) {
       reflowScheduler.registerRoot(builder);
       return () => reflowScheduler.unregisterRoot(builder);
     }
@@ -1072,4 +1074,129 @@ const CornerLayer = ({ builder }) => {
   );
 };
 
-export { ContentLayer, EdgeLayer, CornerLayer };
+// ===========================================================================
+//  浮动视口（FloatingViewport）：FloatingLayer 统一承载渲染
+// ===========================================================================
+
+// 浮动层样式常量：集中定义，不散落硬编码；最终由主题系统接管具体样式定义
+// （设计约束见 ui-kit-design-document.md「样式与主题系统」）
+const DEFAULT_FLOATING_ZINDEX = 2000;
+// 容器持有高于平铺层拖拽手柄（zIndex 1000~1200）的 z-index，创建独立层叠上下文：
+// 保证浮动层与遮罩整体位于平铺层（含其 Edge/Corner 手柄）之上
+const FLOATING_LAYER_STYLE = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: DEFAULT_FLOATING_ZINDEX,
+  pointerEvents: 'none',
+};
+// 模态遮罩基础样式（z-index 由调用处按视口层级动态计算，见 getFloatingMaskStyle）
+const FLOATING_MASK_STYLE = {
+  position: 'fixed',
+  inset: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  pointerEvents: 'auto',
+};
+
+/** @type {Set<BoxBuilder>} 浮动视口注册表（模块级，FloatingLayer 统一渲染） */
+const _floatingBuilders = new Set();
+/** @type {Set<() => void>} 注册表变化监听器 */
+const _floatingListeners = new Set();
+
+/**
+ * 注册浮动视口 builder，并通知 FloatingLayer 重新渲染
+ * @param {BoxBuilder} builder 浮动视口 builder
+ */
+function registerFloating(builder) {
+  _floatingBuilders.add(builder);
+  _floatingListeners.forEach(cb => cb());
+}
+
+/**
+ * 注销浮动视口 builder，并通知 FloatingLayer 重新渲染
+ * @param {BoxBuilder} builder 浮动视口 builder
+ */
+function unregisterFloating(builder) {
+  _floatingBuilders.delete(builder);
+  _floatingListeners.forEach(cb => cb());
+}
+
+/**
+ * 订阅浮动注册表变化
+ * @param {() => void} listener 变化回调
+ * @returns {() => void} 取消订阅函数
+ */
+function subscribeFloating(listener) {
+  _floatingListeners.add(listener);
+  return () => _floatingListeners.delete(listener);
+}
+
+/**
+ * 取浮动视口定位容器的样式：position: fixed + 屏幕坐标（left/top）+ 层级（z-index）
+ * @param {BoxBuilder} builder 浮动视口 builder
+ * @returns {Object} 定位容器样式
+ */
+function getFloatingItemStyle(builder) {
+  return {
+    position: 'fixed',
+    left: builder._posX ?? 0,
+    top: builder._posY ?? 0,
+    zIndex: builder._zIndex ?? DEFAULT_FLOATING_ZINDEX,
+    pointerEvents: 'auto',
+  };
+}
+
+/**
+ * 取模态浮动视口自带遮罩的样式：全屏 + 层级为视口层级 - 1。
+ * 遮罩与各浮动视口同级参与层叠比较，可挡住其下所有元素（含更低层级浮动视口），
+ * 且不遮挡本视口与更高层级的浮动视口。
+ * @param {BoxBuilder} builder 模态浮动视口 builder
+ * @returns {Object} 遮罩样式
+ */
+function getFloatingMaskStyle(builder) {
+  return {
+    ...FLOATING_MASK_STYLE,
+    zIndex: (builder._zIndex ?? DEFAULT_FLOATING_ZINDEX) - 1,
+  };
+}
+
+/**
+ * 浮动层组件：统一承载渲染所有浮动视口。
+ * - 容器 position: fixed 铺满可视区域且 pointer-events: none，不拦截主内容交互
+ * - 仅渲染最上方模态视口（modal()）的遮罩，避免多重遮罩叠加；低层级模态视口由该遮罩统一遮挡
+ * - 每个浮动视口渲染为独立层，内部复用完整三层渲染（Content/Edge/Corner）
+ * @returns {JSX.Element|null} 浮动层元素；无浮动视口时返回 null
+ */
+const FloatingLayer = () => {
+  const [, forceUpdate] = useState(0);
+  useEffect(() => subscribeFloating(() => forceUpdate(n => n + 1)), []);
+  const builders = [..._floatingBuilders];
+  if (builders.length === 0) return null;
+  // 取最上方模态视口：层级最高者；层级相同时取注册表后者（DOM 顺序靠后 = 视觉最上）
+  let topModal = null;
+  for (const b of builders) {
+    if (!b._modal) continue;
+    if (!topModal) {
+      topModal = b;
+      continue;
+    }
+    const bz = b._zIndex ?? DEFAULT_FLOATING_ZINDEX;
+    const tz = topModal._zIndex ?? DEFAULT_FLOATING_ZINDEX;
+    if (bz >= tz) topModal = b;
+  }
+  return (
+    <div style={FLOATING_LAYER_STYLE}>
+      {topModal && <div style={getFloatingMaskStyle(topModal)} />}
+      {builders.map(b => (
+        <div key={b._path}>
+          <div style={getFloatingItemStyle(b)}>
+            <ContentLayer builder={b} />
+            <EdgeLayer builder={b} />
+            <CornerLayer builder={b} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export { ContentLayer, EdgeLayer, CornerLayer, FloatingLayer, registerFloating, unregisterFloating };

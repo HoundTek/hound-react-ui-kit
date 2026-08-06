@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { Reflowable, reflowScheduler } from './scheduler';
-import { ContentLayer, EdgeLayer, CornerLayer } from './box-component';
+import { ContentLayer, EdgeLayer, CornerLayer, registerFloating } from './box-component';
 
 /**
  * Box 布局构建器。继承 Reflowable 获得 reflow 调度能力，通过链式方法配置尺寸约束、
@@ -37,9 +37,22 @@ class BoxBuilder extends Reflowable {
     this._explicitMinHeight = false;
     this._explicitMaxHeight = false;
 
+    /** @type {boolean} 布局标记是否有效（reflow 后重置） */
     this._layoutValid = true;
+    /** @type {{width: number, height: number}} 容器实际尺寸（视口取可视区域，其余由 ResizeObserver 提供） */
     this._containerSize = { width: 0, height: 0 };
+    /** @type {boolean} 是否显示下一级子 Box 的 Edge/Corner 覆盖层 */
     this._showChildOverlays = true;
+    /** @type {boolean} 是否为浮动视口（脱离主布局树，悬浮于页面上层） */
+    this._isFloatingViewport = false;
+    /** @type {number|null} 浮动视口距可视区域左边缘的位置（px）；null 表示未指定（默认 0） */
+    this._posX = null;
+    /** @type {number|null} 浮动视口距可视区域上边缘的位置（px）；null 表示未指定（默认 0） */
+    this._posY = null;
+    /** @type {number|null} 浮动视口层级；null 表示使用默认浮动层级 */
+    this._zIndex = null;
+    /** @type {boolean} 是否为模态浮动视口（FloatingLayer 统一绘制全屏遮罩） */
+    this._modal = false;
   }
 
   /**
@@ -262,6 +275,57 @@ class BoxBuilder extends Reflowable {
    */
   viewport() {
     this._isViewport = true;
+    return this;
+  }
+
+  /**
+   * 标记为浮动视口（reflow 根；与 viewport() 互斥）。浮动视口脱离主布局树，
+   * 以屏幕坐标悬浮于页面上层，位置/尺寸/层级独立指定，并由 FloatingLayer 统一渲染。
+   * 调用即注册到浮动注册表，触发 FloatingLayer 重新渲染。
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  floatingViewport() {
+    this._isFloatingViewport = true;
+    registerFloating(this);
+    return this;
+  }
+
+  /**
+   * 设置浮动视口距可视区域左边缘的位置（px）
+   * @param {number} x 水平位置（px）
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  posX(x) {
+    this._posX = x;
+    return this;
+  }
+
+  /**
+   * 设置浮动视口距可视区域上边缘的位置（px）
+   * @param {number} y 垂直位置（px）
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  posY(y) {
+    this._posY = y;
+    return this;
+  }
+
+  /**
+   * 设置浮动视口层级（默认高于主内容）
+   * @param {number} z 层级值（z-index）
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  zIndex(z) {
+    this._zIndex = z;
+    return this;
+  }
+
+  /**
+   * 标记为模态浮动视口：FloatingLayer 统一绘制全屏遮罩，阻塞下层交互
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  modal() {
+    this._modal = true;
     return this;
   }
 

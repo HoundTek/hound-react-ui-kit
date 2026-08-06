@@ -89,11 +89,12 @@ class Reflowable {
   }
 
   /**
-   * 请求 reflow：标记自身需要 reflow；若为根/视口则向调度器请求，否则递归上抛给父级
+   * 请求 reflow：标记自身需要 reflow；若为根/视口（viewport / floating-viewport / 无父节点）
+   * 则向调度器请求，否则递归上抛给父级
    */
   _requestReflow() {
     this._needsReflow = true;
-    if (this._isViewport || !this._parent) {
+    if (this._isViewport || this._isFloatingViewport || !this._parent) {
       reflowScheduler.schedule();
     } else {
       this._parent._requestReflow();
@@ -109,10 +110,10 @@ class Reflowable {
   }
 
   /**
-   * 触发 reflow 完成回调（仅视口根节点持有回调）
+   * 触发 reflow 完成回调（仅视口/浮动视口根节点持有回调）
    */
   _notifyReflowComplete() {
-    if (this._isViewport && this._onReflowComplete) {
+    if ((this._isViewport || this._isFloatingViewport) && this._onReflowComplete) {
       this._onReflowComplete();
     }
   }
