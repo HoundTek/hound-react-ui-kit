@@ -142,3 +142,116 @@ Cell 中的相对路径基于当前 Cell 在 DataTree 中的位置解析。以�
 ### 自动绑定
 
 Cell 类型在定义时声明数据依赖。系统在实例化时自动建立绑定关系，无需手动指定路径。
+
+# Box 浮动视口（FloatingViewport）
+
+## 背景与动机
+
+现有 Box 布局树以 viewport 为根，占满 100vw/100vh，所有内容以平铺方式排列。平铺布局适合文档/工作区型页面，但无法表达以下交互形态：
+
+- 独立的悬浮窗口（可移动、可缩放，浮于页面之上）
+- 通知 / 提示（短暂出现后自动消失）
+- 弹出式菜单、下拉面板
+- 模态对话框（遮罩 + 阻塞下层）
+
+这些形态的共同点：内容**脱离平铺布局**，悬浮于页面上层，位置与尺寸**自由指定**。为此引入浮动视口（FloatingViewport）。
+
+## 概念
+
+- **viewport（主视口）**：页面主体布局的根，占满整个可视区域
+- **floating-viewport（浮动视口）**：脱离主布局的独立视口，悬浮于页面上层；数量不限，彼此独立
+
+浮动视口复用现有 Box 的全部机制：内部是一棵完整的 Box 布局树，支持嵌套、滚动、网格、拖拽调整尺寸与浮动滚动条；每个浮动视口是一棵独立的 reflow 树，其变化不影响主视口与其他浮动视口。
+
+## 声明式 API
+
+在 BoxBuilder 上新增链式方法：
+
+| 方法 | 说明 |
+|------|------|
+| `floatingViewport()` | 标记为浮动视口（reflow 根；与 `viewport()` 互斥） |
+| `posX(n)` | 距可视区域左边缘的位置（px） |
+| `posY(n)` | 距可视区域上边缘的位置（px） |
+| `zIndex(n)` | 浮动层级，默认高于主内容 |
+| `modal()` | 标记为模态：FloatingLayer 统一绘制全屏遮罩 |
+| 尺寸系列 | 沿用现有 `min/max/default/fixed`（Width/Height） |
+
+示例：
+
+```js
+const win = new BoxBuilder('@float/win')
+  .floatingViewport()
+  .posX(120).posY(80)
+  .fixedWidth(320).fixedHeight(240)
+  .zIndex(100)
+  .backgroundColor('#ffffff')
+  .layout('vertical')
+  .children([
+    new BoxBuilder('@float/win/title')
+      .fixedHeight(36).backgroundColor('#4a90d9'),
+    new BoxBuilder('@float/win/body')
+      .moveY(true).layout('vertical')
+      .children([
+        new BoxBuilder('@float/win/body/line1').fixedHeight(28),
+        new BoxBuilder('@float/win/body/line2').fixedHeight(28),
+      ]),
+  ]);
+```
+
+同一页面可声明多个浮动视口，位置、尺寸、层级各自独立。
+
+## 渲染
+
+浮动视口由 **FloatingLayer** 统一承载渲染：
+
+- FloatingLayer 是挂载于应用根部的容器组件，`position: fixed` 铺满可视区域，`pointer-events: none`
+- FloatingLayer 容器持有高于平铺层拖拽手柄（zIndex 1000~1200）的 z-index（默认 2000），创建独立层叠上下文：平铺层的 Edge/Corner 手柄与浮动滚动条整体位于浮动层与遮罩之下
+- 浮动视口注册到模块级浮动注册表；FloatingLayer 遍历注册表，将每个浮动视口渲染为独立层（`pointer-events: auto`，`position: fixed` + left/top/width/height/z-index）
+- 模态遮罩由模态浮动视口（`modal()`）**自带**，遮罩层级 = 视口层级 - 1，可与各浮动视口同级参与层叠比较：挡住其下所有元素（含更低层级的浮动视口与主内容），且不遮挡本视口与更高层级的浮动视口
+- **仅渲染最上方模态视口的遮罩**（层级最高者；层级相同时取注册表后者），避免多重遮罩叠加变暗；低层级模态视口由该遮罩统一遮挡
+- 每个浮动视口内部仍是完整的三层渲染（ContentLayer / EdgeLayer / CornerLayer），拖拽调整尺寸、浮动滚动条等能力全部复用
+- 浮动视口作为独立 reflow 根注册到 reflowScheduler
+
+示意结构：
+
+```
+<FloatingLayer>                   // position: fixed, inset: 0, pointer-events: none, z-index: 2000
+  <div mask="topModal"/>          // 仅最上方模态视口的遮罩，z-index = 视口层级 - 1
+  <div float="modal1">            // 最上方模态视口：left/top/width/height/z-index, pointer-events: auto
+    ContentLayer                  // 浮动视口内部布局树
+    EdgeLayer / CornerLayer       // 拖拽分界线与角点
+  </div>
+  <div float="modal2"> ... </div> // 低层级模态视口（由上方遮罩统一遮挡，不再自带遮罩）
+  <div float="win1"> ... </div>   // 非模态浮动视口
+</FloatingLayer>
+```
+
+## 交互形态
+
+基于浮动视口可实现：
+
+| 形态 | 说明 | 本阶段范围 |
+|------|------|-----------|
+| 独立窗口 | 可移动、可缩放、可关闭 | Box 层提供浮动视口与内部尺寸拖拽；移动/关闭由 Cell 层封装 |
+| 通知 | 屏幕角落短暂出现后自动消失 | Box 层提供浮动视口；定时与动画由 Cell 层封装 |
+| 弹出菜单 | 点击触发、点外部关闭 | Box 层提供浮动视口；定位与关闭逻辑由 Cell 层封装 |
+| 模态对话框 | 遮罩 + 阻塞下层 | 模态浮动视口自带遮罩（`modal()`） |
+
+第一版聚焦 Box 层基础设施（声明、定位、渲染、独立 reflow）；完整交互能力在 Cell 层封装。
+
+## 样式与主题系统（设计约束）
+
+遮罩、Edge/Corner 拖拽手柄、浮动滚动条等**结构性样式不得硬编码散落在组件逻辑中**：当前阶段集中收敛为模块级样式常量（统一命名、统一维护），最终由独立的**主题系统**接管具体样式定义（颜色、尺寸、层级等），组件逻辑只依赖主题令牌（token）。本阶段仅落实"集中定义、不散落"的约束，主题系统作为后续演进。
+
+## 与现有机制的关系
+
+- **reflow 调度**：ReflowScheduler 以 Set 维护多个根节点，主视口与多个浮动视口可并存；浮动视口沿用 `_isViewport || !_parent → schedule` 的冒泡规则
+- **尺寸计算**：`computeBuilderLayout` 中 viewport 强制 100vw/100vh；浮动视口走独立分支，取显式尺寸（fixed/default），未指定时由内部布局推断
+- **层级关系**：浮动层容器 z-index 2000 高于平铺层全部元素（Edge/Corner 手柄 zIndex 1000~1200、浮动滚动条 1000），平铺层拖拽手柄完全位于浮动层与遮罩之下；浮动视口内部的滚动条与手柄相对关系保持不变
+
+## 待定问题与演进路线
+
+1. **窗口移动**：拖动标题栏移动整个浮动视口——由 Cell 层实现（标题栏 Cell 发起拖拽会话），Box 层第一版不提供
+2. **主题系统**：遮罩、Edge/Corner、滚动条等结构性样式由主题系统接管（见"样式与主题系统"约束）
+3. **生命周期**：浮动视口的动态创建 / 销毁、显示 / 隐藏，与 Cell 层浮层管理服务的对接
+4. **定位模式**：第一版为固定屏幕坐标；后续可扩展"锚定到某元素 / 某 Box"的相对定位
