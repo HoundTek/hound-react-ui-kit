@@ -32,12 +32,13 @@ class DataNode {
     this._children = new Map();
     this._data = new Map();
     this._subscribers = new Set();
-    // 引用节点（ref）字段
+    /** @type {boolean} 是否为引用节点（ref 软链接） */
     this._isRef = false;
+    /** @type {string|null} 引用目标路径；非引用节点为 null */
     this._refTargetPath = null;
-    // 命名锚点（@name）：节点在树中的全局别名；为 null 表示未命名
+    /** @type {string|null} 命名锚点名（不含 `@` 前缀）；null 表示未命名 */
     this._anchor = null;
-    // 锚点注册表：仅根节点持有，Map<anchorName, DataNode>
+    /** @type {Map<string, DataNode>|null} 锚点注册表：仅根节点持有，子节点为 null */
     this._anchors = parent ? null : new Map();
   }
 

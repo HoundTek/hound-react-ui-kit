@@ -36,29 +36,33 @@ class CellBaseBuilder {
    * @param {string} id Cell 标识，作为数据子树段名与 Box 路径末段
    */
   constructor(id) {
+    /** @type {string} Cell 标识（数据子树段名与 Box 路径末段） */
     this._id = id;
-    // 数据节点：null 直到 _mountData 调用
+    /** @type {DataNode|null} 数据节点；null 直到 _mountData 调用 */
     this._dataNode = null;
-    // Schema：字段定义（{ key: { type, default, bind } }）
+    /** @type {Object} Schema 字段定义：{ key: { type, default, bind } } */
     this._schema = {};
-    // 字段绑定映射：Map<fieldKey, { path, key }>
+    /** @type {Map<string, {path: string, key: string}>} 字段绑定映射 */
     this._bindings = new Map();
-    // Box 配方：记录 [method, args] 调用序列，供 _mountBox 重放
+    /** @type {Array<[string, Array]>} Box 配方：记录 [method, args] 调用序列，供 _mountBox 重放 */
     this._boxRecipe = [];
-    // Slot 定义：[{ name, config }]，构造期声明
+    /** @type {Array<{name: string, config: Object}>} Slot 定义：构造期声明 */
     this._slotDefs = [];
-    // Slot 运行时：Map<name, { dataNode, config, children: Cell[] }>
-    // 构造期预填充（dataNode 为 null，_mountData 时填充），使 fill 可在挂载前调用
+    /**
+     * Slot 运行时状态：构造期预填充（dataNode 为 null，_mountData 时填充），使 fill 可在挂载前调用。
+     * @type {Map<string, {dataNode: DataNode|null, config: Object, children: CellBaseBuilder[]}>}
+     */
     this._slots = new Map();
     this._slots.set('_default', { dataNode: null, config: {}, children: [] });
-    // 挂载列表：[{ box, slotBoxes: Map<name, Box>, slotChildrenBoxes: Map<name, Box[]> }]
+    /** @type {Array<{box: BoxBuilder, slotBoxes: Map, slotChildrenBoxes: Map}>} 挂载列表 */
     this._mounts = [];
-    // 内容组件
+    /** @type {React.ComponentType|null} 内容组件 */
     this._contentComponent = null;
-    // 延迟应用的锚点与引用子节点（构造期声明，挂载时应用）
+    /** @type {string|null} 延迟应用的锚点（构造期声明，挂载时应用） */
     this._pendingAnchor = null;
+    /** @type {Array<{name: string, targetPath: string}>} 延迟应用的引用子节点 */
     this._pendingRefChildren = [];
-    // 延迟应用的 setData（未挂载时暂存，_mountData 时应用，覆盖 Schema 默认值）
+    /** @type {Map<string, *>|null} 延迟应用的 setData（未挂载时暂存，_mountData 时应用，覆盖 Schema 默认值） */
     this._pendingData = null;
   }
 
@@ -110,13 +114,23 @@ class CellBaseBuilder {
     return 'set' + key.charAt(0).toUpperCase() + key.slice(1);
   }
 
+  /**
+   * 解析 bind 声明为 { path, key } 绑定描述。
+   * 支持 `<nodePath>`（绑定目标节点的同名字段）与 `<nodePath>#<field>`（绑定指定字段）两种语法。
+   * @param {string} bindPath bind 路径声明
+   * @param {string} defaultKey 未显式指定字段时使用的字段名（即本 Cell 的字段名）
+   * @returns {{path: string, key: string}} 目标节点路径与目标字段名
+   */
   _parseBinding(bindPath, defaultKey) {
     const hashIdx = bindPath.indexOf('#');
     if (hashIdx === -1) return { path: bindPath, key: defaultKey };
     return { path: bindPath.slice(0, hashIdx), key: bindPath.slice(hashIdx + 1) };
   }
 
-  /** 将 Schema 默认值写入数据节点（跳过订阅通知） */
+  /**
+   * 将 Schema 中声明默认值的字段写入数据节点（跳过订阅通知）。
+   * 绑定字段（bind）不参与默认值初始化，其值由目标节点数据驱动。
+   */
   _applySchemaDefaults() {
     for (const [key, def] of Object.entries(this._schema)) {
       if (!def || def.bind) continue;
@@ -398,8 +412,17 @@ class CellBaseBuilder {
 
   // === 数据 API ===
 
+  /**
+   * 本 Cell 的数据节点。未挂载（mount）之前为 null。
+   * @returns {DataNode|null} 数据节点
+   */
   get data() { return this._dataNode; }
 
+  /**
+   * 取字段值。绑定字段（bind）透明转发到目标节点；未挂载时从暂存的 pendingData 读取。
+   * @param {string} key 字段名
+   * @returns {*} 字段值；不存在返回 undefined
+   */
   getData(key) {
     // 未挂载时从 pendingData 读取
     if (!this._dataNode) {
@@ -413,6 +436,13 @@ class CellBaseBuilder {
     return this._dataNode.getData(key);
   }
 
+  /**
+   * 设置字段值。绑定字段（bind）透明转发到目标节点；未挂载时暂存，
+   * 于 _mountData 时应用（覆盖 Schema 默认值）。值变化（Object.is 比较）时通知订阅者。
+   * @param {string} key 字段名
+   * @param {*} value 字段值
+   * @returns {CellBaseBuilder} self（链式）
+   */
   setData(key, value) {
     // 未挂载时暂存，_mountData 时应用（覆盖 Schema 默认值）
     if (!this._dataNode) {
@@ -430,6 +460,12 @@ class CellBaseBuilder {
     return this;
   }
 
+  /**
+   * 订阅本 Cell 的数据变更。覆盖本数据节点字段变更与绑定字段（bind）目标节点的字段变更；
+   * 绑定目标变更时 payload 重写为 node=本 Cell 数据节点、key=本 Cell 字段名，对外透明。
+   * @param {(payload: {node: DataNode, key: string, value: *, prev: *}) => void} callback 变更回调
+   * @returns {() => void} 取消订阅函数
+   */
   subscribe(callback) {
     const unsubs = [this._dataNode.subscribe(callback)];
     for (const [key, binding] of this._bindings) {
@@ -445,6 +481,12 @@ class CellBaseBuilder {
     return () => unsubs.forEach(fn => fn());
   }
 
+  /**
+   * 按路径解析本 Cell 数据子树中的节点。路径语法同 DataNode.resolve：
+   * 绝对路径（`@/foo`）、相对路径（`./foo`、`../foo`）与命名锚点（`@name`）。
+   * @param {string} path 路径字符串
+   * @returns {DataNode|null} 目标节点；未找到返回 null
+   */
   resolve(path) {
     return this._dataNode.resolve(path);
   }
@@ -468,6 +510,12 @@ class CellBaseBuilder {
 
   // === Box 链式方法委托（记录配方 + 应用到已有挂载） ===
 
+  /**
+   * 记录一次 Box 链式调用：写入配方（供后续挂载重放），并立即应用到已有挂载。
+   * @param {string} method Box 方法名
+   * @param {Array} args 方法参数列表
+   * @returns {CellBaseBuilder} self（链式）
+   */
   _recordBoxOp(method, args) {
     this._boxRecipe.push([method, args]);
     for (const mount of this._mounts) {
@@ -476,23 +524,107 @@ class CellBaseBuilder {
     return this;
   }
 
+  /**
+   * 设置排列方向（委托 BoxBuilder#layout）
+   * @param {'horizontal'|'vertical'} t 排列方向
+   * @returns {CellBaseBuilder} self（链式）
+   */
   layout(t) { return this._recordBoxOp('layout', [t]); }
+  /**
+   * 设置 X 轴滚动开关（委托 BoxBuilder#moveX）
+   * @param {boolean} v true=自由滚动、false=锁定、undefined=未设置
+   * @returns {CellBaseBuilder} self（链式）
+   */
   moveX(v) { return this._recordBoxOp('moveX', [v]); }
+  /**
+   * 设置 Y 轴滚动开关（委托 BoxBuilder#moveY）
+   * @param {boolean} v true=自由滚动、false=锁定、undefined=未设置
+   * @returns {CellBaseBuilder} self（链式）
+   */
   moveY(v) { return this._recordBoxOp('moveY', [v]); }
+  /**
+   * 固定宽度：等价于 maxWidth(w).minWidth(w)（委托 BoxBuilder#fixedWidth）
+   * @param {number} w 固定宽度（px）
+   * @returns {CellBaseBuilder} self（链式）
+   */
   fixedWidth(w) { return this._recordBoxOp('fixedWidth', [w]); }
+  /**
+   * 固定高度：等价于 maxHeight(h).minHeight(h)（委托 BoxBuilder#fixedHeight）
+   * @param {number} h 固定高度（px）
+   * @returns {CellBaseBuilder} self（链式）
+   */
   fixedHeight(h) { return this._recordBoxOp('fixedHeight', [h]); }
+  /**
+   * 设置最小宽度（委托 BoxBuilder#minWidth）
+   * @param {number} w 最小宽度（px）
+   * @returns {CellBaseBuilder} self（链式）
+   */
   minWidth(w) { return this._recordBoxOp('minWidth', [w]); }
+  /**
+   * 设置最小高度（委托 BoxBuilder#minHeight）
+   * @param {number} h 最小高度（px）
+   * @returns {CellBaseBuilder} self（链式）
+   */
   minHeight(h) { return this._recordBoxOp('minHeight', [h]); }
+  /**
+   * 设置最大宽度（委托 BoxBuilder#maxWidth）
+   * @param {number} w 最大宽度（px）
+   * @returns {CellBaseBuilder} self（链式）
+   */
   maxWidth(w) { return this._recordBoxOp('maxWidth', [w]); }
+  /**
+   * 设置最大高度（委托 BoxBuilder#maxHeight）
+   * @param {number} h 最大高度（px）
+   * @returns {CellBaseBuilder} self（链式）
+   */
   maxHeight(h) { return this._recordBoxOp('maxHeight', [h]); }
+  /**
+   * 设置默认宽度（委托 BoxBuilder#defaultWidth）
+   * @param {number} w 默认宽度（px）
+   * @returns {CellBaseBuilder} self（链式）
+   */
   defaultWidth(w) { return this._recordBoxOp('defaultWidth', [w]); }
+  /**
+   * 设置默认高度（委托 BoxBuilder#defaultHeight）
+   * @param {number} h 默认高度（px）
+   * @returns {CellBaseBuilder} self（链式）
+   */
   defaultHeight(h) { return this._recordBoxOp('defaultHeight', [h]); }
+  /**
+   * 设置背景色（委托 BoxBuilder#backgroundColor）
+   * @param {string} c CSS 颜色值
+   * @returns {CellBaseBuilder} self（链式）
+   */
   backgroundColor(c) { return this._recordBoxOp('backgroundColor', [c]); }
+  /**
+   * 设置交叉轴对齐方式（委托 BoxBuilder#alignItems）
+   * @param {string} a CSS align-items 值
+   * @returns {CellBaseBuilder} self（链式）
+   */
   alignItems(a) { return this._recordBoxOp('alignItems', [a]); }
+  /**
+   * 设置是否可拖拽调整尺寸（委托 BoxBuilder#draggable）
+   * @param {boolean} d 是否可拖拽
+   * @returns {CellBaseBuilder} self（链式）
+   */
   draggable(d) { return this._recordBoxOp('draggable', [d]); }
-  /** @see BoxBuilder#showChildOverlays 控制下一级子 Box 的 Edge/Corner 覆盖层是否显示 */
+  /**
+   * 控制下一级子 Box 的 Edge/Corner 覆盖层是否显示（委托 BoxBuilder#showChildOverlays）
+   * @param {boolean} v 是否显示下一级覆盖层
+   * @returns {CellBaseBuilder} self（链式）
+   */
   showChildOverlays(v) { return this._recordBoxOp('showChildOverlays', [v]); }
+  /**
+   * 标记为视口根节点，尺寸取 100vw/100vh（委托 BoxBuilder#viewport）
+   * @returns {CellBaseBuilder} self（链式）
+   */
   viewport() { return this._recordBoxOp('viewport', []); }
+  /**
+   * 启用网格布局，按最小单元格尺寸自动排列子项（委托 BoxBuilder#grid）
+   * @param {number} w 最小单元格宽（px）
+   * @param {number} h 最小单元格高（px）
+   * @returns {CellBaseBuilder} self（链式）
+   */
   grid(w, h) { return this._recordBoxOp('grid', [w, h]); }
 
   // === 挂载入口 ===
