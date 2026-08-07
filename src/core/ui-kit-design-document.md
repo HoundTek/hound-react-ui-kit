@@ -174,7 +174,19 @@ Cell 类型在定义时声明数据依赖。系统在实例化时自动建立绑
 | `posY(n)` | 距可视区域上边缘的位置（px） |
 | `zIndex(n)` | 浮动层级，默认高于主内容 |
 | `modal()` | 标记为模态：FloatingLayer 统一绘制全屏遮罩 |
+| `movable(enabled)` | 浮动视口是否可移动（默认 true；通过 `dragHandle` 拖拽点拖动） |
+| `resizable(enabled)` | 浮动视口是否可调整大小（默认 false；边缘/角手柄拖拽） |
+| `dragHandle()` | 标记本 box 为浮动视口的拖拽点（在浮动视口树内标记，如标题栏） |
+| `closable(enabled)` | 浮动视口是否可关闭（默认 false；右上角渲染关闭按钮） |
+| `close()` | 关闭浮动视口（置为不可见，FloatingLayer 跳过渲染） |
+| `open()` | 重新打开已关闭的浮动视口 |
 | 尺寸系列 | 沿用现有 `min/max/default/fixed`（Width/Height） |
+
+移动与缩放规则：
+- **移动**：可移动的浮动视口，在 `dragHandle()` 标记的拖拽点区域按下拖动，整体移动浮动视口（更新 posX/posY）
+- **缩放**：可调整大小的浮动视口渲染 8 个边缘/角手柄（四边单轴、四角双轴），拖拽更新显式尺寸（_viewWidth/_viewHeight）；拖 W/N 侧时位置同步变化
+- **约束（可调整大小的一定可移动）**：有效移动 = `movable || resizable`，即设置 `resizable(true)` 的浮动视口不受 `movable(false)` 限制，仍可移动
+- **缩放与固定尺寸**：缩放起始解除 fixed（min === max）的固定上限使缩放生效；min/max 作为缩放下限/上限在拖拽逻辑中应用
 
 示例：
 
@@ -184,11 +196,12 @@ const win = new BoxBuilder('@float/win')
   .posX(120).posY(80)
   .fixedWidth(320).fixedHeight(240)
   .zIndex(100)
+  .movable(true).resizable(true).closable(true)
   .backgroundColor('#ffffff')
   .layout('vertical')
   .children([
     new BoxBuilder('@float/win/title')
-      .fixedHeight(36).backgroundColor('#4a90d9'),
+      .fixedHeight(36).backgroundColor('#4a90d9').dragHandle(), // 标题栏作为拖拽点
     new BoxBuilder('@float/win/body')
       .moveY(true).layout('vertical')
       .children([
@@ -230,12 +243,36 @@ const win = new BoxBuilder('@float/win')
 
 基于浮动视口可实现：
 
-| 形态 | 说明 | 本阶段范围 |
+| 形态 | 说明 | 当前实现 |
 |------|------|-----------|
-| 独立窗口 | 可移动、可缩放、可关闭 | Box 层提供浮动视口与内部尺寸拖拽；移动/关闭由 Cell 层封装 |
-| 通知 | 屏幕角落短暂出现后自动消失 | Box 层提供浮动视口；定时与动画由 Cell 层封装 |
-| 弹出菜单 | 点击触发、点外部关闭 | Box 层提供浮动视口；定位与关闭逻辑由 Cell 层封装 |
-| 模态对话框 | 遮罩 + 阻塞下层 | 模态浮动视口自带遮罩（`modal()`） |
+| 独立窗口 | 可移动、可缩放、可关闭 | Box 层：移动（dragHandle 拖拽点）、缩放（边缘/角手柄）、关闭（closable + close/open）；Cell 层：`WindowCell` 预设（标题栏拖拽点插槽） |
+| 通知 | 屏幕角落短暂出现后自动消失 | `NotificationCell` 预设：浮动视口 + duration 定时自动关闭 |
+| 弹出菜单 | 点击触发、点外部关闭 | Box 层提供浮动视口与显隐（open/close）；点外部关闭由 Cell 层封装 |
+| 模态对话框 | 遮罩 + 阻塞下层 | `ModalCell` 预设：模态浮动视口（`modal()`）自带遮罩 + header/body 插槽 |
+
+## 内置 Cell 预设（builtin-cells）
+
+`src/core/builtin-cells/builtin-cells.jsx` 提供通用、可复用的 Cell 类型（经 ui-kit 聚合导出），
+展示类型作者的最佳实践模式：
+
+**基础构件**（数据驱动交互）：
+- `TextCell`：文本展示（text 存 i18n key 或纯文本；size/color/bold/align 排版字段）
+- `ButtonCell`：按钮（label/disabled；点击写入 pressed 并触发 `onPress(fn)` 注入的动作）
+- `InputCell`：输入框（label/placeholder/value 实时写入数据）
+- `ToggleCell`：开关（label/enabled 点击切换）
+- `ListCell`：选择列表（items=[{id,title}] 业务数据 + selected 点击高亮）
+
+**浮层构件**（Cell × 浮动视口，展示 Cell 与 Box 浮动能力的结合）：
+- `NotificationCell`：通知条（浮动视口，可关闭；`duration` 非空时定时 `close()` 自动消失）
+- `ModalCell`：模态对话框（`modal()` 自带遮罩 + header/body 插槽，默认不可移动/缩放）
+- `WindowCell`：独立窗口（movable + resizable + 标题栏 `dragHandle` 拖拽点 + closable + title/body 插槽）
+
+配套机制：
+- `CellBaseBuilder` 增加浮动视口系列 Box 方法委托（floatingViewport/posX/posY/zIndex/modal/movable/
+  resizable/dragHandle/closable），Cell 类型作者可在构造函数声明浮动形态；位置/尺寸/层级由页面作者在实例上链式覆盖
+- `CellBaseBuilder.close()/open()`：作用于主挂载 Box，控制浮层显隐
+- Slot 配置新增 `dragHandle: true` 键，可将命名插槽声明为浮动视口拖拽点（如 WindowCell 标题栏）
+- 浮层 Cell 与页面 Cell 并列挂载到 dag 根（`cell.mount(dag._root)`），Box 注册到浮动注册表由 FloatingLayer 渲染
 
 第一版聚焦 Box 层基础设施（声明、定位、渲染、独立 reflow）；完整交互能力在 Cell 层封装。
 
@@ -251,7 +288,6 @@ const win = new BoxBuilder('@float/win')
 
 ## 待定问题与演进路线
 
-1. **窗口移动**：拖动标题栏移动整个浮动视口——由 Cell 层实现（标题栏 Cell 发起拖拽会话），Box 层第一版不提供
+1. **浮层生命周期服务**：动态创建/销毁浮动视口的运行时管理（如通知队列、动态弹出菜单），在 builtin-cells 之上封装统一服务
 2. **主题系统**：遮罩、Edge/Corner、滚动条等结构性样式由主题系统接管（见"样式与主题系统"约束）
-3. **生命周期**：浮动视口的动态创建 / 销毁、显示 / 隐藏，与 Cell 层浮层管理服务的对接
-4. **定位模式**：第一版为固定屏幕坐标；后续可扩展"锚定到某元素 / 某 Box"的相对定位
+3. **定位模式**：第一版为固定屏幕坐标；后续可扩展"锚定到某元素 / 某 Box"的相对定位
