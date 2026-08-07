@@ -28,7 +28,7 @@ import { CellRoot } from './cell-react';
 const SLOT_BOX_CONFIG_KEYS = [
   'fixedWidth', 'fixedHeight', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight',
   'defaultWidth', 'defaultHeight', 'layout', 'moveX', 'moveY',
-  'backgroundColor', 'alignItems', 'draggable', 'showChildOverlays',
+  'backgroundColor', 'alignItems', 'draggable', 'showChildOverlays', 'dragHandle',
 ];
 
 class CellBaseBuilder {
@@ -626,6 +626,73 @@ class CellBaseBuilder {
    * @returns {CellBaseBuilder} self（链式）
    */
   grid(w, h) { return this._recordBoxOp('grid', [w, h]); }
+  /**
+   * 标记为浮动视口（reflow 根，脱离主布局树悬浮于页面上层；委托 BoxBuilder#floatingViewport）
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  floatingViewport() { return this._recordBoxOp('floatingViewport', []); }
+  /**
+   * 设置浮动视口距可视区域左边缘的位置（委托 BoxBuilder#posX）
+   * @param {number} x 位置（px）
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  posX(x) { return this._recordBoxOp('posX', [x]); }
+  /**
+   * 设置浮动视口距可视区域上边缘的位置（委托 BoxBuilder#posY）
+   * @param {number} y 位置（px）
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  posY(y) { return this._recordBoxOp('posY', [y]); }
+  /**
+   * 设置浮动视口层级（委托 BoxBuilder#zIndex）
+   * @param {number} z 层级
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  zIndex(z) { return this._recordBoxOp('zIndex', [z]); }
+  /**
+   * 标记为模态浮动视口（自带遮罩；委托 BoxBuilder#modal）
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  modal() { return this._recordBoxOp('modal', []); }
+  /**
+   * 设置浮动视口是否可移动（委托 BoxBuilder#movable）
+   * @param {boolean} [enabled=true] 是否可移动
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  movable(enabled = true) { return this._recordBoxOp('movable', [enabled]); }
+  /**
+   * 设置浮动视口是否可调整大小（委托 BoxBuilder#resizable）
+   * @param {boolean} [enabled=true] 是否可调整大小
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  resizable(enabled = true) { return this._recordBoxOp('resizable', [enabled]); }
+  /**
+   * 标记为浮动视口拖拽点（拖动移动整个浮动视口；委托 BoxBuilder#dragHandle）
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  dragHandle() { return this._recordBoxOp('dragHandle', []); }
+  /**
+   * 设置浮动视口是否可关闭（右上角渲染关闭按钮；委托 BoxBuilder#closable）
+   * @param {boolean} [enabled=true] 是否可关闭
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  closable(enabled = true) { return this._recordBoxOp('closable', [enabled]); }
+  /**
+   * 关闭浮动视口（置为不可见；仅对浮动视口有效）。作用于主挂载（挂载 0）的 Box。
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  close() {
+    if (this._mounts[0]) this._mounts[0].box.close();
+    return this;
+  }
+  /**
+   * 重新打开已关闭的浮动视口。作用于主挂载（挂载 0）的 Box。
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  open() {
+    if (this._mounts[0]) this._mounts[0].box.open();
+    return this;
+  }
 
   // === 挂载入口 ===
 
