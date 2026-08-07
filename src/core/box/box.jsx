@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { Reflowable, reflowScheduler } from './scheduler';
-import { ContentLayer, EdgeLayer, CornerLayer, registerFloating } from './box-component';
+import { ContentLayer, EdgeLayer, CornerLayer, registerFloating, notifyFloatingChange } from './box-component';
 
 /**
  * Box 布局构建器。继承 Reflowable 获得 reflow 调度能力，通过链式方法配置尺寸约束、
@@ -53,6 +53,20 @@ class BoxBuilder extends Reflowable {
     this._zIndex = null;
     /** @type {boolean} 是否为模态浮动视口（FloatingLayer 统一绘制全屏遮罩） */
     this._modal = false;
+    /** @type {boolean} 浮动视口是否可移动（通过 dragHandle 拖拽点）；默认 true */
+    this._movable = true;
+    /** @type {boolean} 浮动视口是否可调整大小（边缘手柄拖拽）；默认 false */
+    this._resizable = false;
+    /** @type {number|null} 浮动视口缩放后的显式宽度（px）；null 表示沿用 fixed/default/auto */
+    this._viewWidth = null;
+    /** @type {number|null} 浮动视口缩放后的显式高度（px）；null 表示沿用 fixed/default/auto */
+    this._viewHeight = null;
+    /** @type {boolean} 本 box 是否为浮动视口的拖拽点（拖动移动整个浮动视口） */
+    this._isDragHandle = false;
+    /** @type {boolean} 浮动视口是否可见；close() 后为 false（FloatingLayer 不渲染） */
+    this._visible = true;
+    /** @type {boolean} 浮动视口是否可关闭（右上角渲染关闭按钮） */
+    this._closable = false;
   }
 
   /**
@@ -327,6 +341,77 @@ class BoxBuilder extends Reflowable {
   modal() {
     this._modal = true;
     return this;
+  }
+
+  /**
+   * 设置浮动视口是否可移动（仅对浮动视口有效；通过 dragHandle 拖拽点拖动整个浮动视口）。
+   * 注意：可调整大小（resizable）的浮动视口一定可移动，不受此设置限制。
+   * @param {boolean} [enabled=true] 是否可移动
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  movable(enabled = true) {
+    this._movable = enabled;
+    return this;
+  }
+
+  /**
+   * 设置浮动视口是否可调整大小（仅对浮动视口有效；通过边缘/角手柄拖拽改变尺寸）。
+   * 可调整大小的一定可移动（有效移动 = movable || resizable）。
+   * @param {boolean} [enabled=true] 是否可调整大小
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  resizable(enabled = true) {
+    this._resizable = enabled;
+    return this;
+  }
+
+  /**
+   * 标记本 box 为浮动视口的拖拽点（仅浮动视口树内有效）：
+   * 在该 box 区域按下并拖动可移动整个浮动视口（须浮动视口可移动）。
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  dragHandle() {
+    this._isDragHandle = true;
+    return this;
+  }
+
+  /**
+   * 设置浮动视口是否可关闭（仅对浮动视口有效）：右上角渲染关闭按钮，点击后 close()
+   * @param {boolean} [enabled=true] 是否可关闭
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  closable(enabled = true) {
+    this._closable = enabled;
+    return this;
+  }
+
+  /**
+   * 关闭浮动视口：置为不可见并触发浮动层重渲染（FloatingLayer 跳过渲染）。
+   * 仅对浮动视口有效。
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  close() {
+    this._visible = false;
+    notifyFloatingChange();
+    return this;
+  }
+
+  /**
+   * 重新打开已关闭的浮动视口：置为可见并触发浮动层重渲染
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  open() {
+    this._visible = true;
+    notifyFloatingChange();
+    return this;
+  }
+
+  /**
+   * 浮动视口有效移动能力：可调整大小的浮动视口一定可移动
+   * @returns {boolean} 是否可移动
+   */
+  get _effectiveMovable() {
+    return this._movable || this._resizable;
   }
 
   /**

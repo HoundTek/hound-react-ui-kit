@@ -24,10 +24,41 @@ const styleSheet = `
     cursor: move;
     background: rgba(255, 100, 150, 0.6);
   }
+  /* 浮动视口关闭按钮：绝对定位于视口右上角，位于内容三层（Content/Edge/Corner）之上 */
+  .floating-close-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(0, 0, 0, 0.28);
+    font-size: 12px;
+    line-height: 1;
+    padding: 0;
+    z-index: 1300;
+    pointer-events: auto;
+    user-select: none;
+  }
+  .floating-close-btn:hover {
+    background: rgba(200, 60, 60, 0.9);
+    color: #fff;
+  }
   /* 拖拽会话期间光标全局锁定（* + !important 压过子元素自身 cursor） */
   body.box-dragging-x, body.box-dragging-x * { cursor: e-resize !important; }
   body.box-dragging-y, body.box-dragging-y * { cursor: n-resize !important; }
   body.box-dragging-xy, body.box-dragging-xy * { cursor: move !important; }
+  /* 浮动视口缩放会话光标：水平/垂直/对角，与移动的四向十字区分 */
+  body.box-resizing-ew, body.box-resizing-ew * { cursor: ew-resize !important; }
+  body.box-resizing-ns, body.box-resizing-ns * { cursor: ns-resize !important; }
+  body.box-resizing-nwse, body.box-resizing-nwse * { cursor: nwse-resize !important; }
+  body.box-resizing-nesw, body.box-resizing-nesw * { cursor: nesw-resize !important; }
 `;
 
 if (typeof document !== 'undefined' && !document.getElementById('box-drag-styles')) {
@@ -218,7 +249,18 @@ function computeBuilderLayout(builder) {
     computedWidth = '100vw';
     computedHeight = '100vh';
   } else if (builder._isFloatingViewport) {
-    // 浮动视口：不强制 100%，尺寸取显式值（fixed/default），未指定时保持 auto 由内容撑开
+    // 浮动视口：缩放后以显式尺寸为准并解除 CSS 固定约束（min/max 由拖拽逻辑在 JS 层应用）；
+    // 未缩放时保持 fixed/default 显式值或 auto（内容撑开）
+    if (builder._viewWidth != null) {
+      computedWidth = `${builder._viewWidth}px`;
+      maxWidth = 'none';
+      minWidth = 'none';
+    }
+    if (builder._viewHeight != null) {
+      computedHeight = `${builder._viewHeight}px`;
+      maxHeight = 'none';
+      minHeight = 'none';
+    }
   } else {
     if (computedWidth === 'auto') computedWidth = '100%';
     if (computedHeight === 'auto') computedHeight = '100%';
@@ -576,7 +618,8 @@ function useBoxOverlayScroll(layerRef, builder) {
 // === 公共布局框架组件 ===
 /**
  * 三层共用的布局框架。外层 div（容器，绑定 ref 与容器样式）包裹内层 div（inner，
- * 承载子项与布局方向），可选 wrapper 用于相对定位包裹；extra 渲染附加节点（如浮动滚动条）
+ * 承载子项与布局方向），可选 wrapper 用于相对定位包裹；extra 渲染附加节点（如浮动滚动条）；
+ * onContainerMouseDown 绑定到容器 div（用于浮动视口拖拽点移动）
  * @param {Object} props 组件属性
  * @param {React.RefObject} props.containerRef 容器 ref
  * @param {string} props.containerClassName 容器类名
@@ -586,11 +629,12 @@ function useBoxOverlayScroll(layerRef, builder) {
  * @param {Object} [props.wrapperStyle] 外层包裹样式（提供时多套一层 div）
  * @param {React.ReactNode} props.children 子节点
  * @param {React.ReactNode} [props.extra] 附加节点
+ * @param {Function} [props.onContainerMouseDown] 容器 mousedown 处理器
  * @returns {JSX.Element} 框架元素
  */
-const BoxLayerFrame = ({ containerRef, containerClassName, containerStyle, innerClassName, innerStyle, wrapperStyle, children, extra }) => {
+const BoxLayerFrame = ({ containerRef, containerClassName, containerStyle, innerClassName, innerStyle, wrapperStyle, children, extra, onContainerMouseDown }) => {
   const frame = (
-    <div ref={containerRef} className={containerClassName} style={containerStyle}>
+    <div ref={containerRef} className={containerClassName} style={containerStyle} onMouseDown={onContainerMouseDown}>
       <div className={innerClassName} style={{ ...innerStyle }}>
         {children}
       </div>
@@ -616,6 +660,10 @@ const ContentLayer = ({ builder }) => {
 
   const wrapperStyle = { position: 'relative' };
 
+  // 拖拽点激活：本 box 标记为浮动视口拖拽点，且所在浮动视口有效可移动
+  const isDragHandleActive =
+    builder._isDragHandle && builder._root._isFloatingViewport && builder._root._effectiveMovable;
+
   if (!builder._layoutValid) {
     return (
       <BoxLayerFrame
@@ -635,10 +683,11 @@ const ContentLayer = ({ builder }) => {
     <BoxLayerFrame
       containerRef={containerRef}
       containerClassName={containerClassName}
-      containerStyle={{ ...style }}
+      containerStyle={{ ...style, ...(isDragHandleActive ? { cursor: 'move' } : null) }}
       innerClassName={innerClassName}
       innerStyle={innerStyle}
       wrapperStyle={wrapperStyle}
+      onContainerMouseDown={isDragHandleActive ? (e) => startFloatingMove(builder._root, e) : undefined}
       extra={<>
         {builder._moveY === true && <FloatingScrollbar containerRef={containerRef} orientation="vertical" />}
         {builder._moveX === true && <FloatingScrollbar containerRef={containerRef} orientation="horizontal" />}
@@ -1131,6 +1180,149 @@ function subscribeFloating(listener) {
 }
 
 /**
+ * 通知浮动层重新渲染（浮动视口位置/尺寸变更后调用）
+ */
+function notifyFloatingChange() {
+  _floatingListeners.forEach(cb => cb());
+}
+
+/** @type {number} 浮动视口缩放下限（px） */
+const FLOAT_RESIZE_MIN = 24;
+
+/**
+ * 启动浮动视口移动拖拽会话：在 dragHandle 拖拽点区域按下并拖动，
+ * 沿鼠标位移更新浮动视口位置（posX/posY）
+ * @param {BoxBuilder} root 浮动视口 builder
+ * @param {React.MouseEvent} event 触发事件
+ */
+function startFloatingMove(root, event) {
+  if (event.button !== 0 || _dragSession) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const baseX = root._posX ?? 0;
+  const baseY = root._posY ?? 0;
+  const prevUserSelect = document.body.style.userSelect;
+  document.body.style.userSelect = 'none';
+  document.body.classList.add('box-dragging-xy');
+  const onMove = (ev) => {
+    root._posX = baseX + ev.clientX - startX;
+    root._posY = baseY + ev.clientY - startY;
+    notifyFloatingChange();
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.style.userSelect = prevUserSelect;
+    document.body.classList.remove('box-dragging-xy');
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+/**
+ * 启动浮动视口缩放拖拽会话：拖动边缘/角手柄沿鼠标位移更新浮动视口
+ * 尺寸（_viewWidth/_viewHeight）。拖拽 W/N 侧时位置随实际尺寸变化同步更新
+ *（右侧/下侧边界保持不动；尺寸被 min/max 钳制时位置也停止，避免窗口漂移）。
+ * 缩放起始解除 fixed（min === max）的固定上限，使缩放生效。
+ * 拖拽期间光标为对应调整方向（水平/垂直/对角），与移动（四向十字）区分。
+ * @param {BoxBuilder} root 浮动视口 builder
+ * @param {string} dir 手柄方向（可组合）：'n'/'s'/'e'/'w'/'ne'/'nw'/'se'/'sw'
+ * @param {React.MouseEvent} event 触发事件
+ */
+function startFloatingResize(root, dir, event) {
+  if (event.button !== 0 || _dragSession) return;
+  event.preventDefault();
+  event.stopPropagation();
+  // fixed 尺寸（min === max）的固定上限会让缩放失效，缩放起始即解除
+  if (root._minWidth === root._maxWidth && root._maxWidth != null) root._maxWidth = undefined;
+  if (root._minHeight === root._maxHeight && root._maxHeight != null) root._maxHeight = undefined;
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const baseX = root._posX ?? 0;
+  const baseY = root._posY ?? 0;
+  const baseW = root._viewWidth != null ? root._viewWidth : safeNum(root._containerSize?.width);
+  const baseH = root._viewHeight != null ? root._viewHeight : safeNum(root._containerSize?.height);
+  const moveW = dir.includes('w');
+  const moveE = dir.includes('e');
+  const moveN = dir.includes('n');
+  const moveS = dir.includes('s');
+  const minW = root._minWidth != null ? root._minWidth : FLOAT_RESIZE_MIN;
+  const minH = root._minHeight != null ? root._minHeight : FLOAT_RESIZE_MIN;
+  const maxW = root._maxWidth;
+  const maxH = root._maxHeight;
+  // 缩放光标方向类：水平/垂直/对角（nwse 或 nesw），与移动的四向十字区分。
+  // 对角映射：nw/se 角沿 NW-SE 对角线（nwse），ne/sw 角沿 NE-SW 对角线（nesw）
+  const resizeDirClass =
+    (moveW || moveE) && (moveN || moveS)
+      ? (moveW === moveS ? 'box-resizing-nesw' : 'box-resizing-nwse')
+      : moveW || moveE
+        ? 'box-resizing-ew'
+        : 'box-resizing-ns';
+  const prevUserSelect = document.body.style.userSelect;
+  document.body.style.userSelect = 'none';
+  document.body.classList.add(resizeDirClass);
+  const onMove = (ev) => {
+    const dx = ev.clientX - startX;
+    const dy = ev.clientY - startY;
+    // 尺寸：E/S 侧增量为正，W/N 侧增量为负（先算尺寸，位置随实际尺寸变化）
+    let w = baseW + (moveE ? dx : 0) - (moveW ? dx : 0);
+    let h = baseH + (moveS ? dy : 0) - (moveN ? dy : 0);
+    if (typeof maxW === 'number') w = Math.min(w, maxW);
+    if (typeof maxH === 'number') h = Math.min(h, maxH);
+    w = Math.max(w, minW);
+    h = Math.max(h, minH);
+    // 位置：W/N 侧按下时，位置随实际宽度/高度变化（被钳制时位置同步停止，
+    // 保证右侧/下侧边界保持不动）
+    if (moveW) root._posX = baseX + (baseW - w);
+    if (moveN) root._posY = baseY + (baseH - h);
+    root._viewWidth = w;
+    root._viewHeight = h;
+    root._requestReflow();
+    notifyFloatingChange();
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.style.userSelect = prevUserSelect;
+    document.body.classList.remove(resizeDirClass);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+/**
+ * 渲染浮动视口的缩放手柄（仅 resizable 时）。四边 + 四角共 8 个手柄，
+ * 绝对定位于视口边缘，拖拽调整尺寸（角可双轴，边单轴）。
+ * 手柄层级（zIndex 1300）高于内容三层（Content/Edge/Corner，zIndex ≤ 1200），
+ * 确保始终位于浮层内容之上可交互。
+ * @param {BoxBuilder} builder 浮动视口 builder
+ * @returns {JSX.Element|null} 手柄集合；不可调整大小时返回 null
+ */
+function renderResizeHandles(builder) {
+  if (!builder._resizable) return null;
+  const handles = [
+    { dir: 'n', style: { top: 0, left: 0, width: '100%', height: 8, cursor: 'ns-resize' } },
+    { dir: 's', style: { bottom: 0, left: 0, width: '100%', height: 8, cursor: 'ns-resize' } },
+    { dir: 'w', style: { top: 0, left: 0, height: '100%', width: 8, cursor: 'ew-resize' } },
+    { dir: 'e', style: { top: 0, right: 0, height: '100%', width: 8, cursor: 'ew-resize' } },
+    { dir: 'nw', style: { top: 0, left: 0, width: 16, height: 16, cursor: 'nwse-resize' } },
+    { dir: 'ne', style: { top: 0, right: 0, width: 16, height: 16, cursor: 'nesw-resize' } },
+    { dir: 'sw', style: { bottom: 0, left: 0, width: 16, height: 16, cursor: 'nesw-resize' } },
+    { dir: 'se', style: { bottom: 0, right: 0, width: 16, height: 16, cursor: 'nwse-resize' } },
+  ];
+  return handles.map(h => (
+    <div
+      key={`float-resize-${h.dir}`}
+      className="drag-handle floating-resize-handle"
+      style={{ position: 'absolute', pointerEvents: 'auto', zIndex: 1300, ...h.style }}
+      onMouseDown={(e) => startFloatingResize(builder, h.dir, e)}
+    />
+  ));
+}
+
+/**
  * 取浮动视口定位容器的样式：position: fixed + 屏幕坐标（left/top）+ 层级（z-index）
  * @param {BoxBuilder} builder 浮动视口 builder
  * @returns {Object} 定位容器样式
@@ -1160,16 +1352,37 @@ function getFloatingMaskStyle(builder) {
 }
 
 /**
+ * 渲染浮动视口的关闭按钮（仅 closable 时）。绝对定位于视口右上角，
+ * 点击调用 close() 隐藏该浮动视口（不影响其他浮动视口与主内容）。
+ * @param {BoxBuilder} builder 浮动视口 builder
+ * @returns {JSX.Element|null} 关闭按钮；不可关闭时返回 null
+ */
+function renderCloseButton(builder) {
+  if (!builder._closable) return null;
+  return (
+    <button
+      type="button"
+      className="floating-close-btn"
+      aria-label="close"
+      onClick={() => builder.close()}
+    >
+      ✕
+    </button>
+  );
+}
+
+/**
  * 浮动层组件：统一承载渲染所有浮动视口。
  * - 容器 position: fixed 铺满可视区域且 pointer-events: none，不拦截主内容交互
  * - 仅渲染最上方模态视口（modal()）的遮罩，避免多重遮罩叠加；低层级模态视口由该遮罩统一遮挡
+ * - 已关闭（close()）的浮动视口不渲染
  * - 每个浮动视口渲染为独立层，内部复用完整三层渲染（Content/Edge/Corner）
  * @returns {JSX.Element|null} 浮动层元素；无浮动视口时返回 null
  */
 const FloatingLayer = () => {
   const [, forceUpdate] = useState(0);
   useEffect(() => subscribeFloating(() => forceUpdate(n => n + 1)), []);
-  const builders = [..._floatingBuilders];
+  const builders = [..._floatingBuilders].filter(b => b._visible !== false);
   if (builders.length === 0) return null;
   // 取最上方模态视口：层级最高者；层级相同时取注册表后者（DOM 顺序靠后 = 视觉最上）
   let topModal = null;
@@ -1192,6 +1405,8 @@ const FloatingLayer = () => {
             <ContentLayer builder={b} />
             <EdgeLayer builder={b} />
             <CornerLayer builder={b} />
+            {renderResizeHandles(b)}
+            {renderCloseButton(b)}
           </div>
         </div>
       ))}
@@ -1199,4 +1414,4 @@ const FloatingLayer = () => {
   );
 };
 
-export { ContentLayer, EdgeLayer, CornerLayer, FloatingLayer, registerFloating, unregisterFloating };
+export { ContentLayer, EdgeLayer, CornerLayer, FloatingLayer, registerFloating, unregisterFloating, notifyFloatingChange };

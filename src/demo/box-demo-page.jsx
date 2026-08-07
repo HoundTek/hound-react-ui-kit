@@ -428,6 +428,8 @@ const _builder = new BoxBuilder("@demo")
 /**
  * 浮动窗口演示：浮动视口脱离主布局树，以屏幕坐标悬浮于页面上层（独立窗口形态）。
  * 固定位置/尺寸，内部为完整 Box 布局树（标题栏 + 可滚动正文），拖拽分界线同样可用。
+ * movable(true).resizable(true) 开启窗口移动与缩放：拖动标题栏（dragHandle）移动窗口，
+ * 拖动边缘/角手柄调整尺寸；closable(true) 右上角渲染关闭按钮，点击 close() 关闭窗口。
  * @type {BoxBuilder}
  */
 const _floatingWin = new BoxBuilder('@float/win')
@@ -437,6 +439,9 @@ const _floatingWin = new BoxBuilder('@float/win')
   .fixedWidth(280)
   .fixedHeight(180)
   .zIndex(2100)
+  .movable(true)
+  .resizable(true)
+  .closable(true)
   .backgroundColor('#ffffff')
   .layout('vertical')
   .moveY(false)
@@ -445,6 +450,7 @@ const _floatingWin = new BoxBuilder('@float/win')
     new BoxBuilder('@float/win/title')
       .fixedHeight(32)
       .backgroundColor('#4a90d9')
+      .dragHandle()
       .moveY(false)
       .moveX(false),
     new BoxBuilder('@float/win/body')
@@ -460,7 +466,8 @@ const _floatingWin = new BoxBuilder('@float/win')
   ]);
 
 /**
- * 模态浮动视口演示：modal() 模态视口自带遮罩（层级 = 视口层级 - 1），阻塞下层交互。
+ * 模态浮动视口演示：modal() 模态视口自带遮罩（层级 = 视口层级 - 1），阻塞下层交互；
+ * closable(true) 渲染关闭按钮，关闭后遮罩随视口一并消失。
  * @type {BoxBuilder}
  */
 const _floatingModal = new BoxBuilder('@float/modal')
@@ -471,6 +478,7 @@ const _floatingModal = new BoxBuilder('@float/modal')
   .fixedWidth(240)
   .fixedHeight(100)
   .zIndex(2200)
+  .closable(true)
   .backgroundColor('#ffffff')
   .layout('vertical')
   .moveY(false)
