@@ -1,11 +1,14 @@
 /**
- * @file 应用根组件。以 I18nProvider 包裹 Cell 演示页，提供国际化实例。
- *        语言切换控件本身也是 Cell（LanguageSwitchCell），纳入 header 布局。
+ * @file 应用根组件。以 I18nProvider 包裹 Cell 演示页，提供国际化实例；
+ *        ThemeProvider 注入主题系统，演示尺寸变化特效（页面窗口 resize /
+ *        浮动窗口拖拽缩放时，视口内容按主题声明的特效呈现）。
+ *        语言切换控件本身也是 Cell（LanguageSwitchCell），纳入 header 布局；
+ *        主题切换控件为右上角浮动小面板（演示工具，非 Cell）。
  */
-import React from 'react';
+import React, { useState } from 'react';
 import CellDemoPage from './demo/cell-demo-page';
 import { DemoPageFloating } from './demo/box-demo-page';
-import { I18n, I18nProvider } from './core/ui-kit';
+import { I18n, I18nProvider, Theme, ThemeProvider } from './core/ui-kit';
 
 /**
  * 语言包：按语言组织的文本资源（key → 文本）。Cell 内容组件通过 useText 引用 key。
@@ -85,15 +88,86 @@ const messages = {
 const i18n = new I18n(messages, 'zh-CN');
 
 /**
- * 应用根组件。以 I18nProvider 包裹 Cell 演示页，子树内任意 Cell 可用 useText；
- * DemoPageFloating 在页面上层叠加渲染浮动视口演示（独立窗口 + 模态遮罩）。
+ * 预置主题：仅声明尺寸变化特效（声明式描述，由特效注册表解析为具体实现）。
+ * 每个主题的特效不同，切换主题即可观察不同特效：
+ * - stretch     拉伸：内容布局即时跟随新尺寸（无防抖，"一旦原页面更新就换"）
+ * - shrinkToFit 缩小至适合：内容等比缩小至适合新尺寸（不变形，留白居中）
+ * - blur        拉伸 + 模糊：内容即时跟随新尺寸，变化期间整体模糊、稳定后恢复清晰
+ * @type {Object<string, Theme>}
+ */
+const themes = {
+  stretch: new Theme({ name: 'stretch', effects: { resize: { type: 'stretch' } } }),
+  shrinkToFit: new Theme({ name: 'shrinkToFit', effects: { resize: { type: 'shrinkToFit' } } }),
+  blur: new Theme({ name: 'blur', effects: { resize: { type: 'blur', blur: 10 } } }),
+};
+
+/** 主题切换控件的按钮文案（演示工具，直接中文标注） */
+const THEME_LABELS = {
+  stretch: '拉伸',
+  shrinkToFit: '缩小至适合',
+  blur: '模糊',
+};
+
+/**
+ * 主题切换控件：右上角固定小面板，点击切换当前主题（演示不同主题不同特效）。
+ * @param {Object} props 组件属性
+ * @param {string} props.current 当前主题名
+ * @param {(name: string) => void} props.onChange 切换回调
+ * @returns {JSX.Element} 切换面板元素
+ */
+const ThemeSwitcher = ({ current, onChange }) => (
+  <div
+    style={{
+      position: 'fixed',
+      right: 12,
+      top: 72,
+      zIndex: 3000,
+      display: 'flex',
+      gap: 6,
+      padding: 8,
+      borderRadius: 8,
+      background: 'rgba(40, 44, 52, 0.9)',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+    }}
+  >
+    {Object.keys(themes).map(name => (
+      <button
+        key={name}
+        onClick={() => onChange(name)}
+        style={{
+          padding: '4px 10px',
+          border: 'none',
+          borderRadius: 4,
+          cursor: 'pointer',
+          fontSize: 12,
+          color: current === name ? '#fff' : '#bbb',
+          backgroundColor: current === name ? '#4a90d9' : 'transparent',
+        }}
+      >
+        {THEME_LABELS[name]}
+      </button>
+    ))}
+  </div>
+);
+
+/**
+ * 应用根组件。I18nProvider 与 ThemeProvider 并列包裹演示页：
+ * - 语言切换经 I18nProvider 注入，Cell 内容组件用 useText 订阅
+ * - 主题切换经 ThemeProvider 注入，Box 视口根（页面/浮动窗口）按主题声明呈现尺寸变化特效
+ * - DemoPageFloating 在页面上层叠加渲染浮动视口演示（独立窗口 + 模态遮罩）
  * @returns {JSX.Element} 应用根节点
  */
-const App = () => (
-  <I18nProvider i18n={i18n}>
-    <CellDemoPage />
-    <DemoPageFloating />
-  </I18nProvider>
-);
+const App = () => {
+  const [themeName, setThemeName] = useState('stretch');
+  return (
+    <I18nProvider i18n={i18n}>
+      <ThemeProvider theme={themes[themeName]}>
+        <CellDemoPage />
+        <DemoPageFloating />
+        <ThemeSwitcher current={themeName} onChange={setThemeName} />
+      </ThemeProvider>
+    </I18nProvider>
+  );
+};
 
 export default App;
