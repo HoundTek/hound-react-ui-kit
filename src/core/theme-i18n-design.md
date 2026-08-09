@@ -70,6 +70,24 @@ Cell 不硬编码任何呈现值或文本，全部通过资源标识引用：
 
 合成型特效不进入 Cell 的 Box 布局层级——它叠加在 Box 渲染结果之上，以独立层的方式参与最终呈现。Cell 仅声明"此处需要某特效"，不参与特效的内部计算与渲染管理。
 
+### 尺寸变化特效（Resize Effects）
+
+已实现的动态属性特例：视口（页面 `viewport()` 与浮动视口 `floatingViewport()`）尺寸变化时呈现的特效，由主题以声明式描述驱动，与"合成型特效"同属动态属性层。
+
+- **声明式 API**：主题包在 `effects.resize` 中声明 `{ type, ...params }`，如 `{ type: 'stretch' }`、`{ type: 'blur', blur: 10 }`。type 是特效契约，params 的语义由对应实现定义
+- **注册表解析**：渲染层按 type 从特效注册表（resize-effects）解析实现组件；未识别类型返回 null，降级为无特效，保证主题演进不影响渲染层
+- **实现自由**：每个特效实现是一个 React 组件，接收统一契约 `{ builder, spec, children }`（children 为视口三层渲染），内部可用任意技术（transform、CSS filter、WAAPI、canvas 等）。已实现：
+  - `stretch` 拉伸：即时跟随——真实尺寸一变，布局立即切换到新尺寸（"一旦原页面更新就换"），无冻结、无防抖
+  - `shrinkToFit` 缩小至适合：与拉伸共用即时跟随实现。原始布局响应足够快时两者没有差异；仅当原始布局响应慢（reflow 耗时超过一帧）时两者的呈现才可能出现分化（本阶段两者实现一致，分化留待后续演进）
+  - `blur` 模糊：拉伸 + 模糊——布局即时跟随（同 stretch），尺寸变化期间三层整体模糊遮盖布局重排，尺寸稳定 settleDelay（默认 250ms）后平滑恢复清晰
+- **三层包装壳**：特效宿主（ResizeEffectViewport）挂在视口根的三层结构（Content/Edge/Corner）外面，三层整体参与特效，互不错位；页面视口由 CellRoot 挂载，浮动视口由 FloatingLayer 挂载
+- **即时跟随 + 响应速度优化**（stretch/shrinkToFit/blur 共用）：
+  - 真实尺寸变化时立即写 `builder._containerSize`（廉价、不触发布局），尺寸相关逻辑即时正确
+  - reflow 以 requestAnimationFrame 合并：每帧至多执行一次，快速连续变化时避免重复 reflow 造成的布局抖动（layout thrash）
+  - 特效层走 transform / filter 合成（GPU 合成器，will-change 提示），不阻塞主线程布局
+- **触发范围**：仅视口根生效（页面窗口 resize、浮动窗口拖拽缩放）；子 Box 不重复挂载
+- **注入**：经 ThemeProvider 注入，视口根特效壳（ResizeEffectViewport）读取当前主题的 resize 特效描述并包裹三层；主题切换触发特效实例重建，布局立即恢复
+
 ### 主题包
 
 一个主题包包含完整的静态资源与动态属性定义（含参数型与合成型特效描述）。
