@@ -1,10 +1,12 @@
 /**
  * @file Cell 前端的 React 集成层。
- *        - CellRoot 合并 Box 的三层渲染为单一根元素
+ *        - CellRoot 合并 Box 的三层渲染为单一根元素（视口根经 ResizeEffectViewport
+ *          壳包裹三层，尺寸变化时三层整体参与主题特效）
  *        - useCellData 订阅 Cell 数据字段（含自动绑定转发），字段变更时自动重渲染
  *        - useNodeData 订阅任意 DataNode 字段（用于实例引用 cellA.data、引用节点等）
  */
 import React, { useState, useEffect } from 'react';
+import { ResizeEffectViewport } from '../theme/resize-effects';
 
 /**
  * Cell 根渲染组件。把指定挂载点的 Box 三层（ContentLayer / EdgeLayer / CornerLayer）
@@ -27,9 +29,11 @@ function CellRoot({ cell, mountIndex = 0 }) {
     : { position: 'relative' };
   return (
     <div style={wrapperStyle}>
-      {box.reactContent()}
-      {box.reactEdge()}
-      {box.reactCorner()}
+      <ResizeEffectViewport builder={box}>
+        {box.reactContent()}
+        {box.reactEdge()}
+        {box.reactCorner()}
+      </ResizeEffectViewport>
     </div>
   );
 }

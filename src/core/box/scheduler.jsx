@@ -1,26 +1,11 @@
 /**
- * @file Reflow 调度与动画工具。ReflowScheduler 以最小间隔节流根节点 reflow，
- *         Reflowable 为可 reflow 对象提供请求/执行/通知基类；
- *         animateReflow/pickAnimatable 负责 reflow 产生的尺寸过渡动画。
+ * @file Reflow 调度与可 reflow 对象基类。ReflowScheduler 以最小间隔节流根节点
+ *         reflow，Reflowable 为可 reflow 对象提供请求/执行/通知基类。
+ *         尺寸变化的过渡呈现由主题特效系统（resize-effects）统一负责，不在此处。
  */
 
-/** reflow 最小调度间隔（ms），同时作为过渡动画时长 */
+/** reflow 最小调度间隔（ms） */
 const REFLOW_INTERVAL = 250;
-
-/** 可参与过渡动画的 CSS 属性白名单 */
-const ANIMATABLE_PROPERTIES = [
-  'width', 'height',
-  'maxWidth', 'maxHeight', 'minWidth', 'minHeight',
-  'transform', 'opacity',
-  'backgroundColor', 'color',
-  'left', 'top', 'right', 'bottom',
-  'marginLeft', 'marginTop', 'marginRight', 'marginBottom',
-  'paddingLeft', 'paddingTop', 'paddingRight', 'paddingBottom',
-  'borderColor', 'borderWidth', 'borderRadius',
-  'boxShadow', 'filter',
-  'fontSize', 'lineHeight',
-  'flex', 'flexGrow', 'flexShrink', 'flexBasis',
-];
 
 /**
  * Reflow 调度器。收集所有 reflow 根节点，按 REFLOW_INTERVAL 节流，
@@ -119,67 +104,8 @@ class Reflowable {
   }
 }
 
-/**
- * 对元素执行 reflow 过渡动画：比较前后样式中可动画属性的差值，
- * 用 Web Animations API 从旧值过渡到新值，期间通过计数回调通知动画起止
- * @param {HTMLElement} element 目标元素
- * @param {Object} prevStyle 上一帧可动画样式快照
- * @param {Object} nextStyle 当前可动画样式快照
- * @param {() => void} [onAnimStart] 动画开始回调
- * @param {() => void} [onAnimFinish] 动画结束回调
- */
-function animateReflow(element, prevStyle, nextStyle, onAnimStart, onAnimFinish) {
-  if (!element || !prevStyle) return;
-
-  const oldKeyframe = {};
-  const newKeyframe = {};
-
-  for (const key of ANIMATABLE_PROPERTIES) {
-    const prevVal = prevStyle[key];
-    const nextVal = nextStyle[key];
-    if (prevVal !== undefined && nextVal !== undefined && prevVal !== nextVal) {
-      oldKeyframe[key] = prevVal;
-      newKeyframe[key] = nextVal;
-    }
-  }
-
-  if (Object.keys(newKeyframe).length > 0) {
-    if (element._currentReflowAnim) {
-      element._currentReflowAnim.cancel();
-    }
-    const anim = element.animate([oldKeyframe, newKeyframe], {
-      duration: REFLOW_INTERVAL,
-      easing: 'ease-out',
-    });
-    element._currentReflowAnim = anim;
-    if (onAnimStart) onAnimStart();
-    anim.onfinish = () => {
-      element._currentReflowAnim = null;
-      if (onAnimFinish) onAnimFinish();
-    };
-  }
-}
-
-/**
- * 从样式对象中抽取可动画属性（且值非空）构成快照
- * @param {Object} style 样式对象
- * @returns {Object} 仅含可动画属性的快照
- */
-function pickAnimatable(style) {
-  const picked = {};
-  for (const key of ANIMATABLE_PROPERTIES) {
-    if (style[key] !== undefined && style[key] !== null) {
-      picked[key] = style[key];
-    }
-  }
-  return picked;
-}
-
 export {
   Reflowable,
   reflowScheduler,
   REFLOW_INTERVAL,
-  ANIMATABLE_PROPERTIES,
-  animateReflow,
-  pickAnimatable,
 };

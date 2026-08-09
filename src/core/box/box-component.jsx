@@ -1,13 +1,16 @@
 /**
  * @file Box 三层 React 组件实现。ContentLayer 承担布局与子项渲染，
  *        EdgeLayer/CornerLayer 为绝对定位覆盖层，负责拖拽分界线与双轴交点。
- *        模块级维护拖拽会话、滚动同步注册表与动画监听，跨组件共享。
+ *        模块级维护拖拽会话与滚动同步注册表，跨组件共享。
+ *        尺寸变化的过渡呈现由主题特效系统（resize-effects）统一负责，
+ *        本文件不再包含独立的 reflow 过渡动画。
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { reflowScheduler, animateReflow, pickAnimatable } from './scheduler';
+import { reflowScheduler } from './scheduler';
 import FloatingScrollbar from './floating-scrollbar';
 import { useHoveredEdges } from './hovered-edges-context';
 import { resolveContainerDrag, getDraggableEdgeId, commitContainerRatios, makeEdgeId } from './drag-resize';
+import { ResizeEffectViewport } from '../theme/resize-effects';
 
 const styleSheet = `
   .drag-handle {
@@ -69,25 +72,6 @@ if (typeof document !== 'undefined' && !document.getElementById('box-drag-styles
 }
 
 // === 辅助函数（纯计算，无 hook）===
-let _animCount = 0;
-const _animListeners = new Set();
-
-/**
- * 订阅 reflow 动画状态变化（开始/结束计数变化时触发）
- * @param {() => void} listener 监听回调
- * @returns {() => void} 取消订阅函数
- */
-function subscribeToAnimChanges(listener) {
-  _animListeners.add(listener);
-  return () => _animListeners.delete(listener);
-}
-
-/**
- * 通知所有动画状态监听者
- */
-function _notifyAnimListeners() {
-  _animListeners.forEach(cb => cb());
-}
 
 // === 拖拽会话（模块级，Edge / Corner 共用）===
 // session.targets: [{ container, dividerIndex, dim, axis, baseSizes }]
@@ -189,7 +173,6 @@ function startDragSession(targets, edgeIds, event, hover) {
     // 拖拽期间没有这轮驱动，手动标记整棵树后同步执行，保证嵌套子层交叉轴尺寸即时跟随
     markNeedsReflow(root);
     root._performReflow();
-    _notifyAnimListeners();
   };
 
   const onUp = () => {
@@ -393,6 +376,42 @@ function getContentRef(path) {
   return _contentRefRegistry[path];
 }
 
+// === 浮动视口三层容器 ref 注册表（跨组件共享）===
+// 供拖拽缩放会话直接写 DOM 尺寸（绕过 React 异步渲染，让窗口边缘与内容边缘
+// 在当前事件帧内即与鼠标精确重合，见 startFloatingResize.onMove）
+const _layerRefRegistry = {};
+
+/**
+ * 登记某一层的容器 ref（'content' | 'edge' | 'corner'）
+ * @param {string} path builder 路径
+ * @param {'content'|'edge'|'corner'} name 层名
+ * @param {React.RefObject} ref 容器 ref
+ */
+function registerLayerRef(path, name, ref) {
+  (_layerRefRegistry[path] || (_layerRefRegistry[path] = {}))[name] = ref;
+}
+
+/**
+ * 注销某一层的容器 ref
+ * @param {string} path builder 路径
+ * @param {'content'|'edge'|'corner'} name 层名
+ */
+function unregisterLayerRef(path, name) {
+  const entry = _layerRefRegistry[path];
+  if (!entry) return;
+  delete entry[name];
+  if (Object.keys(entry).length === 0) delete _layerRefRegistry[path];
+}
+
+/**
+ * 取某 builder 已注册的三层容器 ref 集合
+ * @param {string} path builder 路径
+ * @returns {Object|null} { content?, edge?, corner? }（缺层为 undefined）
+ */
+function getLayerRefs(path) {
+  return _layerRefRegistry[path] || null;
+}
+
 // === 工具函数（无 hook，纯计算）===
 
 /**
@@ -442,10 +461,7 @@ function getChildPositionStyle(childStyle, offset, isHorizontal, position) {
  */
 function useBoxContent(builder) {
   const containerRef = useRef(null);
-  const containerPrevStyle = useRef({});
   const childRefs = useRef([]);
-  const childPrevStyles = useRef(new Map());
-  const isFirstRender = useRef(true);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [viewportSize, setViewportSize] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 0,
@@ -454,12 +470,15 @@ function useBoxContent(builder) {
   const [, forceUpdate] = useState(0);
 
   const layout = computeBuilderLayout(builder);
-  const { style, getChildStyle } = layout;
 
-  // 注册容器 ref 供 edge/corner 层滚动同步
+  // 注册容器 ref 供 edge/corner 层滚动同步；并登记到三层容器注册表（浮动缩放直接写 DOM）
   useEffect(() => {
     registerContentRef(builder._path, containerRef);
-    return () => unregisterContentRef(builder._path);
+    registerLayerRef(builder._path, 'content', containerRef);
+    return () => {
+      unregisterContentRef(builder._path);
+      unregisterLayerRef(builder._path, 'content');
+    };
   }, [builder._path]);
 
   // window resize 监听
@@ -522,37 +541,6 @@ function useBoxContent(builder) {
     return () => { builder._onReflowComplete = null; };
   }, []);
 
-  // 容器动画
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-
-    const onStart = () => { _animCount++; _notifyAnimListeners(); };
-    const onFinish = () => {
-      _animCount--;
-      _notifyAnimListeners();
-    };
-
-
-    const el = containerRef.current;
-    if (el) {
-      const currAnimatable = pickAnimatable(style);
-      if (!_dragSession) animateReflow(el, containerPrevStyle.current, currAnimatable, onStart, onFinish);
-      containerPrevStyle.current = currAnimatable;
-    }
-    builder._children.forEach((child, index) => {
-      const childEl = childRefs.current[index];
-      if (!childEl) return;
-      const childStyle = getChildStyle(child);
-      const currAnimatable = pickAnimatable(childStyle);
-      const prev = childPrevStyles.current.get(index) || {};
-      if (!_dragSession) animateReflow(childEl, prev, currAnimatable, onStart, onFinish);
-      childPrevStyles.current.set(index, currAnimatable);
-    });
-  });
-
   return { containerRef, childRefs, layout };
 }
 
@@ -609,10 +597,6 @@ function useBoxOverlayScroll(layerRef, builder) {
     ro.observe(contentRefObj.current);
     return () => ro.disconnect();
   }, [builder._path]);
-  // 动画状态变化时强制刷新（隐藏/显示 Edge/Corner）
-  useEffect(() => {
-    return subscribeToAnimChanges(() => forceUpdate(n => n + 1));
-  }, []);
 }
 
 // === 公共布局框架组件 ===
@@ -648,8 +632,10 @@ const BoxLayerFrame = ({ containerRef, containerClassName, containerStyle, inner
 //  第一层：Box 内容
 // ===========================================================================
 /**
- * 内容层组件。承担实际布局：监听容器/视口尺寸变化触发 reflow，渲染子项，
- * 并对 reflow 产生的尺寸变化做过渡动画。布局非法时渲染错误占位。
+ * 内容层组件。承担实际布局：监听容器/视口尺寸变化触发 reflow，渲染子项。
+ * 布局非法时渲染错误占位。视口根（viewport / floating-viewport）的三层整体由
+ * 主题特效宿主（ResizeEffectViewport，挂于 CellRoot/FloatingLayer）包裹，
+ * 尺寸变化特效（拉伸/缩小/模糊）作用于整个三层结构。
  * @param {Object} props 组件属性
  * @param {BoxBuilder} props.builder 当前层 builder
  * @returns {JSX.Element} 内容层元素
@@ -679,6 +665,23 @@ const ContentLayer = ({ builder }) => {
     );
   }
 
+  const childrenNode = builder._children.map((child, index) => {
+    // Grid 子节点按 gridMetrics 绝对定位（与覆盖层同一定位口径），
+    // 不经浏览器 flex 换行；positions 为空（首次渲染）时回退主轴偏移
+    const childStyle = isGrid
+      ? getChildPositionStyle(getChildStyle(child), offsets[index], isHorizontal, positions[index])
+      : getChildStyle(child);
+    return (
+      <div
+        key={builder._pathResolved.join('-') + '-' + index}
+        ref={el => { childRefs.current[index] = el; }}
+        style={childStyle}
+      >
+        {child._content || <ContentLayer builder={child} />}
+      </div>
+    );
+  });
+
   return (
     <BoxLayerFrame
       containerRef={containerRef}
@@ -693,22 +696,7 @@ const ContentLayer = ({ builder }) => {
         {builder._moveX === true && <FloatingScrollbar containerRef={containerRef} orientation="horizontal" />}
       </>}
     >
-      {builder._children.map((child, index) => {
-        // Grid 子节点按 gridMetrics 绝对定位（与覆盖层同一定位口径），
-        // 不经浏览器 flex 换行；positions 为空（首次渲染）时回退主轴偏移
-        const childStyle = isGrid
-          ? getChildPositionStyle(getChildStyle(child), offsets[index], isHorizontal, positions[index])
-          : getChildStyle(child);
-        return (
-          <div
-            key={builder._pathResolved.join('-') + '-' + index}
-            ref={el => { childRefs.current[index] = el; }}
-            style={childStyle}
-          >
-            {child._content || <ContentLayer builder={child} />}
-          </div>
-        );
-      })}
+      {childrenNode}
     </BoxLayerFrame>
   );
 };
@@ -730,6 +718,11 @@ const EdgeLayer = ({ builder }) => {
   const { style, isHorizontal, isGrid, offsets, positions, getChildStyle, containerClassName, innerClassName, innerStyle } = layout;
 
   useBoxOverlayScroll(edgeRef, builder);
+  // 登记到三层容器注册表（浮动缩放直接写 DOM）
+  useEffect(() => {
+    registerLayerRef(builder._path, 'edge', edgeRef);
+    return () => unregisterLayerRef(builder._path, 'edge');
+  }, [builder._path]);
 
   // 无子节点或布局未稳定时跳过渲染
   if (builder._children.length === 0 || !builder._layoutValid) return null;
@@ -899,6 +892,11 @@ const CornerLayer = ({ builder }) => {
   const { style, isHorizontal, isGrid, offsets, positions, getChildStyle, containerClassName, innerClassName, innerStyle } = layout;
 
   useBoxOverlayScroll(cornerRef, builder);
+  // 登记到三层容器注册表（浮动缩放直接写 DOM）
+  useEffect(() => {
+    registerLayerRef(builder._path, 'corner', cornerRef);
+    return () => unregisterLayerRef(builder._path, 'corner');
+  }, [builder._path]);
 
   // 无子节点或布局未稳定时跳过渲染
   if (builder._children.length === 0 || !builder._layoutValid) return null;
@@ -1279,7 +1277,30 @@ function startFloatingResize(root, dir, event) {
     if (moveN) root._posY = baseY + (baseH - h);
     root._viewWidth = w;
     root._viewHeight = h;
-    root._requestReflow();
+    // 激进优化：新尺寸直接写入三层容器 DOM（绕过 React 异步渲染），
+    // 窗口边缘与内容边缘在当前事件帧内即与鼠标精确重合，不再滞后一帧；
+    // 容器尺寸同步更新并立即 reflow（不依赖 250ms 节流调度），布局数据即时
+    // 就绪，React 随后渲染收敛（内层子项至多滞后一帧）
+    const layerRefs = getLayerRefs(root._path);
+    if (layerRefs) {
+      const sizeW = `${w}px`;
+      const sizeH = `${h}px`;
+      if (layerRefs.content) {
+        layerRefs.content.style.width = sizeW;
+        layerRefs.content.style.height = sizeH;
+      }
+      if (layerRefs.edge) {
+        layerRefs.edge.style.width = sizeW;
+        layerRefs.edge.style.height = sizeH;
+      }
+      if (layerRefs.corner) {
+        layerRefs.corner.style.width = sizeW;
+        layerRefs.corner.style.height = sizeH;
+      }
+    }
+    root._containerSize = { width: w, height: h };
+    markNeedsReflow(root);
+    root._performReflow();
     notifyFloatingChange();
   };
   const onUp = () => {
@@ -1376,7 +1397,9 @@ function renderCloseButton(builder) {
  * - 容器 position: fixed 铺满可视区域且 pointer-events: none，不拦截主内容交互
  * - 仅渲染最上方模态视口（modal()）的遮罩，避免多重遮罩叠加；低层级模态视口由该遮罩统一遮挡
  * - 已关闭（close()）的浮动视口不渲染
- * - 每个浮动视口渲染为独立层，内部复用完整三层渲染（Content/Edge/Corner）
+ * - 每个浮动视口渲染为独立层，内部复用完整三层渲染（Content/Edge/Corner）；
+ *   三层整体被 ResizeEffectViewport（主题尺寸变化特效壳）包裹，浮层尺寸变化时
+ *   三层同步参与特效（拉伸/缩小/模糊），互不错位
  * @returns {JSX.Element|null} 浮动层元素；无浮动视口时返回 null
  */
 const FloatingLayer = () => {
@@ -1402,9 +1425,11 @@ const FloatingLayer = () => {
       {builders.map(b => (
         <div key={b._path}>
           <div style={getFloatingItemStyle(b)}>
-            <ContentLayer builder={b} />
-            <EdgeLayer builder={b} />
-            <CornerLayer builder={b} />
+            <ResizeEffectViewport builder={b}>
+              <ContentLayer builder={b} />
+              <EdgeLayer builder={b} />
+              <CornerLayer builder={b} />
+            </ResizeEffectViewport>
             {renderResizeHandles(b)}
             {renderCloseButton(b)}
           </div>
