@@ -12,7 +12,7 @@ class Theme {
    * @param {string} [options.name='default'] 主题名
    * @param {Object} [options.effects={}] 动态属性（特效）集合
    * @param {Object} [options.effects.resize] 尺寸变化特效描述
-   * @param {string} options.effects.resize.type 特效类型（stretch / shrinkToFit / blur / none / ...）
+   * @param {string} options.effects.resize.type 特效类型（stretch / blur / freezeZoom / none / ...）
    * @param {...*} [options.effects.resize.*] 特效参数（由对应实现消费，语义由实现定义）
    */
   constructor({ name = 'default', effects = {} } = {}) {
