@@ -466,6 +466,133 @@ const _floatingWin = new BoxBuilder('@float/win')
   ]);
 
 /**
+ * 复杂布局浮动窗口演示：在单一浮动视口内组合完整 Box 布局能力——
+ * 标题栏（dragHandle 拖拽点）+ 工具栏（横向固定块）+ 主工作区（横向分栏，
+ * 侧栏与内容区之间为可拖拽分界线）+ 内容区纵向嵌套（状态行 / 图表网格
+ * grid / 可滚动日志）+ 底部状态栏。移动/缩放/关闭与简单窗口一致，
+ * 内部布局完全复用主布局树机制（锁定分配 / 自由滚动 / Grid / 拖拽分界线）。
+ * @type {BoxBuilder}
+ */
+const _floatingComplex = new BoxBuilder('@float/complex')
+  .floatingViewport()
+  .posX(560)
+  .posY(240)
+  .fixedWidth(560)
+  .fixedHeight(380)
+  .zIndex(2050)
+  .movable(true)
+  .resizable(true)
+  .closable(true)
+  .backgroundColor('#ffffff')
+  .layout('vertical')
+  .moveY(false)
+  .moveX(false)
+  .children([
+    // 标题栏（拖拽点）
+    new BoxBuilder('@float/complex/title')
+      .fixedHeight(36)
+      .backgroundColor('#4a90d9')
+      .dragHandle()
+      .moveY(false)
+      .moveX(false),
+    // 工具栏：横向排列固定宽度按钮块
+    new BoxBuilder('@float/complex/toolbar')
+      .fixedHeight(32)
+      .layout('horizontal')
+      .moveX(false)
+      .moveY(false)
+      .backgroundColor('#eef3fa')
+      .children([
+        new BoxBuilder('@float/complex/toolbar/btn1').fixedWidth(48).backgroundColor('#c9d7ea'),
+        new BoxBuilder('@float/complex/toolbar/btn2').fixedWidth(48).backgroundColor('#c9d7ea'),
+        new BoxBuilder('@float/complex/toolbar/btn3').fixedWidth(48).backgroundColor('#c9d7ea'),
+        new BoxBuilder('@float/complex/toolbar/btn4').fixedWidth(48).backgroundColor('#c9d7ea'),
+        new BoxBuilder('@float/complex/toolbar/btn5').fixedWidth(48).backgroundColor('#c9d7ea'),
+        new BoxBuilder('@float/complex/toolbar/btn6').fixedWidth(48).backgroundColor('#c9d7ea'),
+      ]),
+    // 主工作区：横向分栏（侧栏 + 内容区，分界线可拖）
+    new BoxBuilder('@float/complex/workspace')
+      .layout('horizontal')
+      .moveX(false)
+      .moveY(false)
+      .children([
+        // 侧栏：垂直菜单列表（可滚动），宽度可拖（default 150 / min 100 / max 220）
+        new BoxBuilder('@float/complex/workspace/sidebar')
+          .defaultWidth(150)
+          .minWidth(100)
+          .maxWidth(220)
+          .layout('vertical')
+          .moveY(true)
+          .backgroundColor('#f7f8fa')
+          .children([
+            new BoxBuilder('@float/complex/workspace/sidebar/menu1').fixedHeight(30).backgroundColor('#4a90d9'),
+            new BoxBuilder('@float/complex/workspace/sidebar/menu2').fixedHeight(30).backgroundColor('#e3ecf7'),
+            new BoxBuilder('@float/complex/workspace/sidebar/menu3').fixedHeight(30).backgroundColor('#e3ecf7'),
+            new BoxBuilder('@float/complex/workspace/sidebar/menu4').fixedHeight(30).backgroundColor('#e3ecf7'),
+            new BoxBuilder('@float/complex/workspace/sidebar/menu5').fixedHeight(30).backgroundColor('#e3ecf7'),
+            new BoxBuilder('@float/complex/workspace/sidebar/menu6').fixedHeight(30).backgroundColor('#e3ecf7'),
+          ]),
+        // 内容区：纵向嵌套（状态行 / 网格 / 日志）
+        new BoxBuilder('@float/complex/workspace/content')
+          .layout('vertical')
+          .moveX(false)
+          .moveY(false)
+          .backgroundColor('#ffffff')
+          .children([
+            // 状态行：三个弹性统计块
+            new BoxBuilder('@float/complex/workspace/content/stats')
+              .fixedHeight(56)
+              .layout('horizontal')
+              .moveX(false)
+              .moveY(false)
+              .children([
+                new BoxBuilder('@float/complex/workspace/content/stats/s1').backgroundColor('#e3f2fd'),
+                new BoxBuilder('@float/complex/workspace/content/stats/s2').backgroundColor('#e8f5e9'),
+                new BoxBuilder('@float/complex/workspace/content/stats/s3').backgroundColor('#fff8e1'),
+              ]),
+            // 图表网格：grid(140, 58) 自动排布 2x2
+            new BoxBuilder('@float/complex/workspace/content/grid')
+              .fixedHeight(130)
+              .grid(140, 58)
+              .backgroundColor('#fdfdfd')
+              .children([
+                new BoxBuilder('@float/complex/workspace/content/grid/c1').backgroundColor('#fbe9e7'),
+                new BoxBuilder('@float/complex/workspace/content/grid/c2').backgroundColor('#e8eaf6'),
+                new BoxBuilder('@float/complex/workspace/content/grid/c3').backgroundColor('#e0f7fa'),
+                new BoxBuilder('@float/complex/workspace/content/grid/c4').backgroundColor('#f1f8e9'),
+              ]),
+            // 日志列表：内容超出时滚动（moveY true）
+            new BoxBuilder('@float/complex/workspace/content/logs')
+              .layout('vertical')
+              .moveY(true)
+              .backgroundColor('#ffffff')
+              .children([
+                new BoxBuilder('@float/complex/workspace/content/logs/l1').fixedHeight(26).backgroundColor('#f5f5f5'),
+                new BoxBuilder('@float/complex/workspace/content/logs/l2').fixedHeight(26).backgroundColor('#ffffff'),
+                new BoxBuilder('@float/complex/workspace/content/logs/l3').fixedHeight(26).backgroundColor('#f5f5f5'),
+                new BoxBuilder('@float/complex/workspace/content/logs/l4').fixedHeight(26).backgroundColor('#ffffff'),
+                new BoxBuilder('@float/complex/workspace/content/logs/l5').fixedHeight(26).backgroundColor('#f5f5f5'),
+                new BoxBuilder('@float/complex/workspace/content/logs/l6').fixedHeight(26).backgroundColor('#ffffff'),
+                new BoxBuilder('@float/complex/workspace/content/logs/l7').fixedHeight(26).backgroundColor('#f5f5f5'),
+                new BoxBuilder('@float/complex/workspace/content/logs/l8').fixedHeight(26).backgroundColor('#ffffff'),
+              ]),
+          ]),
+      ]),
+    // 底部状态栏
+    new BoxBuilder('@float/complex/status')
+      .fixedHeight(24)
+      .layout('horizontal')
+      .moveX(false)
+      .moveY(false)
+      .backgroundColor('#e8e8e8')
+      .children([
+        new BoxBuilder('@float/complex/status/left').defaultWidth(120).backgroundColor('#dcdcdc'),
+        new BoxBuilder('@float/complex/status/center').backgroundColor('#e3e3e3'),
+        new BoxBuilder('@float/complex/status/right').defaultWidth(120).backgroundColor('#dcdcdc'),
+      ]),
+  ]);
+
+/**
  * 模态浮动视口演示：modal() 模态视口自带遮罩（层级 = 视口层级 - 1），阻塞下层交互；
  * closable(true) 渲染关闭按钮，关闭后遮罩随视口一并消失。
  * @type {BoxBuilder}

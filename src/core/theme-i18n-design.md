@@ -76,15 +76,14 @@ Cell 不硬编码任何呈现值或文本，全部通过资源标识引用：
 
 - **声明式 API**：主题包在 `effects.resize` 中声明 `{ type, ...params }`，如 `{ type: 'stretch' }`、`{ type: 'blur', blur: 10 }`。type 是特效契约，params 的语义由对应实现定义
 - **注册表解析**：渲染层按 type 从特效注册表（resize-effects）解析实现组件；未识别类型返回 null，降级为无特效，保证主题演进不影响渲染层
-- **实现自由**：每个特效实现是一个 React 组件，接收统一契约 `{ builder, spec, children }`（children 为视口三层渲染），内部可用任意技术（transform、CSS filter、WAAPI、canvas 等）。已实现：
-  - `stretch` 拉伸：即时跟随——真实尺寸一变，布局立即切换到新尺寸（"一旦原页面更新就换"），无冻结、无防抖
-  - `shrinkToFit` 缩小至适合：与拉伸共用即时跟随实现。原始布局响应足够快时两者没有差异；仅当原始布局响应慢（reflow 耗时超过一帧）时两者的呈现才可能出现分化（本阶段两者实现一致，分化留待后续演进）
-  - `blur` 模糊：拉伸 + 模糊——布局即时跟随（同 stretch），尺寸变化期间三层整体模糊遮盖布局重排，尺寸稳定 settleDelay（默认 250ms）后平滑恢复清晰
+- **实现自由**：每个特效实现是一个 React 组件，接收统一契约 `{ builder, spec, children }`（children 为视口三层渲染），内部可用任意技术（transform、CSS filter、WAAPI、canvas 等）。已实现（三者共用"拉伸缩放四角对齐"的投影呈现，差异仅在真实布局的追赶时机）：
+  - `stretch` 拉伸：投影 + 实时追赶——尺寸变化瞬间内容以 transform scale 整体投影到新尺寸（四角实时对齐窗口，画面连续不撕裂）；不冻结，真实布局实时计算，reflow 就绪（下一帧）立即把当前屏上的拉伸原子替换为新布局（无 settleDelay 防抖）
+  - `blur` 模糊：拉伸 + 模糊——呈现同 stretch，尺寸变化期间三层整体模糊（CSS filter 遮盖布局重排细节），尺寸稳定 settleDelay（默认 250ms）后平滑恢复清晰
 - **三层包装壳**：特效宿主（ResizeEffectViewport）挂在视口根的三层结构（Content/Edge/Corner）外面，三层整体参与特效，互不错位；页面视口由 CellRoot 挂载，浮动视口由 FloatingLayer 挂载
-- **即时跟随 + 响应速度优化**（stretch/shrinkToFit/blur 共用）：
-  - 真实尺寸变化时立即写 `builder._containerSize`（廉价、不触发布局），尺寸相关逻辑即时正确
-  - reflow 以 requestAnimationFrame 合并：每帧至多执行一次，快速连续变化时避免重复 reflow 造成的布局抖动（layout thrash）
-  - 特效层走 transform / filter 合成（GPU 合成器，will-change 提示），不阻塞主线程布局
+- **投影 + 实时追赶**（stretch/blur 共用）：
+  - 尺寸变化瞬间：进入投影，冻结当前布局为基准（`_frozenViewportSize` 锁定三层 + 同步 reflow + DOM 直写），包装层 transform scale 实时投影到新尺寸（GPU 合成，不触发逐帧 reflow）
+  - 追赶（无防抖）：下一帧（rAF）以最新真实尺寸同步 reflow，reflow 就绪立即交接（解除冻结 → scale 还原 1），无中间帧；基准随追赶同步更新，持续 resize 时投影与追赶逐帧交替
+  - freezeZoom 与上述唯一差异：追赶经 setTimeout(settleDelay) 防抖，投影期不触发 reflow，适合 reflow 超过帧预算的复杂布局；布局轻量时 stretch 即可实时
 - **触发范围**：仅视口根生效（页面窗口 resize、浮动窗口拖拽缩放）；子 Box 不重复挂载
 - **注入**：经 ThemeProvider 注入，视口根特效壳（ResizeEffectViewport）读取当前主题的 resize 特效描述并包裹三层；主题切换触发特效实例重建，布局立即恢复
 

@@ -89,23 +89,28 @@ const i18n = new I18n(messages, 'zh-CN');
 
 /**
  * 预置主题：仅声明尺寸变化特效（声明式描述，由特效注册表解析为具体实现）。
- * 每个主题的特效不同，切换主题即可观察不同特效：
- * - stretch     拉伸：内容布局即时跟随新尺寸（无防抖，"一旦原页面更新就换"）
- * - shrinkToFit 缩小至适合：内容等比缩小至适合新尺寸（不变形，留白居中）
- * - blur        拉伸 + 模糊：内容即时跟随新尺寸，变化期间整体模糊、稳定后恢复清晰
+ * 每个主题的特效不同，切换主题即可观察不同特效（三者共用"拉伸缩放四角对齐"的
+ * 投影呈现，差异仅在真实布局的追赶时机）：
+ * - stretch     拉伸：投影四角对齐 + 实时追赶——不冻结，真实布局实时计算，
+ *               reflow 就绪（下一帧）立即把当前屏上的拉伸替换为新布局（无防抖）
+ * - blur        拉伸 + 模糊：呈现同 stretch，尺寸变化期间整体模糊遮盖重排、
+ *               稳定后恢复清晰
+ * - freezeZoom  冻结缩放：变化期间布局冻结 + transform 投影实时四角对齐（GPU
+ *               合成，零延迟），稳定后 JS reflow 追赶一次精确布局并无缝交接。
+ *               默认启用
  * @type {Object<string, Theme>}
  */
 const themes = {
   stretch: new Theme({ name: 'stretch', effects: { resize: { type: 'stretch' } } }),
-  shrinkToFit: new Theme({ name: 'shrinkToFit', effects: { resize: { type: 'shrinkToFit' } } }),
   blur: new Theme({ name: 'blur', effects: { resize: { type: 'blur', blur: 10 } } }),
+  freezeZoom: new Theme({ name: 'freezeZoom', effects: { resize: { type: 'freezeZoom' } } }),
 };
 
 /** 主题切换控件的按钮文案（演示工具，直接中文标注） */
 const THEME_LABELS = {
   stretch: '拉伸',
-  shrinkToFit: '缩小至适合',
   blur: '模糊',
+  freezeZoom: '冻结缩放',
 };
 
 /**
@@ -158,7 +163,7 @@ const ThemeSwitcher = ({ current, onChange }) => (
  * @returns {JSX.Element} 应用根节点
  */
 const App = () => {
-  const [themeName, setThemeName] = useState('stretch');
+  const [themeName, setThemeName] = useState('freezeZoom');
   return (
     <I18nProvider i18n={i18n}>
       <ThemeProvider theme={themes[themeName]}>

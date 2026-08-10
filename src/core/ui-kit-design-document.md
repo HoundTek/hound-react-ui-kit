@@ -223,6 +223,7 @@ const win = new BoxBuilder('@float/win')
 - 模态遮罩由模态浮动视口（`modal()`）**自带**，遮罩层级 = 视口层级 - 1，可与各浮动视口同级参与层叠比较：挡住其下所有元素（含更低层级的浮动视口与主内容），且不遮挡本视口与更高层级的浮动视口
 - **仅渲染最上方模态视口的遮罩**（层级最高者；层级相同时取注册表后者），避免多重遮罩叠加变暗；低层级模态视口由该遮罩统一遮挡
 - 每个浮动视口内部仍是完整的三层渲染（ContentLayer / EdgeLayer / CornerLayer），拖拽调整尺寸、浮动滚动条等能力全部复用
+- 每个浮动视口最外层带 **floating-shell 包壳**（`position: relative; overflow: hidden`，尺寸 = 视觉尺寸）：裁剪视觉边界外内容（edge/corner 拖拽手柄、投影放大溢出），保证任何内容不"支出"窗口边界；缩放手柄与关闭按钮位于包壳内，随视觉尺寸贴合四角
 - 浮动视口作为独立 reflow 根注册到 reflowScheduler
 
 示意结构：
@@ -231,8 +232,12 @@ const win = new BoxBuilder('@float/win')
 <FloatingLayer>                   // position: fixed, inset: 0, pointer-events: none, z-index: 2000
   <div mask="topModal"/>          // 仅最上方模态视口的遮罩，z-index = 视口层级 - 1
   <div float="modal1">            // 最上方模态视口：left/top/width/height/z-index, pointer-events: auto
-    ContentLayer                  // 浮动视口内部布局树
-    EdgeLayer / CornerLayer       // 拖拽分界线与角点
+    <div floating-shell>          // overflow: hidden，视觉尺寸，裁剪边界外内容
+      ResizeEffectViewport        // 主题尺寸变化特效壳（无特效时三层直挂包壳）
+        ContentLayer              // 浮动视口内部布局树
+        EdgeLayer / CornerLayer   // 拖拽分界线与角点
+      ResizeHandles / CloseButton // 缩放手柄（8 个）/ 关闭按钮
+    </div>
   </div>
   <div float="modal2"> ... </div> // 低层级模态视口（由上方遮罩统一遮挡，不再自带遮罩）
   <div float="win1"> ... </div>   // 非模态浮动视口
