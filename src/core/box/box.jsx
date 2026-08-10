@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { Reflowable, reflowScheduler } from './scheduler';
-import { ContentLayer, EdgeLayer, CornerLayer, registerFloating, notifyFloatingChange } from './box-component';
+import { ContentLayer, EdgeLayer, CornerLayer, registerFloating, reparentFloating, getFloatingChildren, focusFloating, notifyFloatingChange, setOperable, clearOperable } from './box-component';
 
 /**
  * Box 布局构建器。继承 Reflowable 获得 reflow 调度能力，通过链式方法配置尺寸约束、
@@ -51,8 +51,8 @@ class BoxBuilder extends Reflowable {
     this._posY = null;
     /** @type {number|null} 浮动视口层级；null 表示使用默认浮动层级 */
     this._zIndex = null;
-    /** @type {boolean} 是否为模态浮动视口（FloatingLayer 统一绘制全屏遮罩） */
-    this._modal = false;
+    /** @type {BoxBuilder|null} 浮动视口的父窗口（树模型父节点）；null 表示父为根 viewport */
+    this._floatingParent = null;
     /** @type {boolean} 浮动视口是否可移动（通过 dragHandle 拖拽点）；默认 true */
     this._movable = true;
     /** @type {boolean} 浮动视口是否可调整大小（边缘手柄拖拽）；默认 false */
@@ -295,7 +295,7 @@ class BoxBuilder extends Reflowable {
   /**
    * 标记为浮动视口（reflow 根；与 viewport() 互斥）。浮动视口脱离主布局树，
    * 以屏幕坐标悬浮于页面上层，位置/尺寸/层级独立指定，并由 FloatingLayer 统一渲染。
-   * 调用即注册到浮动注册表，触发 FloatingLayer 重新渲染。
+   * 调用即注册到浮动窗口树（父窗口见 child()，缺省挂在根 viewport 下），触发重渲染。
    * @returns {BoxBuilder} self（链式调用）
    */
   floatingViewport() {
@@ -325,7 +325,8 @@ class BoxBuilder extends Reflowable {
   }
 
   /**
-   * 设置浮动视口层级（默认高于主内容）
+   * 设置浮动视口层级（保留兼容；窗口层级现由系统按父子窗口树动态分配——
+   * 见 box-component FloatingLayer。调用仅记录，不参与渲染排序）
    * @param {number} z 层级值（z-index）
    * @returns {BoxBuilder} self（链式调用）
    */
@@ -335,11 +336,26 @@ class BoxBuilder extends Reflowable {
   }
 
   /**
-   * 标记为模态浮动视口：FloatingLayer 统一绘制全屏遮罩，阻塞下层交互
+   * 声明本浮动窗口为 parent 的子窗口（树模型父子关系）：本窗口恒层叠于父窗口之上，
+   * 遮罩/可操作窗口语义见 floating-window-tree-design.md。可指定另一个浮动窗口作为父，
+   * 或传 null 提升为根级窗口（父 = 根 viewport）。未调用本方法时缺省为根级窗口。
+   * @param {BoxBuilder|null} parent 父浮动窗口；null 表示根 viewport
    * @returns {BoxBuilder} self（链式调用）
    */
-  modal() {
-    this._modal = true;
+  child(parent) {
+    const prev = this._floatingParent ?? null;
+    this._floatingParent = parent ?? null;
+    if (this._isFloatingViewport) reparentFloating(this, prev);
+    return this;
+  }
+
+  /**
+   * 将本浮动窗口加入可操作窗口集合（遮罩唯一来源，见 setOperable）。
+   * 有效可操作窗口 = 集合中最靠近叶子的可见窗口；其本身及其子窗口链可操作，其余被遮罩挡住。
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  operable() {
+    setOperable(this);
     return this;
   }
 
@@ -386,22 +402,28 @@ class BoxBuilder extends Reflowable {
   }
 
   /**
-   * 关闭浮动视口：置为不可见并触发浮动层重渲染（FloatingLayer 跳过渲染）。
+   * 关闭浮动视口：级联递归关闭全部子窗口后置为不可见，并触发浮动层重渲染
+   *（FloatingLayer 跳过渲染）。关闭后有效可操作窗口自动回落（见 setOperable 语义）。
    * 仅对浮动视口有效。
    * @returns {BoxBuilder} self（链式调用）
    */
   close() {
+    for (const child of getFloatingChildren(this)) {
+      child.close();
+    }
     this._visible = false;
     notifyFloatingChange();
     return this;
   }
 
   /**
-   * 重新打开已关闭的浮动视口：置为可见并触发浮动层重渲染
+   * 重新打开已关闭的浮动视口：置为可见并触发浮动层重渲染。
+   * 打开即聚焦（出现居上）：移到其父窗口的子窗口列表末尾（见 focusFloating）。
    * @returns {BoxBuilder} self（链式调用）
    */
   open() {
     this._visible = true;
+    if (this._isFloatingViewport) focusFloating(this);
     notifyFloatingChange();
     return this;
   }
@@ -837,9 +859,19 @@ class BoxBuilder extends Reflowable {
     this._layoutValid = isValid;
 
     this._children.forEach(child => {
+      // 子项容器尺寸：优先父级 reflow 分配的主轴尺寸（_layoutWidth/_layoutHeight）；
+      // 未分配（父级该轴既未锁定也未开启滚动，如浮动视口根 moveX/moveY 未设置）时，
+      // 回退到子项自身的显式尺寸（defaultWidth/Height、fixed(min===max)），而非直接
+      // 继承父级容器尺寸——否则固定高度子项（如浮动窗口标题栏 fixedHeight 36）会以
+      // 父级高度（整个窗口 200）作为内部 reflow 的容器高，其子项被分配错误高度
+      //（200 而非 36）。与 CSS 口径一致：元素自身显式尺寸优先于 flex 拉伸。
       child._containerSize = {
-        width: child._layoutWidth || width,
-        height: child._layoutHeight || height,
+        width: (child._layoutWidth || child._defaultWidth)
+          ?? (child._minWidth === child._maxWidth && child._minWidth > 0 ? child._minWidth : null)
+          ?? width,
+        height: (child._layoutHeight || child._defaultHeight)
+          ?? (child._minHeight === child._maxHeight && child._minHeight > 0 ? child._minHeight : null)
+          ?? height,
       };
       // 父级 reflow 可能改变了子项的容器尺寸（_layoutWidth/_layoutHeight），
       // 必须强制子项按新尺寸重新 reflow。子项自身的 _needsReflow 可能是 false：

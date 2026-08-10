@@ -13,6 +13,7 @@ import { ThemeProvider, ThemeContext, useTheme } from './theme/theme-react';
 import { resizeEffectRegistry, resolveResizeEffect } from './theme/resize-effects';
 import {
   TextCell, ButtonCell, InputCell, ToggleCell, ListCell,
+  CloseButtonCell,
   NotificationCell, ModalCell, WindowCell,
 } from './builtin-cells/builtin-cells';
 
@@ -39,6 +40,7 @@ export {
   InputCell,
   ToggleCell,
   ListCell,
+  CloseButtonCell,
   NotificationCell,
   ModalCell,
   WindowCell,

@@ -253,7 +253,7 @@ const win = new BoxBuilder('@float/win')
 | 独立窗口 | 可移动、可缩放、可关闭 | Box 层：移动（dragHandle 拖拽点）、缩放（边缘/角手柄）、关闭（closable + close/open）；Cell 层：`WindowCell` 预设（标题栏拖拽点插槽） |
 | 通知 | 屏幕角落短暂出现后自动消失 | `NotificationCell` 预设：浮动视口 + duration 定时自动关闭 |
 | 弹出菜单 | 点击触发、点外部关闭 | Box 层提供浮动视口与显隐（open/close）；点外部关闭由 Cell 层封装 |
-| 模态对话框 | 遮罩 + 阻塞下层 | `ModalCell` 预设：模态浮动视口（`modal()`）自带遮罩 + header/body 插槽 |
+| 模态对话框 | 遮罩 + 阻塞下层 | `ModalCell` 预设：子窗口对话框（`setParent(父窗口)` 声明父子关系）+ header/body 插槽；遮罩由 `setOperable` 启用 |
 
 ## 内置 Cell 预设（builtin-cells）
 
@@ -269,13 +269,15 @@ const win = new BoxBuilder('@float/win')
 
 **浮层构件**（Cell × 浮动视口，展示 Cell 与 Box 浮动能力的结合）：
 - `NotificationCell`：通知条（浮动视口，可关闭；`duration` 非空时定时 `close()` 自动消失）
-- `ModalCell`：模态对话框（`modal()` 自带遮罩 + header/body 插槽，默认不可移动/缩放）
+- `ModalCell`：子窗口对话框（`setParent(父 Cell)` 声明父子关系 + header/body 插槽，默认不可移动/缩放；遮罩由 `setOperable` 启用）
 - `WindowCell`：独立窗口（movable + resizable + 标题栏 `dragHandle` 拖拽点 + closable + title/body 插槽）
 
 配套机制：
-- `CellBaseBuilder` 增加浮动视口系列 Box 方法委托（floatingViewport/posX/posY/zIndex/modal/movable/
-  resizable/dragHandle/closable），Cell 类型作者可在构造函数声明浮动形态；位置/尺寸/层级由页面作者在实例上链式覆盖
-- `CellBaseBuilder.close()/open()`：作用于主挂载 Box，控制浮层显隐
+- 浮动窗口层级采用"父子窗口树 + 可操作窗口"模型（见 box/floating-window-tree-design.md）：
+  窗口关系为树状父子结构，遮罩完全由可操作窗口（`setOperable`/`clearOperable`/`operable()`）决定
+- `CellBaseBuilder` 增加浮动视口系列 Box 方法委托（floatingViewport/posX/posY/zIndex/child/setParent/
+  operable/movable/resizable/dragHandle/closable），Cell 类型作者可在构造函数声明浮动形态；位置/尺寸/层级由页面作者在实例上链式覆盖
+- `CellBaseBuilder.close()/open()`：作用于主挂载 Box，控制浮层显隐（close 级联关闭子窗口）
 - Slot 配置新增 `dragHandle: true` 键，可将命名插槽声明为浮动视口拖拽点（如 WindowCell 标题栏）
 - 浮层 Cell 与页面 Cell 并列挂载到 dag 根（`cell.mount(dag._root)`），Box 注册到浮动注册表由 FloatingLayer 渲染
 

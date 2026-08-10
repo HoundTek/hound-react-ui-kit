@@ -650,10 +650,29 @@ class CellBaseBuilder {
    */
   zIndex(z) { return this._recordBoxOp('zIndex', [z]); }
   /**
-   * 标记为模态浮动视口（自带遮罩；委托 BoxBuilder#modal）
+   * 声明本浮动窗口为 parent 的子窗口（树模型父子关系；委托 BoxBuilder#child）。
+   * @param {BoxBuilder|null} parent 父浮动窗口；null = 根 viewport
    * @returns {CellBaseBuilder} self（链式）
    */
-  modal() { return this._recordBoxOp('modal', []); }
+  child(parent) { return this._recordBoxOp('child', [parent]); }
+  /**
+   * 声明本浮动窗口的父窗口。接收父 Cell（取主挂载 Box）或直接传 BoxBuilder。
+   * 父 Cell 需先挂载（mount）且本 Cell 后挂载，方可在挂载重放时解析到父 Box。
+   * @param {CellBaseBuilder|BoxBuilder} parentCellOrBox 父 Cell 或父浮动窗口 BoxBuilder
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  setParent(parentCellOrBox) {
+    const parentBox = parentCellOrBox instanceof BoxBuilder
+      ? parentCellOrBox
+      : parentCellOrBox?._mounts?.[0]?.box ?? null;
+    if (parentBox) this._recordBoxOp('child', [parentBox]);
+    return this;
+  }
+  /**
+   * 将本浮动窗口加入可操作窗口集合（遮罩唯一来源；委托 BoxBuilder#operable）。
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  operable() { return this._recordBoxOp('operable', []); }
   /**
    * 设置浮动视口是否可移动（委托 BoxBuilder#movable）
    * @param {boolean} [enabled=true] 是否可移动

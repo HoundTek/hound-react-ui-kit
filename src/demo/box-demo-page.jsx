@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import BoxBuilder from '../core/box/box';
-import { FloatingLayer } from '../core/box/box-component';
+import { FloatingLayer, FloatingCloseButton, setOperable } from '../core/box/box-component';
 
 /**
  * 演示页布局树根 builder。viewport 锁定双轴，纵向排列三大区域。
@@ -429,7 +429,9 @@ const _builder = new BoxBuilder("@demo")
  * 浮动窗口演示：浮动视口脱离主布局树，以屏幕坐标悬浮于页面上层（独立窗口形态）。
  * 固定位置/尺寸，内部为完整 Box 布局树（标题栏 + 可滚动正文），拖拽分界线同样可用。
  * movable(true).resizable(true) 开启窗口移动与缩放：拖动标题栏（dragHandle）移动窗口，
- * 拖动边缘/角手柄调整尺寸；closable(true) 右上角渲染关闭按钮，点击 close() 关闭窗口。
+ * 拖动边缘/角手柄调整尺寸。窗口层级由系统按"父子窗口树 + 可操作窗口"管理
+ *（见 floating-window-tree-design.md，下文的 _floatingModal 为其子窗口演示）；
+ * 关闭按钮为通用浮动关闭按钮组件（FloatingCloseButton 经 content 注入标题栏右上角）。
  * @type {BoxBuilder}
  */
 const _floatingWin = new BoxBuilder('@float/win')
@@ -438,10 +440,8 @@ const _floatingWin = new BoxBuilder('@float/win')
   .posY(120)
   .fixedWidth(280)
   .fixedHeight(180)
-  .zIndex(2100)
   .movable(true)
   .resizable(true)
-  .closable(true)
   .backgroundColor('#ffffff')
   .layout('vertical')
   .moveY(false)
@@ -452,7 +452,15 @@ const _floatingWin = new BoxBuilder('@float/win')
       .backgroundColor('#4a90d9')
       .dragHandle()
       .moveY(false)
-      .moveX(false),
+      .moveX(false)
+      .content(
+        <div style={{
+          position: 'absolute', top: 0, right: 0, height: '100%',
+          display: 'flex', alignItems: 'center', paddingRight: 6,
+        }}>
+          <FloatingCloseButton />
+        </div>
+      ),
     new BoxBuilder('@float/win/body')
       .moveY(true)
       .layout('vertical')
@@ -469,7 +477,7 @@ const _floatingWin = new BoxBuilder('@float/win')
  * 复杂布局浮动窗口演示：在单一浮动视口内组合完整 Box 布局能力——
  * 标题栏（dragHandle 拖拽点）+ 工具栏（横向固定块）+ 主工作区（横向分栏，
  * 侧栏与内容区之间为可拖拽分界线）+ 内容区纵向嵌套（状态行 / 图表网格
- * grid / 可滚动日志）+ 底部状态栏。移动/缩放/关闭与简单窗口一致，
+ * grid / 可滚动日志）+ 底部状态栏。移动/缩放与简单窗口一致，
  * 内部布局完全复用主布局树机制（锁定分配 / 自由滚动 / Grid / 拖拽分界线）。
  * @type {BoxBuilder}
  */
@@ -479,22 +487,28 @@ const _floatingComplex = new BoxBuilder('@float/complex')
   .posY(240)
   .fixedWidth(560)
   .fixedHeight(380)
-  .zIndex(2050)
   .movable(true)
   .resizable(true)
-  .closable(true)
   .backgroundColor('#ffffff')
   .layout('vertical')
   .moveY(false)
   .moveX(false)
   .children([
-    // 标题栏（拖拽点）
+    // 标题栏（拖拽点 + 右上角关闭按钮）
     new BoxBuilder('@float/complex/title')
       .fixedHeight(36)
       .backgroundColor('#4a90d9')
       .dragHandle()
       .moveY(false)
-      .moveX(false),
+      .moveX(false)
+      .content(
+        <div style={{
+          position: 'absolute', top: 0, right: 0, height: '100%',
+          display: 'flex', alignItems: 'center', paddingRight: 6,
+        }}>
+          <FloatingCloseButton />
+        </div>
+      ),
     // 工具栏：横向排列固定宽度按钮块
     new BoxBuilder('@float/complex/toolbar')
       .fixedHeight(32)
@@ -593,19 +607,19 @@ const _floatingComplex = new BoxBuilder('@float/complex')
   ]);
 
 /**
- * 模态浮动视口演示：modal() 模态视口自带遮罩（层级 = 视口层级 - 1），阻塞下层交互；
- * closable(true) 渲染关闭按钮，关闭后遮罩随视口一并消失。
+ * 子窗口演示：child(_floatingWin) 声明 @float/modal 为 @float/win 的子窗口——
+ * 恒层叠于父窗口之上（树模型父子关系，见 floating-window-tree-design.md）。
+ * 遮罩完全由可操作窗口决定：下方 setOperable(_floatingWin) 将 @float/win 设为可操作，
+ * 出现单一遮罩，仅放行 @float/win 及其子窗口链（即本窗口），其余窗口与页面被遮住。
  * @type {BoxBuilder}
  */
 const _floatingModal = new BoxBuilder('@float/modal')
   .floatingViewport()
-  .modal()
+  .child(_floatingWin)
   .posX(300)
   .posY(220)
   .fixedWidth(240)
   .fixedHeight(100)
-  .zIndex(2200)
-  .closable(true)
   .backgroundColor('#ffffff')
   .layout('vertical')
   .moveY(false)
@@ -615,7 +629,15 @@ const _floatingModal = new BoxBuilder('@float/modal')
       .fixedHeight(28)
       .backgroundColor('#ffdab9')
       .moveY(false)
-      .moveX(false),
+      .moveX(false)
+      .content(
+        <div style={{
+          position: 'absolute', top: 0, right: 0, height: '100%',
+          display: 'flex', alignItems: 'center', paddingRight: 6,
+        }}>
+          <FloatingCloseButton />
+        </div>
+      ),
     new BoxBuilder('@float/modal/body')
       .moveY(true)
       .layout('vertical')
@@ -624,6 +646,10 @@ const _floatingModal = new BoxBuilder('@float/modal')
         new BoxBuilder('@float/modal/body/line2').fixedHeight(20).backgroundColor('#f8f8f8'),
       ]),
   ]);
+
+// 演示可操作窗口（遮罩唯一来源）：@float/win 及其子窗口链可操作，其余被遮罩挡住。
+// 注释掉本行则回到默认态（可操作窗口 = 根 viewport，无遮罩）。
+setOperable(_floatingWin);
 
 /**
  * 演示页内容层组件：渲染布局树的内容层（承担实际布局与子项渲染）

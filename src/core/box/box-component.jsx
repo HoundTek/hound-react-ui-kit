@@ -5,7 +5,7 @@
  *        尺寸变化的过渡呈现由主题特效系统（resize-effects）统一负责，
  *        本文件不再包含独立的 reflow 过渡动画。
  */
-import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useLayoutEffect, useContext } from 'react';
 import { reflowScheduler } from './scheduler';
 import FloatingScrollbar from './floating-scrollbar';
 import { useHoveredEdges } from './hovered-edges-context';
@@ -26,32 +26,6 @@ const styleSheet = `
   .drag-handle-horizontal.drag-handle-vertical {
     cursor: move;
     background: rgba(255, 100, 150, 0.6);
-  }
-  /* 浮动视口关闭按钮：绝对定位于视口右上角，位于内容三层（Content/Edge/Corner）之上 */
-  .floating-close-btn {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    color: rgba(255, 255, 255, 0.9);
-    background: rgba(0, 0, 0, 0.28);
-    font-size: 12px;
-    line-height: 1;
-    padding: 0;
-    z-index: 1300;
-    pointer-events: auto;
-    user-select: none;
-  }
-  .floating-close-btn:hover {
-    background: rgba(200, 60, 60, 0.9);
-    color: #fff;
   }
   /* 拖拽会话期间光标全局锁定（* + !important 压过子元素自身 cursor） */
   body.box-dragging-x, body.box-dragging-x * { cursor: e-resize !important; }
@@ -720,6 +694,29 @@ const BoxLayerFrame = ({ containerRef, containerClassName, containerStyle, inner
 //  第一层：Box 内容
 // ===========================================================================
 /**
+ * Box 内容 builder 上下文：把内容所在的 box 提供给内容组件（含任意深度的子组件）。
+ * ContentNode 渲染内容节点时以 Provider 提供 builder，子组件经 useContext 读取，
+ * 无需构造期持有 builder 引用即可通过 builder._root 访问根
+ * （如浮动视口关闭按钮定位宿主窗口）。同时经 cloneElement 向最外层内容元素
+ * 附加 builder prop（对已有 props 如 Cell 内容组件的 cell 无影响）。
+ */
+const ContentBuilderContext = React.createContext(null);
+
+/**
+ * Box 自定义内容节点：为内容节点附加内容所在 box 的 builder。
+ * 以 Provider 提供 builder（深度任意），并向最外层元素 cloneElement 注入 builder prop。
+ * @param {Object} props 组件属性
+ * @param {React.ReactNode} props.node 内容节点
+ * @param {BoxBuilder} props.builder 内容所在的 box
+ * @returns {React.ReactNode} 附加 builder 后的内容节点
+ */
+const ContentNode = ({ node, builder }) => (
+  <ContentBuilderContext.Provider value={builder}>
+    {React.isValidElement(node) ? React.cloneElement(node, { builder }) : node}
+  </ContentBuilderContext.Provider>
+);
+
+/**
  * 内容层组件。承担实际布局：监听容器/视口尺寸变化触发 reflow，渲染子项。
  * 布局非法时渲染错误占位。视口根（viewport / floating-viewport）的三层整体由
  * 主题特效宿主（ResizeEffectViewport，挂于 CellRoot/FloatingLayer）包裹，
@@ -753,22 +750,27 @@ const ContentLayer = ({ builder }) => {
     );
   }
 
-  const childrenNode = builder._children.map((child, index) => {
-    // Grid 子节点按 gridMetrics 绝对定位（与覆盖层同一定位口径），
-    // 不经浏览器 flex 换行；positions 为空（首次渲染）时回退主轴偏移
-    const childStyle = isGrid
-      ? getChildPositionStyle(getChildStyle(child), offsets[index], isHorizontal, positions[index])
-      : getChildStyle(child);
-    return (
-      <div
-        key={builder._pathResolved.join('-') + '-' + index}
-        ref={el => { childRefs.current[index] = el; }}
-        style={childStyle}
-      >
-        {child._content || <ContentLayer builder={child} />}
-      </div>
-    );
-  });
+  // 本 box 设置了自定义内容（box.content()）时，内容优先于子 box 渲染（文档语义：
+  // "设置后不再递归渲染子 Box 的内容层"），且内容在 frame（容器含背景色/滚动条）
+  // 内渲染；否则渲染子 box 列表
+  const childrenNode = builder._content
+    ? <ContentNode node={builder._content} builder={builder} />
+    : builder._children.map((child, index) => {
+      // Grid 子节点按 gridMetrics 绝对定位（与覆盖层同一定位口径），
+      // 不经浏览器 flex 换行；positions 为空（首次渲染）时回退主轴偏移
+      const childStyle = isGrid
+        ? getChildPositionStyle(getChildStyle(child), offsets[index], isHorizontal, positions[index])
+        : getChildStyle(child);
+      return (
+        <div
+          key={builder._pathResolved.join('-') + '-' + index}
+          ref={el => { childRefs.current[index] = el; }}
+          style={childStyle}
+        >
+          <ContentLayer builder={child} />
+        </div>
+      );
+    });
 
   return (
     <BoxLayerFrame
@@ -1224,7 +1226,7 @@ const FLOATING_LAYER_STYLE = {
   zIndex: DEFAULT_FLOATING_ZINDEX,
   pointerEvents: 'none',
 };
-// 模态遮罩基础样式（z-index 由调用处按视口层级动态计算，见 getFloatingMaskStyle）
+// 可操作窗口遮罩基础样式（z-index 由调用处按渲染序动态计算，见 getFloatingMaskStyle）
 const FLOATING_MASK_STYLE = {
   position: 'fixed',
   inset: 0,
@@ -1232,26 +1234,90 @@ const FLOATING_MASK_STYLE = {
   pointerEvents: 'auto',
 };
 
-/** @type {Set<BoxBuilder>} 浮动视口注册表（模块级，FloatingLayer 统一渲染） */
-const _floatingBuilders = new Set();
+/** @type {Map<BoxBuilder|null, BoxBuilder[]>} 浮动窗口树：键为父窗口（null = 根 viewport，唯一根），
+ *  值为该父窗口的有序子窗口列表（尾部 = 最近出现/聚焦，同层居上）。
+ *  模块级管理"父子层级 + 后聚焦/出现居上"，FloatingLayer 按树先序渲染 */
+const _floatingTree = new Map();
 /** @type {Set<() => void>} 注册表变化监听器 */
 const _floatingListeners = new Set();
+/**
+ * 可操作窗口集合（遮罩唯一来源，null = 根 viewport）。默认仅含根 viewport（无遮罩）；
+ * 有效可操作窗口 = 集合中最靠近叶子的可见窗口，其本身及其子窗口链可操作，其余被遮罩挡住。
+ * @type {Set<BoxBuilder|null>}
+ */
+const _operableWindows = new Set([null]);
 
 /**
- * 注册浮动视口 builder，并通知 FloatingLayer 重新渲染
+ * 取某父窗口的子窗口列表（按需创建）
+ * @param {BoxBuilder|null} parent 父窗口；null = 根 viewport
+ * @returns {BoxBuilder[]} 有序子窗口列表
+ */
+function getFloatingChildren(parent) {
+  if (!_floatingTree.has(parent)) {
+    _floatingTree.set(parent, []);
+  }
+  return _floatingTree.get(parent);
+}
+
+/**
+ * 注册浮动视口 builder：挂到其父窗口的 children 尾部（出现居上），并通知重渲染。
  * @param {BoxBuilder} builder 浮动视口 builder
  */
 function registerFloating(builder) {
-  _floatingBuilders.add(builder);
+  const list = getFloatingChildren(builder._floatingParent ?? null);
+  if (!list.includes(builder)) {
+    list.push(builder);
+    _floatingListeners.forEach(cb => cb());
+  }
+}
+
+/**
+ * 注销浮动视口 builder（从其父窗口的 children 移除），并通知重渲染。
+ * @param {BoxBuilder} builder 浮动视口 builder
+ */
+function unregisterFloating(builder) {
+  const list = _floatingTree.get(builder._floatingParent ?? null);
+  if (!list) return;
+  const idx = list.indexOf(builder);
+  if (idx !== -1) {
+    list.splice(idx, 1);
+    _floatingListeners.forEach(cb => cb());
+  }
+}
+
+/**
+ * 重挂浮动视口：从旧父窗口的 children 移除，挂到新父窗口（builder._floatingParent）
+ * 的 children 尾部。由 child(parent) 调用（树模型下改变父子关系）。
+ * @param {BoxBuilder} builder 浮动视口 builder
+ * @param {BoxBuilder|null} prevParent 变更前的父窗口（null = 根 viewport）
+ */
+function reparentFloating(builder, prevParent) {
+  if (prevParent === (builder._floatingParent ?? null)) return;
+  const prevList = _floatingTree.get(prevParent);
+  if (prevList) {
+    const idx = prevList.indexOf(builder);
+    if (idx !== -1) prevList.splice(idx, 1);
+  }
+  const list = getFloatingChildren(builder._floatingParent ?? null);
+  if (!list.includes(builder)) {
+    list.push(builder);
+  }
   _floatingListeners.forEach(cb => cb());
 }
 
 /**
- * 注销浮动视口 builder，并通知 FloatingLayer 重新渲染
+ * 聚焦浮动视口（后聚焦居上）：移到其父窗口的 children 尾部，同层置顶，
+ * 并通知重渲染。由 FloatingWindow 的 mousedown（捕获阶段）触发，
+ * 及 BoxBuilder#open 打开时触发（出现居上）。
  * @param {BoxBuilder} builder 浮动视口 builder
  */
-function unregisterFloating(builder) {
-  _floatingBuilders.delete(builder);
+function focusFloating(builder) {
+  const list = _floatingTree.get(builder._floatingParent ?? null);
+  if (!list) return;
+  const idx = list.indexOf(builder);
+  if (idx === -1 || idx === list.length - 1) return;
+  list.splice(idx, 1);
+  list.push(builder);
   _floatingListeners.forEach(cb => cb());
 }
 
@@ -1270,6 +1336,115 @@ function subscribeFloating(listener) {
  */
 function notifyFloatingChange() {
   _floatingListeners.forEach(cb => cb());
+}
+
+/**
+ * 计算浮动窗口在树中的深度（根级窗口深度为 0，每向下一层 +1）
+ * @param {BoxBuilder} builder 浮动窗口 builder
+ * @returns {number} 树深度
+ */
+function getWindowDepth(builder) {
+  let depth = 0;
+  let cur = builder;
+  while (cur._floatingParent) {
+    depth++;
+    cur = cur._floatingParent;
+  }
+  return depth;
+}
+
+/**
+ * 求有效可操作窗口：可操作集合中最靠近叶子（深度最大）的可见浮动窗口；
+ * 无则返回 null（= 根 viewport，无遮罩）。
+ * @returns {BoxBuilder|null} 有效可操作窗口；null = 根 viewport
+ */
+function getEffectiveOperable() {
+  let best = null;
+  let bestDepth = -1; // 根 viewport 深度视为 -1，任意浮动窗口皆胜过根
+  for (const w of _operableWindows) {
+    if (w === null || !w._isFloatingViewport || w._visible === false) continue;
+    const depth = getWindowDepth(w);
+    if (depth > bestDepth) {
+      best = w;
+      bestDepth = depth;
+    }
+  }
+  return best;
+}
+
+/**
+ * 将 builder 加入可操作窗口集合（遮罩唯一来源），并通知重渲染。
+ * 有效可操作窗口 = 集合中最靠近叶子的可见窗口；其本身及其子窗口链可操作，其余被遮罩挡住。
+ * @param {BoxBuilder|null} builder 浮动窗口 builder；null = 根 viewport（恢复默认态，无遮罩）
+ */
+function setOperable(builder) {
+  _operableWindows.add(builder ?? null);
+  _floatingListeners.forEach(cb => cb());
+}
+
+/**
+ * 将 builder 移出可操作窗口集合，并通知重渲染。遮罩立即按剩余集合重新计算。
+ * @param {BoxBuilder|null} builder 浮动窗口 builder；null = 根 viewport
+ */
+function clearOperable(builder) {
+  _operableWindows.delete(builder ?? null);
+  _floatingListeners.forEach(cb => cb());
+}
+
+/**
+ * 收集 builder 的可见子树（含自身）到集合中
+ * @param {BoxBuilder} builder 起始窗口
+ * @param {Set<BoxBuilder>} out 收集目标集合
+ */
+function collectVisibleSubtree(builder, out) {
+  if (builder._visible === false) return;
+  out.add(builder);
+  for (const child of getFloatingChildren(builder)) {
+    collectVisibleSubtree(child, out);
+  }
+}
+
+/**
+ * 按树先序收集可见浮动窗口到数组（父在前、子在后，子树区间连续）
+ * @param {BoxBuilder|null} parent 起始父窗口
+ * @param {BoxBuilder[]} out 收集目标数组
+ */
+function collectPreOrder(parent, out) {
+  for (const child of getFloatingChildren(parent)) {
+    if (child._visible === false) continue;
+    out.push(child);
+    collectPreOrder(child, out);
+  }
+}
+
+/**
+ * 计算最终渲染序：树先序遍历，但把"有效可操作窗口的可见子树"整体提升到序列末尾。
+ * 先序保证子树连续区间；提升保证可操作子树独占全局最高 z 区间，
+ * 使单一遮罩恰好压住所有非可操作窗口、又不挡可操作子树（见 FloatingLayer）。
+ * @returns {BoxBuilder[]} 渲染序数组
+ */
+function buildRenderOrder() {
+  const order = [];
+  const operable = getEffectiveOperable();
+  const operableSubtree = new Set();
+  if (operable) {
+    collectVisibleSubtree(operable, operableSubtree);
+  }
+  // 先序遍历所有窗口，跳过可操作子树（整体延迟到最后渲染）
+  const walk = (parent) => {
+    for (const child of getFloatingChildren(parent)) {
+      if (child._visible === false || operableSubtree.has(child)) continue;
+      order.push(child);
+      walk(child);
+    }
+  };
+  walk(null);
+  // 可操作子树提升到末尾（先序：可操作窗口自身在前，其后代在后）
+  if (operable) {
+    order.push(operable);
+    collectPreOrder(operable, order);
+  }
+  return order;
 }
 
 /** @type {number} 浮动视口缩放下限（px） */
@@ -1585,16 +1760,22 @@ function renderResizeHandles(builder) {
 }
 
 /**
- * 取浮动视口定位容器的样式：position: fixed + 屏幕坐标（left/top）+ 层级（z-index）
+ * 取浮动视口定位容器的样式：position: fixed + 屏幕坐标（left/top）+ 层级（z-index）。
+ * 层级由系统按"父子窗口树 + 可操作窗口"动态分配（见 FloatingLayer 的树遍历与
+ * zIndex 计算），不取作者的静态 zIndex 声明。
  * @param {BoxBuilder} builder 浮动视口 builder
+ * @param {number} zIndex 系统分配的层级值
  * @returns {Object} 定位容器样式
  */
-function getFloatingItemStyle(builder) {
+function getFloatingItemStyle(builder, zIndex) {
+  if (typeof zIndex === 'number' && !isFinite(zIndex)) {
+    console.error('[zdbg] item zIndex NaN', { path: builder._path, zIndex });
+  }
   return {
     position: 'fixed',
     left: builder._posX ?? 0,
     top: builder._posY ?? 0,
-    zIndex: builder._zIndex ?? DEFAULT_FLOATING_ZINDEX,
+    zIndex,
     pointerEvents: 'auto',
   };
 }
@@ -1622,33 +1803,49 @@ function getFloatingVisualSize(builder) {
 }
 
 /**
- * 取模态浮动视口自带遮罩的样式：全屏 + 层级为视口层级 - 1。
- * 遮罩与各浮动视口同级参与层叠比较，可挡住其下所有元素（含更低层级浮动视口），
- * 且不遮挡本视口与更高层级的浮动视口。
- * @param {BoxBuilder} builder 模态浮动视口 builder
+ * 取可操作窗口遮罩的样式：全屏 + 层级由调用处传入。
+ * 遮罩与各浮动视口同级参与层叠比较，恰好压住所有非可操作窗口，
+ * 又不遮挡可操作窗口及其子窗口链（见 FloatingLayer 的渲染序推导）。
+ * @param {number} zIndex 遮罩层级（= 可操作子树最低成员的 zIndex - 1）
  * @returns {Object} 遮罩样式
  */
-function getFloatingMaskStyle(builder) {
+function getFloatingMaskStyle(zIndex) {
   return {
     ...FLOATING_MASK_STYLE,
-    zIndex: (builder._zIndex ?? DEFAULT_FLOATING_ZINDEX) - 1,
+    zIndex,
   };
 }
 
 /**
- * 渲染浮动视口的关闭按钮（仅 closable 时）。绝对定位于视口右上角，
- * 点击调用 close() 隐藏该浮动视口（不影响其他浮动视口与主内容）。
- * @param {BoxBuilder} builder 浮动视口 builder
- * @returns {JSX.Element|null} 关闭按钮；不可关闭时返回 null
+ * 浮动视口关闭按钮（Box 层通用内容组件）。渲染 ✕ 按钮，点击关闭宿主浮动视口。
+ * 经 BoxBuilder.content() 注入浮动视口的任意子 Box（如标题栏）即可生效；builder
+ * 由 ContentNode 经 Context 注入（任意深度可读，指向内容所在的 box，其 _root 即
+ * 浮动视口根），也可显式传入 builder prop 覆盖。Cell 层 CloseButtonCell 内部复用
+ * 本组件（经 fill 嵌入插槽），关闭按钮视觉与逻辑单点收敛于本组件。
+ * @param {Object} props 组件属性
+ * @param {BoxBuilder} [props.builder] 内容所在的 box（显式传入时优先于 Context）
+ * @returns {JSX.Element} 关闭按钮元素
  */
-function renderCloseButton(builder) {
-  if (!builder._closable) return null;
+function FloatingCloseButton({ builder }) {
+  const [hovered, setHovered] = useState(false);
+  const injected = useContext(ContentBuilderContext);
+  const root = (builder || injected)?._root;
+  if (!root?._isFloatingViewport) return null;
   return (
     <button
       type="button"
-      className="floating-close-btn"
       aria-label="close"
-      onClick={() => builder.close()}
+      onClick={() => root.close()}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        width: 20, height: 20,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        border: 'none', borderRadius: 4, cursor: 'pointer',
+        fontSize: 12, lineHeight: 1, padding: 0, userSelect: 'none',
+        color: hovered ? '#fff' : 'rgba(255, 255, 255, 0.9)',
+        backgroundColor: hovered ? 'rgba(200, 60, 60, 0.9)' : 'rgba(0, 0, 0, 0.28)',
+      }}
     >
       ✕
     </button>
@@ -1658,14 +1855,18 @@ function renderCloseButton(builder) {
 /**
  * 单个浮动视口窗口：定位容器（position: fixed）+ 包壳（floating-shell）。
  * 包壳以视觉尺寸渲染、overflow hidden 裁剪边界外内容（edge/corner 拖拽手柄、
- * 投影放大溢出），保证任何内容不"支出"窗口视觉边界。缩放手柄与关闭按钮在包壳
- * 内（包壳随视觉尺寸变化，手柄/按钮始终贴合视觉四角）。包壳尺寸在缩放拖拽中
- * 由 applyFloatingShellToDom/applyFloatingEffectToDom 直写 DOM 与鼠标同步。
+ * 投影放大溢出），保证任何内容不"支出"窗口视觉边界。缩放手柄在包壳内（包壳
+ * 随视觉尺寸变化，手柄始终贴合视觉四角）。包壳尺寸在缩放拖拽中由
+ * applyFloatingShellToDom/applyFloatingEffectToDom 直写 DOM 与鼠标同步。
+ * 窗口内任意位置按下（捕获阶段）即触发聚焦（后聚焦居上）；关闭按钮不再由
+ * 本层硬编码渲染，改由通用关闭按钮组件（FloatingCloseButton）经内容机制注入
+ *（Box 层 content / Cell 层 CloseButtonCell）。
  * @param {Object} props
  * @param {BoxBuilder} props.builder 浮动视口根 builder
+ * @param {number} props.zIndex 系统分配的层级值
  * @returns {JSX.Element} 浮动窗口元素
  */
-function FloatingWindow({ builder }) {
+function FloatingWindow({ builder, zIndex }) {
   const shellRef = useRef(null);
   useEffect(() => {
     registerLayerRef(builder._path, 'shell', shellRef);
@@ -1679,7 +1880,7 @@ function FloatingWindow({ builder }) {
     ...(visual.height !== undefined ? { height: visual.height } : {}),
   };
   return (
-    <div style={getFloatingItemStyle(builder)}>
+    <div style={getFloatingItemStyle(builder, zIndex)} onMouseDownCapture={() => focusFloating(builder)}>
       <div className="floating-shell" ref={shellRef} style={shellStyle}>
         <ResizeEffectViewport builder={builder}>
           <ContentLayer builder={builder} />
@@ -1687,7 +1888,6 @@ function FloatingWindow({ builder }) {
           <CornerLayer builder={builder} />
         </ResizeEffectViewport>
         {renderResizeHandles(builder)}
-        {renderCloseButton(builder)}
       </div>
     </div>
   );
@@ -1696,8 +1896,14 @@ function FloatingWindow({ builder }) {
 /**
  * 浮动层组件：统一承载渲染所有浮动视口。
  * - 容器 position: fixed 铺满可视区域且 pointer-events: none，不拦截主内容交互
- * - 仅渲染最上方模态视口（modal()）的遮罩，避免多重遮罩叠加；低层级模态视口由该遮罩统一遮挡
- * - 已关闭（close()）的浮动视口不渲染
+ * - 层级管理（父子窗口树 + 可操作窗口，见 floating-window-tree-design.md）：
+ *   浮动窗口树 _floatingTree 按"父在下、子在上、同层后出现/聚焦居上"组织。
+ *   渲染序 = 树先序遍历，可操作子树整体提升到末尾（独占最高连续 z 区间），
+ *   zIndex 从 2000 + 1 起按渲染序递增分配
+ * - 遮罩完全由可操作窗口决定：仅当有效可操作窗口为浮动窗口时绘制单一全屏遮罩，
+ *   层级 = 可操作子树最低成员的 zIndex - 1，恰好压住所有非可操作窗口、
+ *   又不挡可操作窗口及其子窗口链；可操作窗口 = 根 viewport 时无遮罩
+ * - 已关闭（close()）的浮动视口及其子树不渲染
  * - 每个浮动视口渲染为独立窗口（FloatingWindow：定位容器 + 包壳），内部复用
  *   完整三层渲染（Content/Edge/Corner）；三层整体被 ResizeEffectViewport（主题
  *   尺寸变化特效壳）包裹，浮层尺寸变化时三层同步参与特效（拉伸/缩小/模糊），
@@ -1707,28 +1913,24 @@ function FloatingWindow({ builder }) {
 const FloatingLayer = () => {
   const [, forceUpdate] = useState(0);
   useEffect(() => subscribeFloating(() => forceUpdate(n => n + 1)), []);
-  const builders = [..._floatingBuilders].filter(b => b._visible !== false);
-  if (builders.length === 0) return null;
-  // 取最上方模态视口：层级最高者；层级相同时取注册表后者（DOM 顺序靠后 = 视觉最上）
-  let topModal = null;
-  for (const b of builders) {
-    if (!b._modal) continue;
-    if (!topModal) {
-      topModal = b;
-      continue;
-    }
-    const bz = b._zIndex ?? DEFAULT_FLOATING_ZINDEX;
-    const tz = topModal._zIndex ?? DEFAULT_FLOATING_ZINDEX;
-    if (bz >= tz) topModal = b;
-  }
+  const order = buildRenderOrder();
+  if (order.length === 0) return null;
+  // zIndex 按渲染序步进 2 分配（2001, 2003, ...）：窗口占奇数，遮罩取可操作窗口 z - 1
+  // 的偶数位，严格介于"最后一个非可操作窗口"与"可操作子树首个成员"之间，避免层叠平局
+  const zByPath = new Map();
+  let nextZ = DEFAULT_FLOATING_ZINDEX + 1;
+  order.forEach(b => { zByPath.set(b._path, nextZ); nextZ += 2; });
+  // 遮罩层级 = 可操作子树最低成员（即可操作窗口自身）的 zIndex - 1
+  const operable = getEffectiveOperable();
+  const maskZ = operable ? zByPath.get(operable._path) - 1 : null;
   return (
     <div style={FLOATING_LAYER_STYLE}>
-      {topModal && <div style={getFloatingMaskStyle(topModal)} />}
-      {builders.map(b => (
-        <FloatingWindow key={b._path} builder={b} />
+      {maskZ !== null && <div style={getFloatingMaskStyle(maskZ)} />}
+      {order.map(b => (
+        <FloatingWindow key={b._path} builder={b} zIndex={zByPath.get(b._path)} />
       ))}
     </div>
   );
 };
 
-export { ContentLayer, EdgeLayer, CornerLayer, FloatingLayer, registerFloating, unregisterFloating, notifyFloatingChange, applyFloatingSizeToDom, registerLayerRef, unregisterLayerRef };
+export { ContentLayer, EdgeLayer, CornerLayer, FloatingLayer, FloatingCloseButton, registerFloating, unregisterFloating, reparentFloating, getFloatingChildren, focusFloating, notifyFloatingChange, setOperable, clearOperable, applyFloatingSizeToDom, registerLayerRef, unregisterLayerRef };

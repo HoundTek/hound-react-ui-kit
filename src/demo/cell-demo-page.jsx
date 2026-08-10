@@ -31,7 +31,7 @@
 import React from 'react';
 import {
   CellBaseBuilder, DataDag, useCellData, useNodeData, useText, useI18n,
-  ButtonCell, WindowCell, TextCell, ListCell,
+  ButtonCell, WindowCell, TextCell, ListCell, CloseButtonCell,
 } from '../core/ui-kit';
 
 // =========================================================================
@@ -771,11 +771,16 @@ function buildCellDemo() {
   // profile 需要多挂载（header + sidebar），保留变量
   const profile = new ProfileCell('profile');
 
-  // 独立窗口（内置预设 WindowCell）：标题栏为拖拽点，可移动/缩放/关闭；
-  // 作为浮动视口与页面并列挂载（FloatingLayer 渲染），由主面板"打开窗口"按钮唤起
+  // 独立窗口（内置预设 WindowCell）：标题栏为拖拽点，可移动/缩放；
+  // 关闭按钮经 Cell API 嵌入——title 插槽横向排列"标题文本 + CloseButtonCell"，
+  // 点击关闭宿主窗口；作为浮动视口与页面并列挂载（FloatingLayer 渲染），
+  // 由主面板"打开窗口"按钮唤起（打开即聚焦置顶）
   const windowCell = new WindowCell('demoWin')
     .posX(480).posY(150)
-    .fill('title', new TextCell('winTitle').setText('window.title').setColor('#ffffff').setBold(true))
+    .fill('title', [
+      new TextCell('winTitle').setText('window.title').setColor('#ffffff').setBold(true),
+      new CloseButtonCell('winClose'),
+    ])
     .fill('body', new ListCell('winList').setItems([
       { id: 'p1', title: '图表页' },
       { id: 'p2', title: '列表页' },
