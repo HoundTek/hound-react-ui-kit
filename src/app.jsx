@@ -2,10 +2,9 @@
  * @file 应用根组件。以 I18nProvider 包裹 Cell 演示页，提供国际化实例；
  *        ThemeProvider 注入主题系统，演示尺寸变化特效（页面窗口 resize /
  *        浮动窗口拖拽缩放时，视口内容按主题声明的特效呈现）。
- *        语言切换控件本身也是 Cell（LanguageSwitchCell），纳入 header 布局；
- *        主题切换控件为右上角浮动小面板（演示工具，非 Cell）。
+ *        语言切换控件本身也是 Cell（LanguageSwitchCell），纳入 header 布局。
  */
-import React, { useState } from 'react';
+import React from 'react';
 import CellDemoPage from './demo/cell-demo-page';
 import { DemoPageFloating } from './demo/box-demo-page';
 import { I18n, I18nProvider, Theme, ThemeProvider } from './core/ui-kit';
@@ -88,91 +87,29 @@ const messages = {
 const i18n = new I18n(messages, 'zh-CN');
 
 /**
- * 预置主题：仅声明尺寸变化特效（声明式描述，由特效注册表解析为具体实现）。
- * 每个主题的特效不同，切换主题即可观察不同特效（三者共用"拉伸缩放四角对齐"的
- * 投影呈现，差异仅在真实布局的追赶时机）：
- * - stretch     拉伸：投影四角对齐 + 实时追赶——不冻结，真实布局实时计算，
- *               reflow 就绪（下一帧）立即把当前屏上的拉伸替换为新布局（无防抖）
- * - blur        拉伸 + 模糊：呈现同 stretch，尺寸变化期间整体模糊遮盖重排、
- *               稳定后恢复清晰
- * - freezeZoom  冻结缩放：变化期间布局冻结 + transform 投影实时四角对齐（GPU
- *               合成，零延迟），稳定后 JS reflow 追赶一次精确布局并无缝交接。
- *               默认启用
- * @type {Object<string, Theme>}
+ * 应用主题：固定使用"拉伸"尺寸变化特效（stretch）。
+ * 投影四角对齐 + 实时追赶——不冻结，真实布局实时计算，reflow 就绪（下一帧）
+ * 立即把当前屏上的拉伸替换为新布局（无防抖），拖拽全程一段连续拉伸。
+ * @type {Theme}
  */
-const themes = {
-  stretch: new Theme({ name: 'stretch', effects: { resize: { type: 'stretch' } } }),
-  blur: new Theme({ name: 'blur', effects: { resize: { type: 'blur', blur: 10 } } }),
-  freezeZoom: new Theme({ name: 'freezeZoom', effects: { resize: { type: 'freezeZoom' } } }),
-};
-
-/** 主题切换控件的按钮文案（演示工具，直接中文标注） */
-const THEME_LABELS = {
-  stretch: '拉伸',
-  blur: '模糊',
-  freezeZoom: '冻结缩放',
-};
-
-/**
- * 主题切换控件：右上角固定小面板，点击切换当前主题（演示不同主题不同特效）。
- * @param {Object} props 组件属性
- * @param {string} props.current 当前主题名
- * @param {(name: string) => void} props.onChange 切换回调
- * @returns {JSX.Element} 切换面板元素
- */
-const ThemeSwitcher = ({ current, onChange }) => (
-  <div
-    style={{
-      position: 'fixed',
-      right: 12,
-      top: 72,
-      zIndex: 3000,
-      display: 'flex',
-      gap: 6,
-      padding: 8,
-      borderRadius: 8,
-      background: 'rgba(40, 44, 52, 0.9)',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
-    }}
-  >
-    {Object.keys(themes).map(name => (
-      <button
-        key={name}
-        onClick={() => onChange(name)}
-        style={{
-          padding: '4px 10px',
-          border: 'none',
-          borderRadius: 4,
-          cursor: 'pointer',
-          fontSize: 12,
-          color: current === name ? '#fff' : '#bbb',
-          backgroundColor: current === name ? '#4a90d9' : 'transparent',
-        }}
-      >
-        {THEME_LABELS[name]}
-      </button>
-    ))}
-  </div>
-);
+const theme = new Theme({ name: 'stretch', effects: { resize: { type: 'stretch' } } });
 
 /**
  * 应用根组件。I18nProvider 与 ThemeProvider 并列包裹演示页：
  * - 语言切换经 I18nProvider 注入，Cell 内容组件用 useText 订阅
- * - 主题切换经 ThemeProvider 注入，Box 视口根（页面/浮动窗口）按主题声明呈现尺寸变化特效
- * - DemoPageFloating 在页面上层叠加渲染浮动视口演示（独立窗口 + 模态遮罩）
+ * - 主题（拉伸特效）经 ThemeProvider 注入，Box 视口根（页面/浮动窗口）在尺寸
+ *   变化时以拉伸特效呈现（投影四角对齐 + 实时追赶）
+ * - DemoPageFloating 在页面上层叠加渲染浮动视口演示（独立窗口 + 模态遮罩，
+ *   层级由系统管理：后聚焦/出现居上 + 模态序排列）
  * @returns {JSX.Element} 应用根节点
  */
-const App = () => {
-  const [themeName, setThemeName] = useState('freezeZoom');
-  return (
-    <I18nProvider i18n={i18n}>
-      <ThemeProvider theme={themes[themeName]}>
-        <CellDemoPage />
-        <DemoPageFloating />
-        <ThemeSwitcher current={themeName} onChange={setThemeName} />
-      </ThemeProvider>
-    </I18nProvider>
-  );
-};
+const App = () => (
+  <I18nProvider i18n={i18n}>
+    <ThemeProvider theme={theme}>
+      <CellDemoPage />
+      <DemoPageFloating />
+    </ThemeProvider>
+  </I18nProvider>
+);
 
 export default App;
