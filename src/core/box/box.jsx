@@ -841,6 +841,14 @@ class BoxBuilder extends Reflowable {
         width: child._layoutWidth || width,
         height: child._layoutHeight || height,
       };
+      // 父级 reflow 可能改变了子项的容器尺寸（_layoutWidth/_layoutHeight），
+      // 必须强制子项按新尺寸重新 reflow。子项自身的 _needsReflow 可能是 false：
+      // 初始化阶段子层先于父层以自己的 DOM 实测尺寸 reflow 过（如浮窗 workspace
+      // 测到 auto 撑开的自然高度），_needsReflow 已被清掉；若沿用旧标记跳过，
+      // 子项子树停留在"父层 reflow 前"的旧布局，外层已收敛而内层仍是自然尺寸
+      // ——即"逐层渲染"的首帧中间态。强制重算保证任一子项容器尺寸被改写后
+      // 整棵子树立即跟随，reflow 完全算完后一次性上屏。
+      child._needsReflow = true;
       child._performReflow();
     });
 

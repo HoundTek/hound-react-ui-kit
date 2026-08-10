@@ -70,7 +70,7 @@ const reflowScheduler = new ReflowScheduler();
 class Reflowable {
   constructor() {
     this._needsReflow = false;
-    this._onReflowComplete = null;
+    this._onReflowCompleteCallbacks = new Set();
   }
 
   /**
@@ -95,12 +95,29 @@ class Reflowable {
   }
 
   /**
-   * 触发 reflow 完成回调（仅视口/浮动视口根节点持有回调）
+   * 订阅 reflow 完成通知（仅视口/浮动视口根节点的订阅会被触发）
+   * @param {() => void} cb 完成回调
+   */
+  _subscribeReflowComplete(cb) {
+    this._onReflowCompleteCallbacks.add(cb);
+  }
+
+  /**
+   * 退订 reflow 完成通知
+   * @param {() => void} cb 已订阅的回调
+   */
+  _unsubscribeReflowComplete(cb) {
+    this._onReflowCompleteCallbacks.delete(cb);
+  }
+
+  /**
+   * 触发 reflow 完成回调：通知所有订阅者。三层（Content/Edge/Corner）统一订阅，
+   * 保证布局数据（offsets/positions）更新后三层同步重渲染，覆盖层不与内容层错位
+   *（此前 Edge/Corner 仅依赖 ResizeObserver，content 尺寸不变而 offset 变化时不重渲染）。
    */
   _notifyReflowComplete() {
-    if ((this._isViewport || this._isFloatingViewport) && this._onReflowComplete) {
-      this._onReflowComplete();
-    }
+    if (!(this._isViewport || this._isFloatingViewport)) return;
+    this._onReflowCompleteCallbacks.forEach(cb => cb());
   }
 }
 
