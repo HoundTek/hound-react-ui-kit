@@ -1,7 +1,12 @@
 /**
- * @file UI-Kit 公共 API 出口。聚合 Cell 体系（CellBase、Cell React 组件、Hook、内置预设）、
+ * @file UI-Kit 公共 API 出口。聚合 Cell 体系（CellBase、Cell React 组件、Hook）、
  *        DataTree（DataDag、DataNode）与 I18n 国际化系统，并透传 Box 三层组件以备高级用法。
  *        主题系统（Theme / ThemeProvider / useTheme）提供尺寸变化等动态特效的声明式入口。
+ *        预设 Cell 分两级：
+ *        - 核心预设（src/core/builtin-cells/）：TextCell / ToggleCell / CloseButtonCell /
+ *          NotificationCell / ModalCell / WindowCell 等基础构件
+ *        - 扩展预设（src/builtin-cells/）：75 个覆盖展示/交互/容器/浮层/业务的预设类型；
+ *          其中 ButtonCell / InputCell / ListCell 为扩展预设版本（核心版本 API 的超集）
  */
 import CellBaseBuilder from './cell/cell-base';
 import { CellRoot, useCellData, useNodeData } from './cell/cell-react';
@@ -12,10 +17,24 @@ import Theme from './theme/theme';
 import { ThemeProvider, ThemeContext, useTheme } from './theme/theme-react';
 import { resizeEffectRegistry, resolveResizeEffect } from './theme/resize-effects';
 import {
-  TextCell, ButtonCell, InputCell, ToggleCell, ListCell,
+  TextCell, ToggleCell,
   CloseButtonCell,
   NotificationCell, ModalCell, WindowCell,
 } from './builtin-cells/builtin-cells';
+import {
+  AccordionCell, AlertCell, AvatarCell, BadgeCell, BarCell, BreadcrumbCell,
+  ButtonCell, CalendarCell, CardCell, CarouselCell, ChartCell, ChatCell,
+  CheckboxCell, ColorPickerCell, ConfirmCell, ControlCell, DashboardCell,
+  DatePickerCell, DialogCell, DividerCell, DocumentCell, DrawerCell, EditorCell,
+  EmptyCell, FieldCell, FloatingPanelCell, FormCell, GridCell, GroupCell, IconCell,
+  IndexBarCell, InputCell, JoyConCell, KanbanCell, ListCell, LoadingCell, LoginCell,
+  MediaCell, MenuCell, MessageCell, NavBarCell, NoticeCell, OrderCell, PageCell,
+  PaginationCell, PanelCell, PickerCell, PopoverCell, ProcessCell, ProfileCell,
+  ProgressCell, RadioCell, RateCell, ResultCell, SearchCell, SectionCell, SelectCell,
+  SettingsCell, SkeletonCell, SliderCell, StatCell, StepperCell, SwitchCell, TabBarCell,
+  TabCell, TableCell, TagCell, TextareaCell, TilingCell, TimelineCell, TitleCell,
+  ToastCell, TooltipCell, TreeCell, UploadCell,
+} from '../builtin-cells';
 
 export {
   CellBaseBuilder,
@@ -35,13 +54,87 @@ export {
   useTheme,
   resizeEffectRegistry,
   resolveResizeEffect,
+  // 核心预设（基础构件）
   TextCell,
-  ButtonCell,
-  InputCell,
   ToggleCell,
-  ListCell,
   CloseButtonCell,
   NotificationCell,
   ModalCell,
   WindowCell,
+  // 扩展预设（src/builtin-cells/，75 个）
+  AccordionCell,
+  AlertCell,
+  AvatarCell,
+  BadgeCell,
+  BarCell,
+  BreadcrumbCell,
+  ButtonCell,
+  CalendarCell,
+  CardCell,
+  CarouselCell,
+  ChartCell,
+  ChatCell,
+  CheckboxCell,
+  ColorPickerCell,
+  ConfirmCell,
+  ControlCell,
+  DashboardCell,
+  DatePickerCell,
+  DialogCell,
+  DividerCell,
+  DocumentCell,
+  DrawerCell,
+  EditorCell,
+  EmptyCell,
+  FieldCell,
+  FloatingPanelCell,
+  FormCell,
+  GridCell,
+  GroupCell,
+  IconCell,
+  IndexBarCell,
+  InputCell,
+  JoyConCell,
+  KanbanCell,
+  ListCell,
+  LoadingCell,
+  LoginCell,
+  MediaCell,
+  MenuCell,
+  MessageCell,
+  NavBarCell,
+  NoticeCell,
+  OrderCell,
+  PageCell,
+  PaginationCell,
+  PanelCell,
+  PickerCell,
+  PopoverCell,
+  ProcessCell,
+  ProfileCell,
+  ProgressCell,
+  RadioCell,
+  RateCell,
+  ResultCell,
+  SearchCell,
+  SectionCell,
+  SelectCell,
+  SettingsCell,
+  SkeletonCell,
+  SliderCell,
+  StatCell,
+  StepperCell,
+  SwitchCell,
+  TabBarCell,
+  TabCell,
+  TableCell,
+  TagCell,
+  TextareaCell,
+  TilingCell,
+  TimelineCell,
+  TitleCell,
+  ToastCell,
+  TooltipCell,
+  TreeCell,
+  UploadCell,
 };

@@ -651,6 +651,31 @@ const _floatingModal = new BoxBuilder('@float/modal')
 // 注释掉本行则回到默认态（可操作窗口 = 根 viewport，无遮罩）。
 setOperable(_floatingWin);
 
+// 浮动窗口演示默认初始隐藏：FloatingLayer 全局渲染所有浮动视口，若初始可见会
+// 悬浮遮挡默认页（预设展示台）。工作台页挂载时经 openFloatingDemo 打开，切换离开时
+// 经 closeFloatingDemo 关闭（见 cell-demo-page）。
+[_floatingWin, _floatingComplex, _floatingModal].forEach(w => w.close());
+
+/**
+ * 打开浮动窗口演示（工作台页挂载时调用）。
+ * @returns {void}
+ */
+const openFloatingDemo = () => {
+  _floatingWin.open();
+  _floatingComplex.open();
+  _floatingModal.open();
+};
+
+/**
+ * 关闭浮动窗口演示（离开工作台页时调用）。
+ * @returns {void}
+ */
+const closeFloatingDemo = () => {
+  _floatingWin.close();
+  _floatingComplex.close();
+  _floatingModal.close();
+};
+
 /**
  * 演示页内容层组件：渲染布局树的内容层（承担实际布局与子项渲染）
  * @returns {JSX.Element} 内容层元素
@@ -675,4 +700,7 @@ const DemoPageCorner = () => _builder.reactCorner();
  */
 const DemoPageFloating = () => <FloatingLayer />;
 
-export { DemoPageContent, DemoPageEdge, DemoPageCorner, DemoPageFloating };
+export {
+  DemoPageContent, DemoPageEdge, DemoPageCorner, DemoPageFloating,
+  openFloatingDemo, closeFloatingDemo,
+};

@@ -28,11 +28,12 @@
  *        - 多挂载：profile 变量 fill 到 header（mount 0）+ sidebar（mount 1）
  *        - showChildOverlays：body 插槽隐藏子项拖拽手柄
  */
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   CellBaseBuilder, DataDag, useCellData, useNodeData, useText, useI18n,
   ButtonCell, WindowCell, TextCell, ListCell, CloseButtonCell,
 } from '../core/ui-kit';
+import { openFloatingDemo, closeFloatingDemo } from './box-demo-page';
 
 // =========================================================================
 //  内容组件
@@ -832,8 +833,9 @@ function buildCellDemo() {
 
   // 一次性挂载全树（根据 slot 关系自动级联）
   page.mount(dag._root);
-  // 浮动视口 Cell 与页面并列挂载（独立 reflow 根，由 FloatingLayer 渲染）
-  windowCell.mount(dag._root);
+  // 浮动视口 Cell 与页面并列挂载（独立 reflow 根，由 FloatingLayer 渲染）；
+  // 浮动视口默认可见，mount 后显式 close() 使其初始隐藏，由"打开窗口"按钮触发 open()
+  windowCell.mount(dag._root).close();
 
   // 渲染
   return page.react();
@@ -847,8 +849,16 @@ const _demoElement = buildCellDemo();
 
 /**
  * Cell 演示页组件。直接返回模块级构建好的元素（惰性渲染，避免重复挂载）。
+ * 挂载时打开 box-demo 的浮动窗口演示（初始隐藏），卸载时关闭，避免悬浮遮挡
+ * 其他页面（预设展示台）。
  * @returns {JSX.Element} 页面根元素
  */
-const CellDemoPage = () => _demoElement;
+const CellDemoPage = () => {
+  useEffect(() => {
+    openFloatingDemo();
+    return () => closeFloatingDemo();
+  }, []);
+  return _demoElement;
+};
 
 export default CellDemoPage;

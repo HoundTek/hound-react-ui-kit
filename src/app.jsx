@@ -4,8 +4,9 @@
  *        浮动窗口拖拽缩放时，视口内容按主题声明的特效呈现）。
  *        语言切换控件本身也是 Cell（LanguageSwitchCell），纳入 header 布局。
  */
-import React from 'react';
+import React, { useState } from 'react';
 import CellDemoPage from './demo/cell-demo-page';
+import PresetDemoPage from './demo/preset-demo-page';
 import { DemoPageFloating } from './demo/box-demo-page';
 import { I18n, I18nProvider, Theme, ThemeProvider } from './core/ui-kit';
 
@@ -101,15 +102,24 @@ const theme = new Theme({ name: 'stretch', effects: { resize: { type: 'stretch' 
  *   变化时以拉伸特效呈现（投影四角对齐 + 实时追赶）
  * - DemoPageFloating 在页面上层叠加渲染浮动视口演示（独立窗口 + 模态遮罩，
  *   层级由系统管理：后聚焦/出现居上 + 模态序排列）
+ * - 页面入口二选一（默认预设展示台，可经右下角按钮切回工作台）：
+ *   PresetDemoPage 为 75 个预设 Cell 的分类速览，CellDemoPage 为数据驱动工作台
  * @returns {JSX.Element} 应用根节点
  */
-const App = () => (
-  <I18nProvider i18n={i18n}>
-    <ThemeProvider theme={theme}>
-      <CellDemoPage />
-      <DemoPageFloating />
-    </ThemeProvider>
-  </I18nProvider>
-);
+const App = () => {
+  const [page, setPage] = useState('presets');
+  const switchBtn = { position: 'fixed', right: 12, bottom: 12, zIndex: 9000, padding: '6px 12px', borderRadius: 4, border: '1px solid #4a90d9', background: '#4a90d9', color: '#fff', fontSize: 12, cursor: 'pointer' };
+  return (
+    <I18nProvider i18n={i18n}>
+      <ThemeProvider theme={theme}>
+        {page === 'presets' ? <PresetDemoPage /> : <CellDemoPage />}
+        <DemoPageFloating />
+        <button style={switchBtn} onClick={() => setPage(page === 'presets' ? 'workbench' : 'presets')}>
+          {page === 'presets' ? '切换到工作台' : '切换到预设展示台'}
+        </button>
+      </ThemeProvider>
+    </I18nProvider>
+  );
+};
 
 export default App;

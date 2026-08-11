@@ -581,7 +581,11 @@ class BoxBuilder extends Reflowable {
       }
     }
 
-    if (fixedTotal > containerSize) {
+    // 亚像素容差：containerSize 来自 DOM 测量/父级 reflow 分配，可能因浮点
+    // 或取整产生 ≤0.5px 误差。固定子项总和略超容器时不算非法（浏览器本就
+    // 以亚像素渲染），真实溢出（超过容差）仍判定非法。
+    const EPSILON = 0.5;
+    if (fixedTotal > containerSize + EPSILON) {
       return { sizes: [], isValid: false, error: true };
     }
 
@@ -637,7 +641,9 @@ class BoxBuilder extends Reflowable {
     const minPossible = computeTotal(lambdaMax);
     const maxPossible = computeTotal(lambdaMin);
 
-    if (remainingSpace < minPossible) {
+    // 与 fixedTotal 检查同源的亚像素容差：固定子项总和略超容器时
+    // remainingSpace 微负，非固定子项的最小值合计可能因此被判超界
+    if (remainingSpace < minPossible - EPSILON) {
       return { sizes: [], isValid: false, error: true };
     }
 
