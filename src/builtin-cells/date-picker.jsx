@@ -10,6 +10,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /** 周历表头：日一二三四五六 */
 const WEEK_HEADERS = ['日', '一', '二', '三', '四', '五', '六'];
@@ -26,6 +28,15 @@ function DatePickerView({ cell }) {
   const month = useCellData(cell, 'month');
   const open = useCellData(cell, 'open');
   const placeholder = useText(useCellData(cell, 'placeholder'));
+  const surface = useThemeColor('surface', '#ffffff');
+  const text = useThemeColor('text', '#333');
+  const textMuted = useThemeColor('text-muted', '#999');
+  const caret = useThemeColor('text-muted', '#888');
+  const border = useThemeColor('border', '#e8e8e8');
+  const surfaceMuted = useThemeColor('surface-muted', '#fafafa');
+  const primary = useThemeColor('primary', '#4a90d9');
+  const onPrimary = useThemeColor('on-primary', '#fff');
+  const corner = useCornerType();
   // 首日偏移（0=周日）与当月天数，构建月历格子数组（开头空位补齐）
   const firstWeekday = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -44,21 +55,21 @@ function DatePickerView({ cell }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
-      backgroundColor: '#ffffff', fontSize: 13, color: '#333', overflow: 'hidden',
+      backgroundColor: surface, fontSize: 13, color: text, overflow: 'hidden',
     }}>
       {/* 顶部输入条：只读展示，点击切换展开 */}
       <div
         onClick={() => cell.setOpen(!open)}
         style={{
           display: 'flex', alignItems: 'center', height: 32, margin: 6, padding: '0 10px',
-          border: '1px solid #e8e8e8', borderRadius: 4, backgroundColor: '#fafafa',
+          border: `1px solid ${border}`, ...cornerStyle(corner, 4), backgroundColor: surfaceMuted,
           cursor: 'pointer', flexShrink: 0, userSelect: 'none',
         }}
       >
-        <span style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', color: value ? '#333' : '#999' }}>
+        <span style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', color: value ? text : textMuted }}>
           {value || placeholder}
         </span>
-        <span style={{ marginLeft: 6, fontSize: 10, color: '#888' }}>▾</span>
+        <span style={{ marginLeft: 6, fontSize: 10, color: caret }}>▾</span>
       </div>
       {/* 月历：切月栏 + 周历网格 */}
       {open && (
@@ -66,17 +77,17 @@ function DatePickerView({ cell }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 4px 4px' }}>
             <span
               onClick={prevMonth}
-              style={{ cursor: 'pointer', color: '#4a90d9', padding: '0 6px', userSelect: 'none', fontWeight: 'bold' }}
+              style={{ cursor: 'pointer', color: primary, padding: '0 6px', userSelect: 'none', fontWeight: 'bold' }}
             >‹</span>
             <span style={{ fontWeight: 'bold' }}>{year} 年 {month} 月</span>
             <span
               onClick={nextMonth}
-              style={{ cursor: 'pointer', color: '#4a90d9', padding: '0 6px', userSelect: 'none', fontWeight: 'bold' }}
+              style={{ cursor: 'pointer', color: primary, padding: '0 6px', userSelect: 'none', fontWeight: 'bold' }}
             >›</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center' }}>
             {WEEK_HEADERS.map((h) => (
-              <div key={h} style={{ padding: '2px 0 4px', color: '#999', fontSize: 11 }}>{h}</div>
+              <div key={h} style={{ padding: '2px 0 4px', color: textMuted, fontSize: 11 }}>{h}</div>
             ))}
             {dayCells.map((d, idx) => (d === null ? (
               <div key={`blank-${idx}`} style={{ height: 24 }} />
@@ -85,10 +96,10 @@ function DatePickerView({ cell }) {
                 key={d}
                 onClick={() => cell.setValue(`${year}-${month}-${d}`).setOpen(false)}
                 style={{
-                  height: 24, lineHeight: '24px', borderRadius: 3, cursor: 'pointer',
+                  height: 24, lineHeight: '24px', ...cornerStyle(corner, 3), cursor: 'pointer',
                   userSelect: 'none',
-                  color: value === `${year}-${month}-${d}` ? '#fff' : '#333',
-                  backgroundColor: value === `${year}-${month}-${d}` ? '#4a90d9' : 'transparent',
+                  color: value === `${year}-${month}-${d}` ? onPrimary : text,
+                  backgroundColor: value === `${year}-${month}-${d}` ? primary : 'transparent',
                 }}
               >
                 {d}
@@ -112,7 +123,7 @@ class DatePickerCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveY(true).layout('vertical').defaultWidth(240).backgroundColor('#ffffff')
+    this.moveY(true).layout('vertical').defaultWidth(240).color('surface')
       .schema({
         value: { type: 'string', default: '' },
         year: { type: 'number', default: 2026 },

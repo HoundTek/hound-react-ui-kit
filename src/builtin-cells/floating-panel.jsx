@@ -19,14 +19,14 @@ class FloatingPanelCell extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.floatingViewport().movable(true).resizable(true)
-      .minWidth(240).minHeight(140).backgroundColor('#ffffff').layout('vertical')
+      .minWidth(240).minHeight(140).color('surface').layout('vertical')
       .defineSlot('header', {
-        fixedHeight: 36, backgroundColor: '#4a90d9', dragHandle: true,
+        fixedHeight: 36, color: 'primary', dragHandle: true,
         layout: 'horizontal', moveX: false, moveY: false, single: true,
       })
       .defineSlot('body', {
         minHeight: 80, moveY: true, layout: 'vertical',
-        backgroundColor: '#ffffff', showChildOverlays: false,
+        color: 'surface', showChildOverlays: false,
       });
   }
 }

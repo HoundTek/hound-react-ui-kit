@@ -8,6 +8,8 @@
 import React, { useEffect, useRef } from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
 /**
  * 骨架视图：订阅 type/height，渲染灰色占位块并播放脉动动画。
@@ -17,6 +19,8 @@ import { useCellData } from '../core/cell/cell-react';
 function SkeletonView({ cell }) {
   const type = useCellData(cell, 'type');
   const height = useCellData(cell, 'height');
+  const corner = useCornerType();
+  const border = useThemeColor('border', '#e8e8e8');
   const ref = useRef(null);
   useEffect(() => {
     const animation = ref.current.animate(
@@ -28,13 +32,13 @@ function SkeletonView({ cell }) {
   const isCircle = type === 'circle';
   const isBlock = type === 'block';
   const blockStyle = isCircle
-    ? { width: height, height, borderRadius: '50%' }
+    ? { width: height, height, ...cornerStyle(corner, CAPSULE_RADIUS) }
     : isBlock
-      ? { width: height * 4, height: height * 4, borderRadius: 4 }
-      : { width: '80%', height, borderRadius: 4 };
+      ? { width: height * 4, height: height * 4, ...cornerStyle(corner, 4) }
+      : { width: '80%', height, ...cornerStyle(corner, 4) };
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div ref={ref} style={{ backgroundColor: '#e8e8e8', flexShrink: 0, ...blockStyle }} />
+      <div ref={ref} style={{ backgroundColor: border, flexShrink: 0, ...blockStyle }} />
     </div>
   );
 }
@@ -50,7 +54,7 @@ class SkeletonCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(32).backgroundColor('#ffffff')
+    this.fixedHeight(32).color('surface')
       .schema({
         type: { type: 'string', default: 'line' },
         height: { type: 'number', default: 16 },

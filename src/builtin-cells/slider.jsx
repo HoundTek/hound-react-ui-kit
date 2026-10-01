@@ -8,6 +8,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 滑块视图：订阅 label/min/max/step/value，onChange 写入 value。
@@ -20,14 +21,16 @@ function SliderView({ cell }) {
   const max = useCellData(cell, 'max');
   const step = useCellData(cell, 'step');
   const value = useCellData(cell, 'value');
+  const textMuted = useThemeColor('text-muted', '#888');
+  const text = useThemeColor('text', '#333');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       padding: '0 12px', width: '100%', height: '100%', gap: 6,
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#888' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: textMuted }}>
         <span>{label}</span>
-        <span style={{ color: '#333', fontWeight: 'bold' }}>{value}</span>
+        <span style={{ color: text, fontWeight: 'bold' }}>{value}</span>
       </div>
       <input
         type="range"
@@ -52,7 +55,7 @@ class SliderCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(56).backgroundColor('#fafafa')
+    this.fixedHeight(56).color('surface-muted')
       .schema({
         label: { type: 'string', default: '' },
         min: { type: 'number', default: 0 },

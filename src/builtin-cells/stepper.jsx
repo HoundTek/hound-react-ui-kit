@@ -9,6 +9,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /**
  * 步进器视图：订阅 label/value/min/max/step，点击 −/+ 写回 value（数据驱动交互）。
@@ -21,11 +23,16 @@ function StepperView({ cell }) {
   const min = useCellData(cell, 'min');
   const max = useCellData(cell, 'max');
   const step = useCellData(cell, 'step');
+  const corner = useCornerType();
+  const borderColor = useThemeColor('border', '#ccc');
+  const surface = useThemeColor('surface', '#ffffff');
+  const text = useThemeColor('text', '#333');
+  const textMuted = useThemeColor('text-muted', '#888');
   const btnStyle = (disabled) => ({
     width: 28, height: 28, flexShrink: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    border: '1px solid #ccc', borderRadius: 4, backgroundColor: '#ffffff',
-    color: '#333', fontSize: 16, lineHeight: 1,
+    border: `1px solid ${borderColor}`, ...cornerStyle(corner, 4), backgroundColor: surface,
+    color: text, fontSize: 16, lineHeight: 1,
     cursor: disabled ? 'not-allowed' : 'pointer', userSelect: 'none',
     opacity: disabled ? 0.4 : 1,
   });
@@ -34,7 +41,7 @@ function StepperView({ cell }) {
       display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px',
       width: '100%', height: '100%',
     }}>
-      {label ? <span style={{ flexShrink: 0, fontSize: 12, color: '#888' }}>{label}</span> : null}
+      {label ? <span style={{ flexShrink: 0, fontSize: 12, color: textMuted }}>{label}</span> : null}
       <div style={{ flex: 1 }} />
       <button
         type="button"
@@ -45,7 +52,7 @@ function StepperView({ cell }) {
         −
       </button>
       <span style={{
-        flexShrink: 0, minWidth: 36, textAlign: 'center', fontSize: 13, color: '#333',
+        flexShrink: 0, minWidth: 36, textAlign: 'center', fontSize: 13, color: text,
         fontFamily: 'Consolas, Monaco, monospace',
       }}>
         {value}
@@ -72,7 +79,7 @@ class StepperCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(40).backgroundColor('#ffffff')
+    this.fixedHeight(40).color('surface')
       .schema({
         label: { type: 'string', default: '' },
         value: { type: 'number', default: 0 },

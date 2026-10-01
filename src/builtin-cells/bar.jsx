@@ -9,6 +9,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
 /**
  * 条形图视图：订阅 items/color/showValue，渲染纵向条列表。
@@ -36,21 +38,25 @@ function BarView({ cell }) {
  */
 function BarRow({ item, color, showValue, maxValue }) {
   const label = useText(item.label);
+  const corner = useCornerType();
+  const labelColor = useThemeColor('text-secondary', '#666');
+  const trackColor = useThemeColor('border', '#eee');
+  const valueColor = useThemeColor('text-muted', '#888');
   const value = item.value || 0;
   const pct = (value / maxValue) * 100;
   return (
     <div style={{ display: 'flex', alignItems: 'center', height: 22 }}>
       <div style={{
-        width: 48, fontSize: 12, color: '#666', textAlign: 'right', paddingRight: 6, flexShrink: 0,
+        width: 48, fontSize: 12, color: labelColor, textAlign: 'right', paddingRight: 6, flexShrink: 0,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {label}
       </div>
-      <div style={{ flex: 1, height: 10, borderRadius: 5, backgroundColor: '#eee', overflow: 'hidden' }}>
-        <div style={{ width: `${pct}%`, height: '100%', borderRadius: 5, backgroundColor: color }} />
+      <div style={{ flex: 1, height: 10, ...cornerStyle(corner, CAPSULE_RADIUS), backgroundColor: trackColor, overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', ...cornerStyle(corner, CAPSULE_RADIUS), backgroundColor: color }} />
       </div>
       {showValue ? (
-        <span style={{ fontSize: 11, color: '#888', paddingLeft: 6, flexShrink: 0 }}>{value}</span>
+        <span style={{ fontSize: 11, color: valueColor, paddingLeft: 6, flexShrink: 0 }}>{value}</span>
       ) : null}
     </div>
   );

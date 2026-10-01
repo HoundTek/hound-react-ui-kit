@@ -8,6 +8,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 结果视图：订阅 status/title/desc，按状态渲染大图标与文案。
@@ -18,11 +19,17 @@ function ResultView({ cell }) {
   const status = useCellData(cell, 'status');
   const title = useText(useCellData(cell, 'title'));
   const desc = useText(useCellData(cell, 'desc'));
+  const success = useThemeColor('success', '#1a8a4a');
+  const danger = useThemeColor('danger', '#c03a2a');
+  const warning = useThemeColor('warning', '#c07a1a');
+  const primary = useThemeColor('primary', '#4a90d9');
+  const titleColor = useThemeColor('text', '#333');
+  const descColor = useThemeColor('text-muted', '#999');
   const statusMap = {
-    success: { color: '#1a8a4a', glyph: '✓' },
-    error: { color: '#c03a2a', glyph: '✕' },
-    warning: { color: '#c07a1a', glyph: '!' },
-    info: { color: '#4a90d9', glyph: 'ℹ' },
+    success: { color: success, glyph: '✓' },
+    error: { color: danger, glyph: '✕' },
+    warning: { color: warning, glyph: '!' },
+    info: { color: primary, glyph: 'ℹ' },
   };
   const s = statusMap[status] || statusMap.info;
   return (
@@ -31,8 +38,8 @@ function ResultView({ cell }) {
       alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 16px',
     }}>
       <div style={{ fontSize: 48, lineHeight: 1, color: s.color, userSelect: 'none' }}>{s.glyph}</div>
-      {title ? <div style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>{title}</div> : null}
-      {desc ? <div style={{ fontSize: 13, color: '#999', textAlign: 'center' }}>{desc}</div> : null}
+      {title ? <div style={{ fontSize: 16, fontWeight: 'bold', color: titleColor }}>{title}</div> : null}
+      {desc ? <div style={{ fontSize: 13, color: descColor, textAlign: 'center' }}>{desc}</div> : null}
     </div>
   );
 }
@@ -47,7 +54,7 @@ class ResultCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.defaultHeight(160).backgroundColor('#ffffff')
+    this.defaultHeight(160).color('surface')
       .schema({
         status: { type: 'string', default: 'info' },
         title: { type: 'string', default: '' },

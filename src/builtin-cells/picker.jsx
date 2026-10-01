@@ -10,6 +10,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /**
  * 选中项标题：订阅 item.title 的 i18n 翻译（仅在列表内查找命中时渲染）。
@@ -30,14 +32,17 @@ function SelectedLabel({ item }) {
 function OptionRow({ cell, item, value }) {
   const title = useText(item.title);
   const active = value === item.id;
+  const primary = useThemeColor('primary', '#4a90d9');
+  const text = useThemeColor('text', '#333');
+  const surface = useThemeColor('surface', '#fff');
   return (
     <div
       onClick={() => { cell.setValue(item.id); cell.setOpen(false); }}
       style={{
         height: 34, padding: '0 12px', display: 'flex', alignItems: 'center',
         fontSize: 13, cursor: 'pointer', userSelect: 'none',
-        color: active ? '#4a90d9' : '#333',
-        backgroundColor: active ? 'rgba(74,144,217,0.10)' : '#fff',
+        color: active ? primary : text,
+        backgroundColor: active ? 'rgba(74,144,217,0.10)' : surface,
         fontWeight: active ? 'bold' : 'normal',
       }}
     >
@@ -57,6 +62,10 @@ function PickerView({ cell }) {
   const value = useCellData(cell, 'value');
   const placeholder = useText(useCellData(cell, 'placeholder'));
   const open = useCellData(cell, 'open');
+  const text = useThemeColor('text', '#333');
+  const textMuted = useThemeColor('text-muted', '#999');
+  const surface = useThemeColor('surface', '#fff');
+  const corner = useCornerType();
   const current = options.find(o => o.id === value);
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -65,18 +74,18 @@ function PickerView({ cell }) {
         style={{
           height: '100%', padding: '0 12px', display: 'flex', alignItems: 'center',
           gap: 8, cursor: 'pointer', userSelect: 'none', fontSize: 13,
-          color: current ? '#333' : '#999', backgroundColor: '#fff',
+          color: current ? text : textMuted, backgroundColor: surface,
         }}
       >
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {current ? <SelectedLabel item={current} /> : placeholder}
         </span>
-        <span style={{ fontSize: 10, color: '#999', transform: open ? 'rotate(180deg)' : 'none' }}>▾</span>
+        <span style={{ fontSize: 10, color: textMuted, transform: open ? 'rotate(180deg)' : 'none' }}>▾</span>
       </div>
       {open && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
-          backgroundColor: '#fff', borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          backgroundColor: surface, ...cornerStyle(corner, 6), boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           overflow: 'hidden', padding: '4px 0',
         }}>
           {options.map(o => <OptionRow key={o.id} cell={cell} item={o} value={value} />)}
@@ -97,7 +106,7 @@ class PickerCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(40).backgroundColor('#ffffff')
+    this.fixedHeight(40).color('surface')
       .schema({
         options: { type: 'array', default: [] },
         value: { type: 'string', default: '' },

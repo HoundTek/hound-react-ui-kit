@@ -9,6 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 媒体视图：订阅 type/src/caption，按类型渲染媒体元素与说明文字。
@@ -19,6 +20,7 @@ function MediaView({ cell }) {
   const type = useCellData(cell, 'type');
   const src = useCellData(cell, 'src');
   const caption = useText(useCellData(cell, 'caption'));
+  const captionColor = useThemeColor('text-muted', '#999999');
   return (
     <div style={{
       width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
@@ -38,7 +40,7 @@ function MediaView({ cell }) {
         <audio src={src} controls style={{ width: '100%', display: 'block' }} />
       ) : null}
       {caption ? (
-        <div style={{ fontSize: 12, color: '#999999', padding: '4px 12px', textAlign: 'center' }}>{caption}</div>
+        <div style={{ fontSize: 12, color: captionColor, padding: '4px 12px', textAlign: 'center' }}>{caption}</div>
       ) : null}
     </div>
   );
@@ -54,7 +56,7 @@ class MediaCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.minHeight(120).backgroundColor('#ffffff')
+    this.minHeight(120).color('surface')
       .schema({
         type: { type: 'string', default: 'image' },
         src: { type: 'string', default: '' },

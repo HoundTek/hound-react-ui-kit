@@ -18,7 +18,7 @@ class GridCell extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.grid(120, 80).moveX(false).moveY(false)
-      .defaultWidth(360).minHeight(160).backgroundColor('#ffffff').showChildOverlays(false);
+      .defaultWidth(360).minHeight(160).color('surface').showChildOverlays(false);
   }
 }
 

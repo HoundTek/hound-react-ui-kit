@@ -9,6 +9,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
 const SIZE_MAP = { small: 16, default: 22, large: 30 };
 
@@ -22,6 +24,8 @@ function LoadingView({ cell }) {
   const size = useCellData(cell, 'size');
   const color = useCellData(cell, 'color');
   const px = SIZE_MAP[size] || SIZE_MAP.default;
+  const corner = useCornerType();
+  const textColor = useThemeColor('text-secondary', '#666666');
   return (
     <div style={{
       width: '100%', height: '100%', display: 'flex', alignItems: 'center',
@@ -29,11 +33,11 @@ function LoadingView({ cell }) {
     }}>
       <style>{`@keyframes hound-spin { to { transform: rotate(360deg); } }`}</style>
       <div style={{
-        width: px, height: px, flexShrink: 0, borderRadius: '50%',
+        width: px, height: px, flexShrink: 0, ...cornerStyle(corner, CAPSULE_RADIUS),
         border: '3px solid transparent', borderTopColor: color,
         animation: 'hound-spin 0.8s linear infinite',
       }} />
-      {text ? <span style={{ fontSize: 13, color: '#666666' }}>{text}</span> : null}
+      {text ? <span style={{ fontSize: 13, color: textColor }}>{text}</span> : null}
     </div>
   );
 }

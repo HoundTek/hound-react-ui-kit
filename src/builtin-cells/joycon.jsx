@@ -8,6 +8,8 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 const DIR_MAP = [
   { dir: 'up', glyph: '↑' },
@@ -54,6 +56,11 @@ function JoyConView({ cell }) {
  * @returns {JSX.Element} 按钮元素
  */
 function JoyConButton({ cell, spec, active }) {
+  const primary = useThemeColor('primary', '#4a90d9');
+  const surface = useThemeColor('surface', '#ffffff');
+  const onPrimary = useThemeColor('on-primary', '#ffffff');
+  const textSecondary = useThemeColor('text-secondary', '#666666');
+  const corner = useCornerType();
   const size = spec.dir === 'center' ? 40 : 36;
   return (
     <button
@@ -62,9 +69,9 @@ function JoyConButton({ cell, spec, active }) {
       style={{
         width: size, height: size, margin: 2, padding: 0, boxSizing: 'border-box',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: '1px solid #d0d0d0', borderRadius: 6, cursor: 'pointer',
-        backgroundColor: active ? '#4a90d9' : '#ffffff',
-        color: active ? '#ffffff' : '#666666', fontSize: 16, flexShrink: 0,
+        border: '1px solid #d0d0d0', ...cornerStyle(corner, 6), cursor: 'pointer',
+        backgroundColor: active ? primary : surface,
+        color: active ? onPrimary : textSecondary, fontSize: 16, flexShrink: 0,
       }}
     >
       {spec.glyph}

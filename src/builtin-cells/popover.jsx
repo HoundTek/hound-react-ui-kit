@@ -9,6 +9,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /**
  * 气泡视图：订阅 title/text，title 为空时不渲染标题行。
@@ -18,14 +20,18 @@ import { useText } from '../core/i18n/i18n-react';
 function PopoverView({ cell }) {
   const title = useText(useCellData(cell, 'title'));
   const text = useText(useCellData(cell, 'text'));
+  const surface = useThemeColor('surface', '#ffffff');
+  const titleColor = useThemeColor('text', '#333');
+  const textColor = useThemeColor('text-secondary', '#666');
+  const corner = useCornerType();
   return (
     <div style={{
       width: '100%', height: '100%', boxSizing: 'border-box', padding: 12,
       display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden',
-      backgroundColor: '#ffffff', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+      backgroundColor: surface, ...cornerStyle(corner, 8), boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
     }}>
-      {title ? <div style={{ fontSize: 14, fontWeight: 'bold', color: '#333' }}>{title}</div> : null}
-      {text ? <div style={{ fontSize: 13, color: '#666', lineHeight: 1.5 }}>{text}</div> : null}
+      {title ? <div style={{ fontSize: 14, fontWeight: 'bold', color: titleColor }}>{title}</div> : null}
+      {text ? <div style={{ fontSize: 13, color: textColor, lineHeight: 1.5 }}>{text}</div> : null}
     </div>
   );
 }

@@ -8,6 +8,8 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /**
  * 看板视图：订阅 columns/selectedItem，横向排列各列，点击卡片写入 selectedItem。
@@ -17,6 +19,12 @@ import { useCellData } from '../core/cell/cell-react';
 function KanbanView({ cell }) {
   const columns = useCellData(cell, 'columns') || [];
   const selectedItem = useCellData(cell, 'selectedItem');
+  const corner = useCornerType();
+  const surface = useThemeColor('surface', '#ffffff');
+  const border = useThemeColor('border', '#eeeeee');
+  const surfaceMuted = useThemeColor('surface-muted', '#f5f5f5');
+  const text = useThemeColor('text', '#333333');
+  const primary = useThemeColor('primary', '#4a90d9');
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', overflowX: 'auto', overflowY: 'hidden' }}>
       {columns.map((col, colIdx) => (
@@ -24,14 +32,14 @@ function KanbanView({ cell }) {
           key={col.id}
           style={{
             width: 180, flexShrink: 0, display: 'flex', flexDirection: 'column',
-            backgroundColor: '#ffffff',
-            borderRight: colIdx < columns.length - 1 ? '1px solid #eeeeee' : 'none',
+            backgroundColor: surface,
+            borderRight: colIdx < columns.length - 1 ? `1px solid ${border}` : 'none',
           }}
         >
           <div style={{
             height: 36, flexShrink: 0, display: 'flex', alignItems: 'center',
-            padding: '0 10px', backgroundColor: '#f5f5f5', fontWeight: 'bold',
-            fontSize: 13, color: '#333333', whiteSpace: 'nowrap',
+            padding: '0 10px', backgroundColor: surfaceMuted, fontWeight: 'bold',
+            fontSize: 13, color: text, whiteSpace: 'nowrap',
             overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
             {col.title}
@@ -44,9 +52,9 @@ function KanbanView({ cell }) {
                 style={{
                   height: 28, display: 'flex', alignItems: 'center', padding: '0 8px',
                   marginBottom: 4, boxSizing: 'border-box', cursor: 'pointer',
-                  backgroundColor: '#ffffff', border: '1px solid',
-                  borderColor: selectedItem === item.id ? '#4a90d9' : '#e5e5e5',
-                  borderRadius: 4, fontSize: 12, color: '#333333',
+                  backgroundColor: surface, border: '1px solid',
+                  borderColor: selectedItem === item.id ? primary : '#e5e5e5',
+                  ...cornerStyle(corner, 4), fontSize: 12, color: text,
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}
               >
@@ -70,7 +78,7 @@ class KanbanCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveX(true).minHeight(120).backgroundColor('#ffffff')
+    this.moveX(true).minHeight(120).color('surface')
       .schema({
         columns: { type: 'array', default: [] },
         selectedItem: { type: 'string', default: '' },

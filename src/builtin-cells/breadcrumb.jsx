@@ -9,6 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 面包屑视图：订阅 items/separator/activeId，横向排布项与分隔符。
@@ -19,6 +20,7 @@ function BreadcrumbView({ cell }) {
   const items = useCellData(cell, 'items') || [];
   const separator = useCellData(cell, 'separator');
   const activeId = useCellData(cell, 'activeId');
+  const separatorColor = useThemeColor('text-muted', '#bbb');
   if (items.length === 0) return null;
   return (
     <div style={{
@@ -29,7 +31,7 @@ function BreadcrumbView({ cell }) {
         <React.Fragment key={item.id}>
           <BreadcrumbItem cell={cell} item={item} isLast={i === items.length - 1} active={item.id === activeId} />
           {i < items.length - 1 ? (
-            <span style={{ fontSize: 12, color: '#bbb', padding: '0 6px', flexShrink: 0 }}>{separator}</span>
+            <span style={{ fontSize: 12, color: separatorColor, padding: '0 6px', flexShrink: 0 }}>{separator}</span>
           ) : null}
         </React.Fragment>
       ))}
@@ -44,12 +46,14 @@ function BreadcrumbView({ cell }) {
  */
 function BreadcrumbItem({ cell, item, isLast, active }) {
   const title = useText(item.title);
+  const activeColor = useThemeColor('text', '#333');
+  const mutedColor = useThemeColor('text-muted', '#888');
   const isActive = active || isLast;
   return (
     <span
       onClick={() => cell.setActiveId(item.id)}
       style={{
-        fontSize: 12, color: isActive ? '#333' : '#888',
+        fontSize: 12, color: isActive ? activeColor : mutedColor,
         fontWeight: isActive ? 'bold' : 'normal',
         cursor: 'pointer', whiteSpace: 'nowrap', userSelect: 'none', flexShrink: 0,
       }}

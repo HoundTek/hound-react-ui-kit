@@ -11,6 +11,7 @@ import React, { useEffect } from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 消息条视图：订阅 text/type/duration；duration 非空时定时调用 cell.close()。
@@ -21,22 +22,27 @@ function MessageView({ cell }) {
   const text = useText(useCellData(cell, 'text'));
   const type = useCellData(cell, 'type');
   const duration = useCellData(cell, 'duration');
+  const infoColor = useThemeColor('primary', '#4a90d9');
+  const successColor = useThemeColor('success', '#1a8a4a');
+  const warningColor = useThemeColor('warning', '#c07a1a');
+  const errorColor = useThemeColor('danger', '#c03a2a');
+  const onPrimary = useThemeColor('on-primary', '#ffffff');
   useEffect(() => {
     if (!duration || !cell._mounts[0]) return;
     const timer = setTimeout(() => cell.close(), duration);
     return () => clearTimeout(timer);
   }, [duration, cell]);
   const typeMap = {
-    info: { color: '#4a90d9', glyph: 'ℹ' },
-    success: { color: '#1a8a4a', glyph: '✓' },
-    warning: { color: '#c07a1a', glyph: '!' },
-    error: { color: '#c03a2a', glyph: '✕' },
+    info: { color: infoColor, glyph: 'ℹ' },
+    success: { color: successColor, glyph: '✓' },
+    warning: { color: warningColor, glyph: '!' },
+    error: { color: errorColor, glyph: '✕' },
   };
   const t = typeMap[type] || typeMap.info;
   return (
     <div style={{
       width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
-      color: '#ffffff', fontSize: 13, backgroundColor: t.color,
+      color: onPrimary, fontSize: 13, backgroundColor: t.color,
       boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
     }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, backgroundColor: 'rgba(255,255,255,0.5)' }} />

@@ -7,6 +7,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 菜单视图：订阅 items/selected，纵向渲染菜单项，点击写入 selected。
@@ -16,6 +17,11 @@ import { useCellData } from '../core/cell/cell-react';
 function MenuView({ cell }) {
   const items = useCellData(cell, 'items') || [];
   const selected = useCellData(cell, 'selected');
+  const primary = useThemeColor('primary', '#4a90d9');
+  const surface = useThemeColor('surface', '#ffffff');
+  const onPrimary = useThemeColor('on-primary', '#ffffff');
+  const text = useThemeColor('text', '#333333');
+  const surfaceMuted = useThemeColor('surface-muted', '#f0f0f0');
   return (
     <div style={{ width: '100%', height: '100%', overflowY: 'auto' }}>
       {items.map((item) => {
@@ -27,9 +33,9 @@ function MenuView({ cell }) {
             style={{
               height: 40, display: 'flex', alignItems: 'center', gap: 8,
               padding: '0 12px', boxSizing: 'border-box', cursor: 'pointer',
-              backgroundColor: active ? '#4a90d9' : '#ffffff',
-              color: active ? '#ffffff' : '#333333', fontSize: 13,
-              borderBottom: '1px solid #f0f0f0', userSelect: 'none',
+              backgroundColor: active ? primary : surface,
+              color: active ? onPrimary : text, fontSize: 13,
+              borderBottom: `1px solid ${surfaceMuted}`, userSelect: 'none',
             }}
           >
             {item.icon ? (
@@ -53,7 +59,7 @@ class MenuCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.layout('vertical').moveY(true).backgroundColor('#ffffff')
+    this.layout('vertical').moveY(true).color('surface')
       .schema({
         items: { type: 'array', default: [] },
         selected: { type: 'string', default: '' },

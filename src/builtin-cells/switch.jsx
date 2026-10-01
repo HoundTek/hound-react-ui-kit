@@ -9,6 +9,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
 /**
  * 开关视图：订阅 label/enabled/disabled，点击切换 enabled。
@@ -19,6 +21,11 @@ function SwitchView({ cell }) {
   const label = useText(useCellData(cell, 'label'));
   const enabled = useCellData(cell, 'enabled');
   const disabled = useCellData(cell, 'disabled');
+  const corner = useCornerType();
+  const text = useThemeColor('text', '#333');
+  const primary = useThemeColor('primary', '#4a90d9');
+  const borderColor = useThemeColor('border', '#ccc');
+  const onPrimary = useThemeColor('on-primary', '#fff');
   return (
     <div
       onClick={() => { if (!disabled) cell.setEnabled(!enabled); }}
@@ -26,17 +33,17 @@ function SwitchView({ cell }) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 12px', width: '100%', height: '100%',
         cursor: disabled ? 'not-allowed' : 'pointer', userSelect: 'none',
-        fontSize: 13, color: '#333', opacity: disabled ? 0.5 : 1,
+        fontSize: 13, color: text, opacity: disabled ? 0.5 : 1,
       }}
     >
       <span>{label}</span>
       <div style={{
-        width: 40, height: 22, borderRadius: 11, position: 'relative', flexShrink: 0,
-        backgroundColor: enabled ? '#4a90d9' : '#ccc', transition: 'background-color .15s',
+        width: 40, height: 22, ...cornerStyle(corner, CAPSULE_RADIUS), position: 'relative', flexShrink: 0,
+        backgroundColor: enabled ? primary : borderColor, transition: 'background-color .15s',
       }}>
         <div style={{
-          position: 'absolute', top: 2, width: 18, height: 18, borderRadius: 9,
-          backgroundColor: '#fff', transition: 'left .15s',
+          position: 'absolute', top: 2, width: 18, height: 18, ...cornerStyle(corner, CAPSULE_RADIUS),
+          backgroundColor: onPrimary, transition: 'left .15s',
           left: enabled ? 20 : 2,
         }} />
       </div>
@@ -54,7 +61,7 @@ class SwitchCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(44).backgroundColor('#fafafa')
+    this.fixedHeight(44).color('surface-muted')
       .schema({
         label: { type: 'string', default: '' },
         enabled: { type: 'boolean', default: true },

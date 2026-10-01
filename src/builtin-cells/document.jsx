@@ -8,6 +8,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 文档视图：订阅 content，按段落渲染（pre-wrap 保留换行，行高 1.6，内边距 12x16）。
@@ -16,11 +17,12 @@ import { useText } from '../core/i18n/i18n-react';
  */
 function DocumentView({ cell }) {
   const content = useText(useCellData(cell, 'content'));
+  const textColor = useThemeColor('text', '#333');
   return (
     <div style={{
       width: '100%', height: '100%', boxSizing: 'border-box',
       whiteSpace: 'pre-wrap', lineHeight: 1.6, padding: '12px 16px',
-      fontSize: 13, color: '#333',
+      fontSize: 13, color: textColor,
     }}>
       {content}
     </div>
@@ -37,7 +39,7 @@ class DocumentCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveY(true).minHeight(120).defaultWidth(300).backgroundColor('#ffffff')
+    this.moveY(true).minHeight(120).defaultWidth(300).color('surface')
       .schema({ content: { type: 'string', default: '' } })
       .renderContent(DocumentView);
   }

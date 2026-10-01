@@ -9,6 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 空状态视图：订阅 glyph/text/desc，纵向居中渲染。
@@ -19,15 +20,19 @@ function EmptyView({ cell }) {
   const glyph = useCellData(cell, 'glyph');
   const text = useText(useCellData(cell, 'text'));
   const desc = useText(useCellData(cell, 'desc'));
+  const surface = useThemeColor('surface', '#ffffff');
+  const glyphColor = useThemeColor('text-muted', '#bbb');
+  const textColor = useThemeColor('text-secondary', '#666');
+  const descColor = useThemeColor('text-muted', '#999');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      gap: 6, width: '100%', height: '100%', backgroundColor: '#ffffff',
+      gap: 6, width: '100%', height: '100%', backgroundColor: surface,
       padding: 8, boxSizing: 'border-box', textAlign: 'center',
     }}>
-      <div style={{ fontSize: 32, lineHeight: 1, color: '#bbb', userSelect: 'none' }}>{glyph}</div>
-      {text ? <div style={{ fontSize: 14, color: '#666' }}>{text}</div> : null}
-      {desc ? <div style={{ fontSize: 12, color: '#999' }}>{desc}</div> : null}
+      <div style={{ fontSize: 32, lineHeight: 1, color: glyphColor, userSelect: 'none' }}>{glyph}</div>
+      {text ? <div style={{ fontSize: 14, color: textColor }}>{text}</div> : null}
+      {desc ? <div style={{ fontSize: 12, color: descColor }}>{desc}</div> : null}
     </div>
   );
 }
@@ -42,7 +47,7 @@ class EmptyCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.defaultHeight(140).moveY(true).backgroundColor('#ffffff')
+    this.defaultHeight(140).moveY(true).color('surface')
       .schema({
         glyph: { type: 'string', default: '□' },
         text: { type: 'string', default: '' },

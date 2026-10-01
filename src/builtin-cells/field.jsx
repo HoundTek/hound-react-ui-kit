@@ -18,13 +18,13 @@ class FieldCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.layout('horizontal').moveX(false).moveY(false).fixedHeight(44).backgroundColor('#ffffff')
+    this.layout('horizontal').moveX(false).moveY(false).fixedHeight(44).color('surface')
       .defineSlot('label', {
         fixedWidth: 80, layout: 'horizontal', moveX: false, moveY: false,
-        single: true, backgroundColor: '#ffffff',
+        single: true, color: 'surface',
       })
       .defineSlot('control', {
-        layout: 'horizontal', moveX: true, single: true, backgroundColor: '#ffffff',
+        layout: 'horizontal', moveX: true, single: true, color: 'surface',
       });
   }
 }

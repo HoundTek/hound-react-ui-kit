@@ -9,6 +9,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
 /**
  * 徽标视图：按 dot/text/count 三种模式渲染；visible 为 false 时不渲染。
@@ -22,17 +24,19 @@ function BadgeView({ cell }) {
   const count = useCellData(cell, 'count');
   const max = useCellData(cell, 'max');
   const color = useCellData(cell, 'color');
+  const corner = useCornerType();
+  const onPrimary = useThemeColor('on-primary', '#fff');
   if (!visible) return null;
   let content = text;
   if (!content && !dot) content = count > max ? `${max}+` : String(count);
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       {dot ? (
-        <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: color }} />
+        <div style={{ width: 8, height: 8, ...cornerStyle(corner, CAPSULE_RADIUS), backgroundColor: color }} />
       ) : (
         <div style={{
-          minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9,
-          backgroundColor: color, color: '#fff', fontSize: 11,
+          minWidth: 18, height: 18, padding: '0 5px', ...cornerStyle(corner, CAPSULE_RADIUS),
+          backgroundColor: color, color: onPrimary, fontSize: 11,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontWeight: 'bold', lineHeight: 1, whiteSpace: 'nowrap',
         }}>

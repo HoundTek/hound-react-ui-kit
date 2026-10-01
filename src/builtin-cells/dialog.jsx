@@ -21,14 +21,14 @@ class DialogCell extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.floatingViewport().movable(true).resizable(false)
-      .fixedWidth(320).fixedHeight(200).backgroundColor('#ffffff').layout('vertical')
+      .fixedWidth(320).fixedHeight(200).color('surface').layout('vertical')
       .defineSlot('header', {
-        fixedHeight: 40, backgroundColor: '#e8e8e8',
+        fixedHeight: 40, color: 'border',
         layout: 'horizontal', moveX: false, moveY: false, single: true,
       })
       .defineSlot('body', {
         minHeight: 120, moveY: true, layout: 'vertical',
-        backgroundColor: '#ffffff', showChildOverlays: false,
+        color: 'surface', showChildOverlays: false,
       });
   }
 }

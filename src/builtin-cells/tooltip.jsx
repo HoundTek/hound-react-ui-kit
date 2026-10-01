@@ -9,6 +9,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /**
  * 气泡视图：订阅 text，渲染深色气泡与底部小三角。
@@ -17,17 +19,20 @@ import { useText } from '../core/i18n/i18n-react';
  */
 function TooltipView({ cell }) {
   const text = useText(useCellData(cell, 'text'));
+  const bubbleBg = useThemeColor('text', '#333');
+  const onPrimary = useThemeColor('on-primary', '#fff');
+  const corner = useCornerType();
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <div style={{
-        backgroundColor: '#333', color: '#fff', fontSize: 12, lineHeight: 1.5,
-        padding: '8px 12px', borderRadius: 6, textAlign: 'center',
+        backgroundColor: bubbleBg, color: onPrimary, fontSize: 12, lineHeight: 1.5,
+        padding: '8px 12px', ...cornerStyle(corner, 6), textAlign: 'center',
       }}>
         {text}
       </div>
       <div style={{
         position: 'absolute', bottom: -4, left: '50%', marginLeft: -4,
-        width: 8, height: 8, backgroundColor: '#333', transform: 'rotate(45deg)',
+        width: 8, height: 8, backgroundColor: bubbleBg, transform: 'rotate(45deg)',
       }} />
     </div>
   );

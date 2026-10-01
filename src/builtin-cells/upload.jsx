@@ -10,6 +10,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /**
  * 上传视图：订阅 text/fileList，点击按钮追加文件并回调 _onUpload，✕ 移除文件。
@@ -19,6 +21,12 @@ import { useText } from '../core/i18n/i18n-react';
 function UploadView({ cell }) {
   const text = useText(useCellData(cell, 'text'));
   const fileList = useCellData(cell, 'fileList') || [];
+  const corner = useCornerType();
+  const borderColor = useThemeColor('border', '#e8e8e8');
+  const primaryColor = useThemeColor('primary', '#4a90d9');
+  const onPrimaryColor = useThemeColor('on-primary', '#fff');
+  const nameColor = useThemeColor('text', '#333');
+  const sizeColor = useThemeColor('text-muted', '#999');
   const addFile = () => {
     cell.setFileList([...fileList, { id: String(Date.now()), name: 'file.txt', size: 1024 }]);
     if (cell._onUpload) cell._onUpload();
@@ -28,12 +36,12 @@ function UploadView({ cell }) {
   };
   return (
     <div style={{ width: '100%', height: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0', borderBottom: '1px solid #e8e8e8' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0', borderBottom: `1px solid ${borderColor}` }}>
         <button
           type="button"
           onClick={addFile}
           style={{
-            backgroundColor: '#4a90d9', color: '#fff', border: 'none', borderRadius: 4,
+            backgroundColor: primaryColor, color: onPrimaryColor, border: 'none', ...cornerStyle(corner, 4),
             padding: '6px 16px', fontSize: 13, cursor: 'pointer', userSelect: 'none',
           }}
         >
@@ -45,14 +53,14 @@ function UploadView({ cell }) {
           key={file.id}
           style={{
             display: 'flex', alignItems: 'center', height: 32, padding: '0 12px',
-            fontSize: 12, borderBottom: '1px solid #e8e8e8',
+            fontSize: 12, borderBottom: `1px solid ${borderColor}`,
           }}
         >
-          <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#333' }}>{file.name}</span>
-          <span style={{ flexShrink: 0, marginLeft: 8, color: '#999' }}>{(file.size / 1024).toFixed(1)} KB</span>
+          <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: nameColor }}>{file.name}</span>
+          <span style={{ flexShrink: 0, marginLeft: 8, color: sizeColor }}>{(file.size / 1024).toFixed(1)} KB</span>
           <span
             onClick={() => removeFile(file.id)}
-            style={{ flexShrink: 0, marginLeft: 8, cursor: 'pointer', color: '#999', userSelect: 'none' }}
+            style={{ flexShrink: 0, marginLeft: 8, cursor: 'pointer', color: sizeColor, userSelect: 'none' }}
           >
             ✕
           </span>
@@ -73,7 +81,7 @@ class UploadCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.defaultWidth(240).moveY(true).layout('vertical').backgroundColor('#ffffff')
+    this.defaultWidth(240).moveY(true).layout('vertical').color('surface')
       .schema({
         text: { type: 'string', default: '选择文件' },
         fileList: { type: 'array', default: [] },

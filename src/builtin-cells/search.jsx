@@ -10,6 +10,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /**
  * 搜索视图：订阅 placeholder/value；input 受控写入 value，
@@ -20,13 +22,18 @@ import { useText } from '../core/i18n/i18n-react';
 function SearchView({ cell }) {
   const placeholder = useText(useCellData(cell, 'placeholder'));
   const value = useCellData(cell, 'value') || '';
+  const corner = useCornerType();
+  const surface = useThemeColor('surface', '#fff');
+  const text = useThemeColor('text', '#333');
+  const primary = useThemeColor('primary', '#4a90d9');
+  const onPrimary = useThemeColor('on-primary', '#fff');
   const doSearch = () => {
     if (cell._onSearch) cell._onSearch(value);
   };
   return (
     <div style={{
       width: '100%', height: '100%', display: 'flex', alignItems: 'center',
-      padding: '0 8px', gap: 8, backgroundColor: '#fff',
+      padding: '0 8px', gap: 8, backgroundColor: surface,
     }}>
       <input
         value={value}
@@ -35,7 +42,7 @@ function SearchView({ cell }) {
         onKeyDown={e => { if (e.key === 'Enter') doSearch(); }}
         style={{
           flex: 1, minWidth: 0, height: '100%', border: 'none', outline: 'none',
-          fontSize: 13, color: '#333', backgroundColor: 'transparent',
+          fontSize: 13, color: text, backgroundColor: 'transparent',
         }}
       />
       <div
@@ -43,8 +50,8 @@ function SearchView({ cell }) {
         style={{
           flexShrink: 0, padding: '0 12px', height: 28, display: 'flex',
           alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-          backgroundColor: '#4a90d9', color: '#fff', fontSize: 13,
-          borderRadius: 4, userSelect: 'none',
+          backgroundColor: primary, color: onPrimary, fontSize: 13,
+          ...cornerStyle(corner, 4), userSelect: 'none',
         }}
       >搜索</div>
     </div>
@@ -62,7 +69,7 @@ class SearchCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(40).backgroundColor('#ffffff')
+    this.fixedHeight(40).color('surface')
       .schema({
         placeholder: { type: 'string', default: '搜索…' },
         value: { type: 'string', default: '' },

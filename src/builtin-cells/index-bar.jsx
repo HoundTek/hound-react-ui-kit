@@ -8,6 +8,8 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /**
  * 索引栏视图：订阅 indexes/activeIndex，点击字母写回 activeIndex 并高亮。
@@ -17,10 +19,15 @@ import { useCellData } from '../core/cell/cell-react';
 function IndexBarView({ cell }) {
   const indexes = useCellData(cell, 'indexes') || [];
   const activeIndex = useCellData(cell, 'activeIndex');
+  const surface = useThemeColor('surface', '#ffffff');
+  const textSecondary = useThemeColor('text-secondary', '#666');
+  const onPrimary = useThemeColor('on-primary', '#fff');
+  const primary = useThemeColor('primary', '#4a90d9');
+  const corner = useCornerType();
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
-      backgroundColor: '#ffffff', padding: '4px 0', boxSizing: 'border-box',
+      backgroundColor: surface, padding: '4px 0', boxSizing: 'border-box',
     }}>
       {indexes.map((letter) => {
         const active = activeIndex === letter;
@@ -30,9 +37,9 @@ function IndexBarView({ cell }) {
             onClick={() => cell.setActiveIndex(letter)}
             style={{
               height: 20, lineHeight: '20px', textAlign: 'center', fontSize: 12,
-              margin: '0 2px', borderRadius: 3, cursor: 'pointer', userSelect: 'none',
-              color: active ? '#fff' : '#666',
-              backgroundColor: active ? '#4a90d9' : 'transparent',
+              margin: '0 2px', ...cornerStyle(corner, 3), cursor: 'pointer', userSelect: 'none',
+              color: active ? onPrimary : textSecondary,
+              backgroundColor: active ? primary : 'transparent',
             }}
           >
             {letter}
@@ -53,7 +60,7 @@ class IndexBarCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedWidth(24).moveY(true).layout('vertical').backgroundColor('#ffffff')
+    this.fixedWidth(24).moveY(true).layout('vertical').color('surface')
       .schema({
         indexes: { type: 'array', default: ['A', 'B', 'C', 'D', 'E'] },
         activeIndex: { type: 'string', default: '' },

@@ -9,6 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 导航栏视图：订阅 title/items/activeId，点击导航项写入 activeId 并回调 _onSelect。
@@ -19,11 +20,13 @@ function NavBarView({ cell }) {
   const title = useText(useCellData(cell, 'title'));
   const items = useCellData(cell, 'items') || [];
   const activeId = useCellData(cell, 'activeId');
+  const primary = useThemeColor('primary', '#4a90d9');
+  const onPrimary = useThemeColor('on-primary', '#ffffff');
   return (
     <div style={{
       width: '100%', height: '100%', display: 'flex', alignItems: 'center',
       padding: '0 12px', boxSizing: 'border-box',
-      backgroundColor: '#4a90d9', color: '#ffffff', fontSize: 13,
+      backgroundColor: primary, color: onPrimary, fontSize: 13,
     }}>
       <div style={{
         fontWeight: 'bold', fontSize: 14, marginRight: 'auto',
@@ -41,8 +44,8 @@ function NavBarView({ cell }) {
               style={{
                 height: '100%', display: 'flex', alignItems: 'center', padding: '0 10px',
                 cursor: 'pointer', userSelect: 'none',
-                borderBottom: active ? '2px solid #ffffff' : '2px solid transparent',
-                color: active ? '#ffffff' : 'rgba(255,255,255,0.85)',
+                borderBottom: active ? `2px solid ${onPrimary}` : '2px solid transparent',
+                color: active ? onPrimary : 'rgba(255,255,255,0.85)',
               }}
             >
               {item.title}
@@ -65,7 +68,7 @@ class NavBarCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(44).backgroundColor('#4a90d9')
+    this.fixedHeight(44).color('primary')
       .schema({
         title: { type: 'string', default: '' },
         items: { type: 'array', default: [] },

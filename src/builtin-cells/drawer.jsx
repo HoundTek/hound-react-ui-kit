@@ -10,6 +10,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 抽屉视图：订阅 title/text，渲染标题栏与可滚动正文区。
@@ -19,20 +20,24 @@ import { useText } from '../core/i18n/i18n-react';
 function DrawerView({ cell }) {
   const title = useText(useCellData(cell, 'title'));
   const text = useText(useCellData(cell, 'text'));
+  const surface = useThemeColor('surface', '#ffffff');
+  const titleColor = useThemeColor('text', '#333');
+  const borderColor = useThemeColor('border', '#e8e8e8');
+  const bodyColor = useThemeColor('text', '#444');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
-      backgroundColor: '#ffffff', overflow: 'hidden',
+      backgroundColor: surface, overflow: 'hidden',
     }}>
       <div style={{
-        fontWeight: 'bold', fontSize: 14, color: '#333', padding: '0 12px',
-        height: 44, lineHeight: '44px', borderBottom: '1px solid #e8e8e8', flexShrink: 0,
+        fontWeight: 'bold', fontSize: 14, color: titleColor, padding: '0 12px',
+        height: 44, lineHeight: '44px', borderBottom: `1px solid ${borderColor}`, flexShrink: 0,
       }}>
         {title}
       </div>
       <div style={{
         flex: 1, overflow: 'auto', padding: '0 12px 12px', fontSize: 13,
-        color: '#444', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+        color: bodyColor, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
       }}>
         {text}
       </div>
@@ -51,7 +56,7 @@ class DrawerCell extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.floatingViewport().movable(false).resizable(false)
-      .fixedWidth(280).minHeight(320).backgroundColor('#ffffff').layout('vertical')
+      .fixedWidth(280).minHeight(320).color('surface').layout('vertical')
       .schema({
         title: { type: 'string', default: '' },
         text: { type: 'string', default: '' },

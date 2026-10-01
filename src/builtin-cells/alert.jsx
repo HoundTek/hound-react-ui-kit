@@ -9,6 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 警示条视图：订阅 type/text/closable/visible；visible=false 时不渲染。
@@ -20,9 +21,10 @@ function AlertView({ cell }) {
   const text = useText(useCellData(cell, 'text'));
   const closable = useCellData(cell, 'closable');
   const visible = useCellData(cell, 'visible');
+  const infoBg = useThemeColor('primary-soft', '#e8f0fa');
   if (!visible) return null;
   const typeMap = {
-    info: { bg: '#e8f0fa', fg: '#2a6da8', glyph: 'ℹ' },
+    info: { bg: infoBg, fg: '#2a6da8', glyph: 'ℹ' },
     success: { bg: '#e6f5ea', fg: '#1a7a3a', glyph: '✓' },
     warning: { bg: '#fdf3e0', fg: '#a0601a', glyph: '!' },
     error: { bg: '#fbe9e7', fg: '#b03a2a', glyph: '✕' },

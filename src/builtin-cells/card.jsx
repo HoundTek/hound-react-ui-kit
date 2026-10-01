@@ -17,15 +17,15 @@ class CardCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.defaultWidth(260).minHeight(120).backgroundColor('#ffffff')
+    this.defaultWidth(260).minHeight(120).color('surface')
       .moveY(false).moveX(false).layout('vertical')
       .defineSlot('header', {
-        fixedHeight: 44, backgroundColor: '#f5f5f5',
+        fixedHeight: 44, color: 'surface-muted',
         layout: 'horizontal', moveX: false, moveY: false, single: true,
       })
       .defineSlot('body', {
         minHeight: 60, moveY: true, layout: 'vertical',
-        backgroundColor: '#ffffff', showChildOverlays: false,
+        color: 'surface', showChildOverlays: false,
       });
   }
 }

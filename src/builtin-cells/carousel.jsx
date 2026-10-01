@@ -8,10 +8,12 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
 const ARROW_STYLE = {
   width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  fontSize: 16, color: '#4a90d9', cursor: 'pointer', userSelect: 'none', flexShrink: 0,
+  fontSize: 16, cursor: 'pointer', userSelect: 'none', flexShrink: 0,
 };
 
 /**
@@ -26,19 +28,24 @@ function CarouselView({ cell }) {
   const index = count ? ((currentIndex % count) + count) % count : 0;
   const current = count ? items[index] : null;
   const text = useText(current ? current.text : '');
+  const corner = useCornerType();
+  const surfaceColor = useThemeColor('surface', '#ffffff');
+  const textColor = useThemeColor('text', '#333');
+  const primaryColor = useThemeColor('primary', '#4a90d9');
+  const dotMutedColor = useThemeColor('border', '#d9d9d9');
   const prev = () => { if (count) cell.setCurrentIndex((index - 1 + count) % count); };
   const next = () => { if (count) cell.setCurrentIndex((index + 1) % count); };
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', backgroundColor: '#ffffff' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', backgroundColor: surfaceColor }}>
       <div style={{ display: 'flex', alignItems: 'center', height: 60, padding: '0 4px' }}>
-        <span onClick={prev} style={ARROW_STYLE}>‹</span>
+        <span onClick={prev} style={{ ...ARROW_STYLE, color: primaryColor }}>‹</span>
         <div style={{
           flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, color: '#333', textAlign: 'center', padding: '0 4px',
+          fontSize: 13, color: textColor, textAlign: 'center', padding: '0 4px',
         }}>
           {count ? text : '暂无内容'}
         </div>
-        <span onClick={next} style={ARROW_STYLE}>›</span>
+        <span onClick={next} style={{ ...ARROW_STYLE, color: primaryColor }}>›</span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, height: 20, flexShrink: 0 }}>
         {items.map((item, idx) => (
@@ -46,8 +53,9 @@ function CarouselView({ cell }) {
             key={item.id || idx}
             onClick={() => cell.setCurrentIndex(idx)}
             style={{
-              width: 6, height: 6, borderRadius: 3, cursor: 'pointer',
-              backgroundColor: idx === index ? '#4a90d9' : '#d9d9d9',
+              width: 6, height: 6, cursor: 'pointer',
+              ...cornerStyle(corner, CAPSULE_RADIUS),
+              backgroundColor: idx === index ? primaryColor : dotMutedColor,
             }}
           />
         ))}
@@ -66,7 +74,7 @@ class CarouselCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(80).backgroundColor('#ffffff')
+    this.fixedHeight(80).color('surface')
       .schema({
         items: { type: 'array', default: [] },
         currentIndex: { type: 'number', default: 0 },

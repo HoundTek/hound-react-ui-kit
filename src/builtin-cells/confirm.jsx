@@ -8,6 +8,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /**
  * 确认框视图：订阅 text/okText/cancelText，确定/取消按钮关闭并触发回调。
@@ -18,6 +20,13 @@ function ConfirmView({ cell }) {
   const text = useText(useCellData(cell, 'text'));
   const okText = useText(useCellData(cell, 'okText'));
   const cancelText = useText(useCellData(cell, 'cancelText'));
+  const textColor = useThemeColor('text', '#333');
+  const borderColor = useThemeColor('border', '#cccccc');
+  const surface = useThemeColor('surface', '#ffffff');
+  const cancelColor = useThemeColor('text-secondary', '#666');
+  const primary = useThemeColor('primary', '#4a90d9');
+  const onPrimary = useThemeColor('on-primary', '#ffffff');
+  const corner = useCornerType();
   return (
     <div style={{
       display: 'flex', flexDirection: 'column',
@@ -25,7 +34,7 @@ function ConfirmView({ cell }) {
     }}>
       <div style={{
         flex: 1, display: 'flex', alignItems: 'center',
-        fontSize: 14, color: '#333', lineHeight: 1.6, whiteSpace: 'pre-wrap',
+        fontSize: 14, color: textColor, lineHeight: 1.6, whiteSpace: 'pre-wrap',
       }}>
         {text}
       </div>
@@ -33,8 +42,8 @@ function ConfirmView({ cell }) {
         <button
           onClick={() => cell.close()}
           style={{
-            padding: '6px 14px', border: '1px solid #cccccc', borderRadius: 4,
-            backgroundColor: '#ffffff', color: '#666', fontSize: 13, cursor: 'pointer',
+            padding: '6px 14px', border: `1px solid ${borderColor}`, ...cornerStyle(corner, 4),
+            backgroundColor: surface, color: cancelColor, fontSize: 13, cursor: 'pointer',
           }}
         >
           {cancelText}
@@ -42,8 +51,8 @@ function ConfirmView({ cell }) {
         <button
           onClick={() => { if (cell._onOk) cell._onOk(); cell.close(); }}
           style={{
-            padding: '6px 14px', border: '1px solid #4a90d9', borderRadius: 4,
-            backgroundColor: '#4a90d9', color: '#ffffff', fontSize: 13, cursor: 'pointer',
+            padding: '6px 14px', border: `1px solid ${primary}`, ...cornerStyle(corner, 4),
+            backgroundColor: primary, color: onPrimary, fontSize: 13, cursor: 'pointer',
           }}
         >
           {okText}
@@ -65,7 +74,7 @@ class ConfirmCell extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.floatingViewport().movable(false).resizable(false)
-      .fixedWidth(280).fixedHeight(120).backgroundColor('#ffffff').layout('vertical')
+      .fixedWidth(280).fixedHeight(120).color('surface').layout('vertical')
       .schema({
         text: { type: 'string', default: '' },
         okText: { type: 'string', default: '确定' },

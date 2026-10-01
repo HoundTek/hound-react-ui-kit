@@ -9,6 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 手风琴单项：订阅项内 title/content（i18n key 或纯文本），点击标题切换展开状态。
@@ -18,6 +19,11 @@ import { useText } from '../core/i18n/i18n-react';
 function AccordionItemView({ cell, item, active }) {
   const title = useText(item.title);
   const content = useText(item.content);
+  const primaryColor = useThemeColor('primary', '#4a90d9');
+  const textColor = useThemeColor('text', '#333');
+  const activeBgColor = useThemeColor('primary-soft', '#f0f6ff');
+  const mutedBgColor = useThemeColor('surface-muted', '#f7f7f7');
+  const borderColor = useThemeColor('border', '#e8e8e8');
   return (
     <div style={{ width: '100%' }}>
       <div
@@ -25,8 +31,8 @@ function AccordionItemView({ cell, item, active }) {
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           height: 36, padding: '0 12px', fontSize: 13, cursor: 'pointer', userSelect: 'none',
-          color: active ? '#4a90d9' : '#333', fontWeight: active ? 'bold' : 'normal',
-          backgroundColor: active ? '#f0f6ff' : '#f7f7f7', borderBottom: '1px solid #e8e8e8',
+          color: active ? primaryColor : textColor, fontWeight: active ? 'bold' : 'normal',
+          backgroundColor: active ? activeBgColor : mutedBgColor, borderBottom: `1px solid ${borderColor}`,
         }}
       >
         <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</span>
@@ -35,7 +41,7 @@ function AccordionItemView({ cell, item, active }) {
       {active ? (
         <div style={{
           padding: '10px 12px', fontSize: 12, color: '#555',
-          whiteSpace: 'pre-wrap', borderBottom: '1px solid #e8e8e8',
+          whiteSpace: 'pre-wrap', borderBottom: `1px solid ${borderColor}`,
         }}>
           {content}
         </div>
@@ -52,8 +58,9 @@ function AccordionItemView({ cell, item, active }) {
 function AccordionView({ cell }) {
   const items = useCellData(cell, 'items') || [];
   const activeId = useCellData(cell, 'activeId');
+  const surfaceColor = useThemeColor('surface', '#ffffff');
   return (
-    <div style={{ width: '100%', height: '100%', backgroundColor: '#ffffff' }}>
+    <div style={{ width: '100%', height: '100%', backgroundColor: surfaceColor }}>
       {items.map(item => (
         <AccordionItemView key={item.id} cell={cell} item={item} active={item.id === activeId} />
       ))}
@@ -71,7 +78,7 @@ class AccordionCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveY(true).layout('vertical').backgroundColor('#ffffff')
+    this.moveY(true).layout('vertical').color('surface')
       .schema({
         items: { type: 'array', default: [] },
         activeId: { type: 'string', default: '' },

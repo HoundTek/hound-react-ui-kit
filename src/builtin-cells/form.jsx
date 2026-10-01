@@ -17,7 +17,7 @@ class FormCell extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.layout('vertical').moveX(false).moveY(true)
-      .defaultWidth(320).minHeight(120).backgroundColor('#ffffff');
+      .defaultWidth(320).minHeight(120).color('surface');
   }
 }
 

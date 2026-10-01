@@ -8,10 +8,12 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 const WEEK_HEADERS = ['日', '一', '二', '三', '四', '五', '六'];
 const CELL_STYLE = { width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 };
-const HEADER_STYLE = { width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#888' };
+const HEADER_STYLE = { width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 };
 
 /** 当月天数。 */
 function daysInMonth(year, month) {
@@ -38,6 +40,12 @@ function CalendarView({ cell }) {
   const month = useCellData(cell, 'month');
   const selected = useCellData(cell, 'selected');
   const firstDay = useCellData(cell, 'firstDay');
+  const corner = useCornerType();
+  const surfaceColor = useThemeColor('surface', '#ffffff');
+  const primaryColor = useThemeColor('primary', '#4a90d9');
+  const onPrimaryColor = useThemeColor('on-primary', '#ffffff');
+  const textColor = useThemeColor('text', '#333333');
+  const headerColor = useThemeColor('text-muted', '#888');
   const days = daysInMonth(year, month);
   const offset = firstOffset(year, month, firstDay);
   const headers = [...WEEK_HEADERS.slice(firstDay), ...WEEK_HEADERS.slice(0, firstDay)];
@@ -51,9 +59,9 @@ function CalendarView({ cell }) {
         key={ds}
         onClick={() => cell.setSelected(ds)}
         style={{
-          ...CELL_STYLE, cursor: 'pointer', borderRadius: 4,
-          backgroundColor: isSelected ? '#4a90d9' : '#ffffff',
-          color: isSelected ? '#ffffff' : '#333333',
+          ...CELL_STYLE, cursor: 'pointer', ...cornerStyle(corner, 4),
+          backgroundColor: isSelected ? primaryColor : surfaceColor,
+          color: isSelected ? onPrimaryColor : textColor,
         }}
       >
         {d}
@@ -61,9 +69,9 @@ function CalendarView({ cell }) {
     );
   }
   return (
-    <div style={{ width: '100%', height: '100%', backgroundColor: '#ffffff', padding: 8 }}>
+    <div style={{ width: '100%', height: '100%', backgroundColor: surfaceColor, padding: 8 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', width: 196 }}>
-        {headers.map(h => <div key={h} style={HEADER_STYLE}>{h}</div>)}
+        {headers.map(h => <div key={h} style={{ ...HEADER_STYLE, color: headerColor }}>{h}</div>)}
         {cells}
       </div>
     </div>
@@ -80,7 +88,7 @@ class CalendarCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveY(true).defaultWidth(196).backgroundColor('#ffffff')
+    this.moveY(true).defaultWidth(196).color('surface')
       .schema({
         year: { type: 'number', default: 2026 },
         month: { type: 'number', default: 1 },

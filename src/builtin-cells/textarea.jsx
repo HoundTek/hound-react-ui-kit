@@ -8,6 +8,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /**
  * 文本域视图：订阅 label/placeholder/value，onChange 即时写回 value。
@@ -18,19 +20,23 @@ function TextareaView({ cell }) {
   const label = useText(useCellData(cell, 'label'));
   const placeholder = useText(useCellData(cell, 'placeholder'));
   const value = useCellData(cell, 'value');
+  const corner = useCornerType();
+  const textMuted = useThemeColor('text-muted', '#888');
+  const borderColor = useThemeColor('border', '#ccc');
+  const text = useThemeColor('text', '#333');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', padding: '8px 10px',
       width: '100%', height: '100%', boxSizing: 'border-box',
     }}>
-      {label ? <div style={{ fontSize: 12, color: '#888', marginBottom: 6, flexShrink: 0 }}>{label}</div> : null}
+      {label ? <div style={{ fontSize: 12, color: textMuted, marginBottom: 6, flexShrink: 0 }}>{label}</div> : null}
       <textarea
         value={value}
         placeholder={placeholder}
         onChange={e => cell.setValue(e.target.value)}
         style={{
           flex: 1, width: '100%', resize: 'none', padding: 8, boxSizing: 'border-box',
-          border: '1px solid #ccc', borderRadius: 4, fontSize: 13, color: '#333',
+          border: `1px solid ${borderColor}`, ...cornerStyle(corner, 4), fontSize: 13, color: text,
           fontFamily: 'inherit', outline: 'none',
         }}
       />
@@ -48,7 +54,7 @@ class TextareaCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(88).backgroundColor('#ffffff')
+    this.fixedHeight(88).color('surface')
       .schema({
         label: { type: 'string', default: '' },
         placeholder: { type: 'string', default: '' },

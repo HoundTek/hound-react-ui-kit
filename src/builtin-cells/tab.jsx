@@ -9,6 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 标签头单项：接收普通 props（不在 map 内调 hooks），title 经 useText 渲染。
@@ -17,6 +18,8 @@ import { useText } from '../core/i18n/i18n-react';
  */
 function TabHeadView({ tab, active, onClick }) {
   const title = useText(tab.title);
+  const primary = useThemeColor('primary', '#4a90d9');
+  const textSecondary = useThemeColor('text-secondary', '#666');
   return (
     <div
       onClick={onClick}
@@ -24,8 +27,8 @@ function TabHeadView({ tab, active, onClick }) {
         flex: 1, minWidth: 0, height: '100%',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         cursor: 'pointer', userSelect: 'none', fontSize: 13,
-        color: active ? '#4a90d9' : '#666', fontWeight: active ? 'bold' : 'normal',
-        borderBottom: active ? '2px solid #4a90d9' : '2px solid transparent',
+        color: active ? primary : textSecondary, fontWeight: active ? 'bold' : 'normal',
+        borderBottom: active ? `2px solid ${primary}` : '2px solid transparent',
       }}
     >
       <span style={{ maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</span>
@@ -43,13 +46,16 @@ function TabView({ cell }) {
   const activeId = useCellData(cell, 'activeId');
   const activeTab = tabs.find(t => t.id === activeId) || null;
   const content = useText(activeTab ? activeTab.content : '');
+  const border = useThemeColor('border', '#e8e8e8');
+  const textMuted = useThemeColor('text-muted', '#999');
+  const text = useThemeColor('text', '#444');
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', flexShrink: 0, height: 36, borderBottom: '1px solid #e8e8e8' }}>
+      <div style={{ display: 'flex', flexShrink: 0, height: 36, borderBottom: `1px solid ${border}` }}>
         {tabs.length === 0 ? (
           <div style={{
             flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 12, color: '#999',
+            fontSize: 12, color: textMuted,
           }}>
             暂无标签
           </div>
@@ -60,7 +66,7 @@ function TabView({ cell }) {
         )}
       </div>
       <div style={{
-        flex: 1, padding: 12, fontSize: 13, color: '#444',
+        flex: 1, padding: 12, fontSize: 13, color: text,
         whiteSpace: 'pre-wrap', lineHeight: 1.7, overflowWrap: 'break-word',
       }}>
         {content}
@@ -80,7 +86,7 @@ class TabCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(120).moveY(true).layout('vertical').backgroundColor('#ffffff')
+    this.fixedHeight(120).moveY(true).layout('vertical').color('surface')
       .schema({
         tabs: { type: 'array', default: [] },
         activeId: { type: 'string', default: '' },

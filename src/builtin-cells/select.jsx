@@ -9,6 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 单个原生选项：订阅 option.title 的 i18n 翻译（拆为子组件，避免在 map 内调 hook）。
@@ -29,6 +30,8 @@ function SelectView({ cell }) {
   const options = useCellData(cell, 'options') || [];
   const value = useCellData(cell, 'value');
   const placeholder = useText(useCellData(cell, 'placeholder'));
+  const text = useThemeColor('text', '#333');
+  const surface = useThemeColor('surface', '#fff');
   return (
     <div style={{ width: '100%', height: '100%', padding: '0 8px', display: 'flex', alignItems: 'center' }}>
       <select
@@ -36,7 +39,7 @@ function SelectView({ cell }) {
         onChange={e => cell.setValue(e.target.value)}
         style={{
           width: '100%', height: 28, border: 'none', outline: 'none',
-          fontSize: 13, color: '#333', backgroundColor: '#fff', cursor: 'pointer',
+          fontSize: 13, color: text, backgroundColor: surface, cursor: 'pointer',
         }}
       >
         {!value ? <option value="" disabled>{placeholder}</option> : null}
@@ -57,7 +60,7 @@ class SelectCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(40).backgroundColor('#ffffff')
+    this.fixedHeight(40).color('surface')
       .schema({
         options: { type: 'array', default: [] },
         value: { type: 'string', default: '' },

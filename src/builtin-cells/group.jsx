@@ -18,7 +18,7 @@ class GroupCell extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.layout('vertical').defaultWidth(260).minHeight(80)
-      .backgroundColor('#ffffff').showChildOverlays(false);
+      .color('surface').showChildOverlays(false);
   }
 }
 

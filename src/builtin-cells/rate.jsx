@@ -7,6 +7,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 评分视图：订阅 value/count/color/disabled，渲染 count 颗星
@@ -19,6 +20,7 @@ function RateView({ cell }) {
   const count = useCellData(cell, 'count');
   const color = useCellData(cell, 'color');
   const disabled = useCellData(cell, 'disabled');
+  const borderColor = useThemeColor('border', '#ddd');
   const stars = Array.from({ length: count }, (_, i) => i);
   return (
     <div style={{
@@ -29,7 +31,7 @@ function RateView({ cell }) {
         <span
           key={i}
           onClick={() => { if (!disabled) cell.setValue(i + 1); }}
-          style={{ fontSize: 20, color: i < value ? color : '#ddd', userSelect: 'none', lineHeight: 1 }}
+          style={{ fontSize: 20, color: i < value ? color : borderColor, userSelect: 'none', lineHeight: 1 }}
         >
           {i < value ? '★' : '☆'}
         </span>
@@ -48,7 +50,7 @@ class RateCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(32).backgroundColor('#ffffff')
+    this.fixedHeight(32).color('surface')
       .schema({
         value: { type: 'number', default: 0 },
         count: { type: 'number', default: 5 },

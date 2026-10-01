@@ -9,6 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 表头单元格：接收普通 props（不在 map 内调 hooks），title 经 useText 渲染。
@@ -51,14 +52,17 @@ function TableCellView({ column, row }) {
  * @returns {JSX.Element} 视图元素
  */
 function TableRowView({ cell, row, columns, selected }) {
+  const primarySoft = useThemeColor('primary-soft', '#e8f0fa');
+  const surface = useThemeColor('surface', '#ffffff');
+  const border = useThemeColor('border', '#eee');
   return (
     <div
       onClick={() => cell.setSelectedRow(row.id)}
       style={{
         display: 'flex', alignItems: 'center', height: 32, fontSize: 12,
         cursor: 'pointer', userSelect: 'none',
-        backgroundColor: selected ? '#e8f0fa' : '#ffffff',
-        borderBottom: '1px solid #eee',
+        backgroundColor: selected ? primarySoft : surface,
+        borderBottom: `1px solid ${border}`,
       }}
     >
       {columns.map(col => (
@@ -77,12 +81,15 @@ function TableView({ cell }) {
   const columns = useCellData(cell, 'columns') || [];
   const rows = useCellData(cell, 'rows') || [];
   const selectedRow = useCellData(cell, 'selectedRow');
+  const text = useThemeColor('text', '#333');
+  const surfaceMuted = useThemeColor('surface-muted', '#f5f5f5');
+  const border = useThemeColor('border', '#e8e8e8');
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <div style={{
         display: 'flex', alignItems: 'center', height: 32, fontSize: 12,
-        fontWeight: 'bold', color: '#333', backgroundColor: '#f5f5f5',
-        borderBottom: '1px solid #e8e8e8',
+        fontWeight: 'bold', color: text, backgroundColor: surfaceMuted,
+        borderBottom: `1px solid ${border}`,
       }}>
         {columns.map(col => (
           <TableHeadCellView key={col.key} column={col} />
@@ -106,7 +113,7 @@ class TableCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveY(true).layout('vertical').backgroundColor('#ffffff')
+    this.moveY(true).layout('vertical').color('surface')
       .schema({
         columns: { type: 'array', default: [] },
         rows: { type: 'array', default: [] },

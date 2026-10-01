@@ -9,6 +9,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /**
  * 柱体单元：订阅列 label（i18n key 或纯文本），渲染柱体与底部标注。
@@ -17,14 +19,16 @@ import { useText } from '../core/i18n/i18n-react';
  */
 function ChartBarView({ value, label, max, color }) {
   const labelText = useText(label);
+  const corner = useCornerType();
+  const labelColor = useThemeColor('text-muted', '#888');
   const percent = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', minWidth: 0 }}>
       <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', minHeight: 0 }}>
-        <div style={{ width: 18, height: `${percent}%`, backgroundColor: color, borderRadius: 2 }} />
+        <div style={{ width: 18, height: `${percent}%`, backgroundColor: color, ...cornerStyle(corner, 2) }} />
       </div>
       <div style={{
-        fontSize: 10, color: '#888', maxWidth: '100%', paddingTop: 2,
+        fontSize: 10, color: labelColor, maxWidth: '100%', paddingTop: 2,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {labelText}
@@ -40,9 +44,10 @@ function ChartBarView({ value, label, max, color }) {
  */
 function ChartLineLabelView({ label }) {
   const labelText = useText(label);
+  const labelColor = useThemeColor('text-muted', '#888');
   return (
     <div style={{
-      flex: 1, fontSize: 10, color: '#888', textAlign: 'center',
+      flex: 1, fontSize: 10, color: labelColor, textAlign: 'center',
       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
     }}>
       {labelText}
@@ -60,11 +65,13 @@ function ChartView({ cell }) {
   const data = useCellData(cell, 'data') || [];
   const labels = useCellData(cell, 'labels') || [];
   const color = useCellData(cell, 'color');
+  const surfaceColor = useThemeColor('surface', '#ffffff');
+  const emptyColor = useThemeColor('border', '#ccc');
   if (!data.length) {
     return (
       <div style={{
         width: '100%', height: '100%', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', fontSize: 20, color: '#ccc', backgroundColor: '#ffffff',
+        justifyContent: 'center', fontSize: 20, color: emptyColor, backgroundColor: surfaceColor,
       }}>
         —
       </div>
@@ -80,7 +87,7 @@ function ChartView({ cell }) {
     return (
       <div style={{
         display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
-        padding: 8, boxSizing: 'border-box', backgroundColor: '#ffffff',
+        padding: 8, boxSizing: 'border-box', backgroundColor: surfaceColor,
       }}>
         <svg viewBox="0 0 100 50" preserveAspectRatio="none" style={{ width: '100%', flex: 1, minHeight: 0 }}>
           {n === 1 ? <circle cx={50} cy={y} r={2.5} fill={color} /> : (
@@ -98,7 +105,7 @@ function ChartView({ cell }) {
   return (
     <div style={{
       display: 'flex', width: '100%', height: '100%',
-      padding: 8, boxSizing: 'border-box', backgroundColor: '#ffffff',
+      padding: 8, boxSizing: 'border-box', backgroundColor: surfaceColor,
     }}>
       {data.map((v, i) => (
         <ChartBarView key={i} value={v} label={labels[i] || ''} max={max} color={color} />
@@ -117,7 +124,7 @@ class ChartCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.minHeight(120).defaultWidth(240).backgroundColor('#ffffff')
+    this.minHeight(120).defaultWidth(240).color('surface')
       .schema({
         type: { type: 'string', default: 'bar' },
         data: { type: 'array', default: [] },

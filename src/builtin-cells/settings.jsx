@@ -9,6 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 设置项文本视图：订阅 title/desc，渲染左侧标题与描述。
@@ -18,14 +19,16 @@ import { useText } from '../core/i18n/i18n-react';
 function SettingsView({ cell }) {
   const title = useText(useCellData(cell, 'title'));
   const desc = useText(useCellData(cell, 'desc'));
+  const titleColor = useThemeColor('text', '#444');
+  const descColor = useThemeColor('text-muted', '#aaa');
   return (
     <div style={{
       width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
       justifyContent: 'center', gap: 2, padding: '0 12px', boxSizing: 'border-box',
       minWidth: 0, overflow: 'hidden',
     }}>
-      <div style={{ fontSize: 13, color: '#444' }}>{title}</div>
-      {desc ? <div style={{ fontSize: 11, color: '#aaa' }}>{desc}</div> : null}
+      <div style={{ fontSize: 13, color: titleColor }}>{title}</div>
+      {desc ? <div style={{ fontSize: 11, color: descColor }}>{desc}</div> : null}
     </div>
   );
 }
@@ -41,7 +44,7 @@ class SettingsCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(48).backgroundColor('#ffffff')
+    this.fixedHeight(48).color('surface')
       .moveY(false).moveX(false).layout('horizontal')
       .schema({
         title: { type: 'string', default: '' },

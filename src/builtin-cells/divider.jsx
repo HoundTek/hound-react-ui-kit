@@ -9,6 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 分隔线视图：按 orientation 渲染水平/垂直线，text 非空时嵌入居中文本。
@@ -19,6 +20,7 @@ function DividerView({ cell }) {
   const text = useText(useCellData(cell, 'text'));
   const orientation = useCellData(cell, 'orientation');
   const color = useCellData(cell, 'color');
+  const textMuted = useThemeColor('text-muted', '#999');
   if (orientation === 'vertical') {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center' }}>
@@ -29,7 +31,7 @@ function DividerView({ cell }) {
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px' }}>
       <div style={{ flex: 1, height: 1, backgroundColor: color }} />
-      {text ? <span style={{ fontSize: 12, color: '#999', whiteSpace: 'nowrap' }}>{text}</span> : null}
+      {text ? <span style={{ fontSize: 12, color: textMuted, whiteSpace: 'nowrap' }}>{text}</span> : null}
       {text ? <div style={{ flex: 1, height: 1, backgroundColor: color }} /> : null}
     </div>
   );

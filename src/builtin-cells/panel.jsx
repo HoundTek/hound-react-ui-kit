@@ -17,10 +17,10 @@ class PanelCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.defaultWidth(260).minHeight(100).backgroundColor('#ffffff')
+    this.defaultWidth(260).minHeight(100).color('surface')
       .moveY(false).moveX(false).layout('vertical')
       .defineSlot('header', {
-        fixedHeight: 36, backgroundColor: '#fafafa',
+        fixedHeight: 36, color: 'surface-muted',
         layout: 'horizontal', moveX: false, moveY: false, single: true,
       });
   }

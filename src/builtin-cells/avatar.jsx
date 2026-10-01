@@ -9,6 +9,8 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
 /**
  * 头像视图：订阅 name/src/size/shape/color，渲染图片或首字符头像。
@@ -21,19 +23,21 @@ function AvatarView({ cell }) {
   const size = useCellData(cell, 'size');
   const shape = useCellData(cell, 'shape');
   const color = useCellData(cell, 'color');
-  const radius = shape === 'square' ? 6 : '50%';
+  const corner = useCornerType();
+  const onPrimary = useThemeColor('on-primary', '#fff');
+  const radiusStyle = shape === 'square' ? cornerStyle(corner, 6) : cornerStyle(corner, CAPSULE_RADIUS);
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       {src ? (
         <img
           src={src}
           alt={name}
-          style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0 }}
+          style={{ width: size, height: size, ...radiusStyle, objectFit: 'cover', flexShrink: 0 }}
         />
       ) : (
         <div style={{
-          width: size, height: size, borderRadius: radius, backgroundColor: color,
-          color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: size, height: size, ...radiusStyle, backgroundColor: color,
+          color: onPrimary, display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: Math.round(size * 0.42), fontWeight: 'bold', userSelect: 'none', flexShrink: 0,
         }}>
           {name.charAt(0)}
@@ -53,7 +57,7 @@ class AvatarCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(48).defaultWidth(48).backgroundColor('#f5f5f5')
+    this.fixedHeight(48).defaultWidth(48).color('surface-muted')
       .schema({
         name: { type: 'string', default: '' },
         src: { type: 'string', default: '' },

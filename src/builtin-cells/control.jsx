@@ -19,14 +19,14 @@ class ControlCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.layout('horizontal').moveX(false).moveY(false).fixedHeight(48).backgroundColor('#ffffff')
+    this.layout('horizontal').moveX(false).moveY(false).fixedHeight(48).color('surface')
       .defineSlot('label', {
         fixedWidth: 120, layout: 'horizontal', moveX: false, moveY: false,
-        single: true, backgroundColor: '#ffffff',
+        single: true, color: 'surface',
       })
       .defineSlot('control', {
         fixedWidth: 96, layout: 'horizontal', moveX: false, moveY: false,
-        single: true, backgroundColor: '#ffffff',
+        single: true, color: 'surface',
       });
   }
 }

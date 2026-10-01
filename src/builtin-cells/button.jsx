@@ -9,6 +9,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /**
  * 按钮视图：订阅 label/disabled/type/size，点击写入 pressed 并调用注入回调。
@@ -20,6 +22,15 @@ function ButtonView({ cell }) {
   const disabled = useCellData(cell, 'disabled');
   const type = useCellData(cell, 'type');
   const size = useCellData(cell, 'size');
+  const corner = useCornerType();
+  const primary = useThemeColor('primary', '#4a90d9');
+  const onPrimary = useThemeColor('on-primary', '#fff');
+  const surface = useThemeColor('surface', '#ffffff');
+  const textSecondary = useThemeColor('text-secondary', '#666');
+  const borderColor = useThemeColor('border', '#cccccc');
+  const danger = useThemeColor('danger', '#c03a2a');
+  const surfaceMuted = useThemeColor('surface-muted', '#f0f0f0');
+  const textMuted = useThemeColor('text-muted', '#999');
   const sizeMap = {
     small: { height: 24, fontSize: 12 },
     default: { height: 32, fontSize: 13 },
@@ -27,9 +38,9 @@ function ButtonView({ cell }) {
   };
   const s = sizeMap[size] || sizeMap.default;
   const typeMap = {
-    primary: { background: '#4a90d9', color: '#fff', border: '1px solid #4a90d9' },
-    default: { background: '#ffffff', color: '#666', border: '1px solid #cccccc' },
-    danger: { background: '#c03a2a', color: '#fff', border: '1px solid #c03a2a' },
+    primary: { background: primary, color: onPrimary, border: `1px solid ${primary}` },
+    default: { background: surface, color: textSecondary, border: `1px solid ${borderColor}` },
+    danger: { background: danger, color: onPrimary, border: `1px solid ${danger}` },
   };
   const t = typeMap[type] || typeMap.primary;
   return (
@@ -42,9 +53,9 @@ function ButtonView({ cell }) {
         }}
         style={{
           height: s.height, padding: '0 16px', fontSize: s.fontSize,
-          borderRadius: 4, cursor: disabled ? 'not-allowed' : 'pointer',
-          border: t.border, backgroundColor: disabled ? '#f0f0f0' : t.background,
-          color: disabled ? '#999' : t.color, whiteSpace: 'nowrap',
+          ...cornerStyle(corner, 4), cursor: disabled ? 'not-allowed' : 'pointer',
+          border: t.border, backgroundColor: disabled ? surfaceMuted : t.background,
+          color: disabled ? textMuted : t.color, whiteSpace: 'nowrap',
         }}
       >
         {label}
@@ -63,7 +74,7 @@ class ButtonCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(32).backgroundColor('#ffffff')
+    this.fixedHeight(32).color('surface')
       .schema({
         label: { type: 'string', default: '' },
         disabled: { type: 'boolean', default: false },

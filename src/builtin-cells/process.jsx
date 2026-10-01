@@ -9,6 +9,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
 /**
  * 单个步骤：订阅 item.title 的 i18n 翻译；圆点与连线颜色由下标关系决定，
@@ -20,23 +22,28 @@ function StepItem({ item, index, total, current }) {
   const title = useText(item.title);
   const isActive = index === current;
   const isDone = index < current;
+  const corner = useCornerType();
+  const primary = useThemeColor('primary', '#4a90d9');
+  const border = useThemeColor('border', '#ccc');
+  const borderLine = useThemeColor('border', '#e0e0e0');
+  const textMuted = useThemeColor('text-muted', '#999');
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', height: '100%' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
         <div style={{
-          width: 12, height: 12, borderRadius: '50%', flexShrink: 0,
-          backgroundColor: index <= current ? '#4a90d9' : '#ccc',
+          width: 12, height: 12, ...cornerStyle(corner, CAPSULE_RADIUS), flexShrink: 0,
+          backgroundColor: index <= current ? primary : border,
         }} />
         <div style={{
           fontSize: 12, whiteSpace: 'nowrap',
           fontWeight: isActive ? 'bold' : 'normal',
-          color: isDone || isActive ? '#4a90d9' : '#999',
+          color: isDone || isActive ? primary : textMuted,
         }}>{title}</div>
       </div>
       {index < total - 1 && (
         <div style={{
           flex: 1, height: 2, margin: '0 6px',
-          backgroundColor: isDone ? '#4a90d9' : '#e0e0e0',
+          backgroundColor: isDone ? primary : borderLine,
         }} />
       )}
     </div>
@@ -68,7 +75,7 @@ class ProcessCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(48).backgroundColor('#ffffff')
+    this.fixedHeight(48).color('surface')
       .schema({
         steps: { type: 'array', default: [] },
         current: { type: 'number', default: 0 },

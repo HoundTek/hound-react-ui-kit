@@ -8,12 +8,13 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 const BTN_BASE = {
   minWidth: 26, height: 26, padding: '0 6px', boxSizing: 'border-box',
   display: 'flex', alignItems: 'center', justifyContent: 'center',
-  border: '1px solid #d9d9d9', borderRadius: 4, backgroundColor: '#ffffff',
-  color: '#333333', fontSize: 13, cursor: 'pointer', userSelect: 'none',
+  fontSize: 13, cursor: 'pointer', userSelect: 'none',
 };
 
 /**
@@ -25,6 +26,16 @@ function PaginationView({ cell }) {
   const total = useCellData(cell, 'total');
   const pageSize = useCellData(cell, 'pageSize');
   const current = useCellData(cell, 'current');
+  const border = useThemeColor('border', '#d9d9d9');
+  const surface = useThemeColor('surface', '#ffffff');
+  const text = useThemeColor('text', '#333333');
+  const primary = useThemeColor('primary', '#4a90d9');
+  const onPrimary = useThemeColor('on-primary', '#ffffff');
+  const corner = useCornerType();
+  const btnBase = {
+    ...BTN_BASE, border: `1px solid ${border}`, ...cornerStyle(corner, 4),
+    backgroundColor: surface, color: text,
+  };
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const go = (page) => {
     if (page < 1 || page > pages) return;
@@ -42,7 +53,7 @@ function PaginationView({ cell }) {
         type="button"
         disabled={current <= 1}
         onClick={() => go(current - 1)}
-        style={{ ...BTN_BASE, ...(current <= 1 ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
+        style={{ ...btnBase, ...(current <= 1 ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
       >
         ‹
       </button>
@@ -54,9 +65,9 @@ function PaginationView({ cell }) {
             type="button"
             onClick={() => go(p)}
             style={{
-              ...BTN_BASE,
+              ...btnBase,
               ...(active
-                ? { backgroundColor: '#4a90d9', borderColor: '#4a90d9', color: '#ffffff' }
+                ? { backgroundColor: primary, borderColor: primary, color: onPrimary }
                 : {}),
             }}
           >
@@ -68,7 +79,7 @@ function PaginationView({ cell }) {
         type="button"
         disabled={current >= pages}
         onClick={() => go(current + 1)}
-        style={{ ...BTN_BASE, ...(current >= pages ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
+        style={{ ...btnBase, ...(current >= pages ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
       >
         ›
       </button>
@@ -87,7 +98,7 @@ class PaginationCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(36).backgroundColor('#ffffff')
+    this.fixedHeight(36).color('surface')
       .schema({
         total: { type: 'number', default: 0 },
         pageSize: { type: 'number', default: 10 },

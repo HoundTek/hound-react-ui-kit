@@ -8,6 +8,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 const DIR_GLYPH = { asc: ' ↑', desc: ' ↓' };
 
@@ -20,6 +21,9 @@ function OrderView({ cell }) {
   const items = useCellData(cell, 'items') || [];
   const sortField = useCellData(cell, 'sortField');
   const sortDir = useCellData(cell, 'sortDir');
+  const surfaceMuted = useThemeColor('surface-muted', '#f5f5f5');
+  const rowBorder = useThemeColor('surface-muted', '#f0f0f0');
+  const text = useThemeColor('text', '#333333');
   const toggle = (field) => {
     if (sortField === field) {
       cell.setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
@@ -42,21 +46,21 @@ function OrderView({ cell }) {
   const glyph = (field) => (sortField === field ? DIR_GLYPH[sortDir] || '' : '');
   return (
     <div style={{ width: '100%', height: '100%', overflowY: 'auto' }}>
-      <div style={{ display: 'flex', backgroundColor: '#f5f5f5', fontWeight: 'bold', fontSize: 12, color: '#333333', position: 'sticky', top: 0 }}>
+      <div style={{ display: 'flex', backgroundColor: surfaceMuted, fontWeight: 'bold', fontSize: 12, color: text, position: 'sticky', top: 0 }}>
         <div onClick={() => toggle('title')} style={headCellStyle('title')}>名称{glyph('title')}</div>
         <div onClick={() => toggle('amount')} style={headCellStyle('amount')}>金额{glyph('amount')}</div>
       </div>
       {sorted.map((item) => (
-        <div key={item.id} style={{ display: 'flex', borderTop: '1px solid #f0f0f0' }}>
+        <div key={item.id} style={{ display: 'flex', borderTop: `1px solid ${rowBorder}` }}>
           <div style={{
             flex: 1, height: 30, display: 'flex', alignItems: 'center', padding: '0 10px',
-            fontSize: 13, color: '#333333', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            fontSize: 13, color: text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
             {item.title}
           </div>
           <div style={{
             width: 90, flexShrink: 0, height: 30, display: 'flex', alignItems: 'center',
-            justifyContent: 'flex-end', padding: '0 10px', fontSize: 13, color: '#333333',
+            justifyContent: 'flex-end', padding: '0 10px', fontSize: 13, color: text,
           }}>
             {item.amount}
           </div>
@@ -76,7 +80,7 @@ class OrderCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.minHeight(100).moveY(true).backgroundColor('#ffffff')
+    this.minHeight(100).moveY(true).color('surface')
       .schema({
         items: { type: 'array', default: [] },
         sortField: { type: 'string', default: '' },

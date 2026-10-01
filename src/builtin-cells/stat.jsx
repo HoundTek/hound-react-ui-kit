@@ -9,6 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 统计指标视图：订阅 label/value/prefix/suffix/trend/color，纵向排布。
@@ -22,17 +23,21 @@ function StatView({ cell }) {
   const suffix = useText(useCellData(cell, 'suffix'));
   const trend = useCellData(cell, 'trend');
   const color = useCellData(cell, 'color');
+  const surface = useThemeColor('surface', '#fff');
+  const textMuted = useThemeColor('text-muted', '#888');
+  const success = useThemeColor('success', '#1a8a4a');
+  const danger = useThemeColor('danger', '#c03a2a');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
-      padding: '0 16px', width: '100%', height: '100%', backgroundColor: '#fff',
+      padding: '0 16px', width: '100%', height: '100%', backgroundColor: surface,
     }}>
-      <div style={{ fontSize: 12, color: '#888' }}>{label}</div>
+      <div style={{ fontSize: 12, color: textMuted }}>{label}</div>
       <div style={{ fontSize: 24, fontWeight: 'bold', color, lineHeight: 1.4 }}>
         {prefix}{value}{suffix}
       </div>
       {trend != null ? (
-        <div style={{ fontSize: 12, color: trend >= 0 ? '#1a8a4a' : '#c03a2a' }}>
+        <div style={{ fontSize: 12, color: trend >= 0 ? success : danger }}>
           {trend >= 0 ? '▲' : '▼'} {Math.abs(trend)}%
         </div>
       ) : null}
@@ -50,7 +55,7 @@ class StatCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(76).backgroundColor('#ffffff')
+    this.fixedHeight(76).color('surface')
       .schema({
         label: { type: 'string', default: '' },
         value: { type: 'number', default: 0 },

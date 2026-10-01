@@ -9,6 +9,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
 /**
  * 时间线单项：接收普通 props（不在 map 内调 hooks），time/title/desc 经 useText 渲染。
@@ -19,14 +21,20 @@ function TimelineItemView({ item }) {
   const time = useText(item.time);
   const title = useText(item.title);
   const desc = useText(item.desc);
+  const corner = useCornerType();
+  const border = useThemeColor('border', '#ddd');
+  const primary = useThemeColor('primary', '#4a90d9');
+  const textMuted = useThemeColor('text-muted', '#999');
+  const text = useThemeColor('text', '#333');
+  const descMuted = useThemeColor('text-muted', '#888');
   return (
     <div style={{ position: 'relative', width: '100%', boxSizing: 'border-box', padding: '8px 0 8px 24px' }}>
-      <div style={{ position: 'absolute', left: 3, top: 0, bottom: 0, width: 1, backgroundColor: '#ddd' }} />
-      <div style={{ position: 'absolute', left: 0, top: 11, width: 8, height: 8, borderRadius: '50%', backgroundColor: '#4a90d9' }} />
+      <div style={{ position: 'absolute', left: 3, top: 0, bottom: 0, width: 1, backgroundColor: border }} />
+      <div style={{ position: 'absolute', left: 0, top: 11, width: 8, height: 8, ...cornerStyle(corner, CAPSULE_RADIUS), backgroundColor: primary }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <div style={{ fontSize: 11, color: '#999' }}>{time}</div>
-        <div style={{ fontSize: 13, fontWeight: 'bold', color: '#333' }}>{title}</div>
-        <div style={{ fontSize: 12, color: '#888', lineHeight: 1.5 }}>{desc}</div>
+        <div style={{ fontSize: 11, color: textMuted }}>{time}</div>
+        <div style={{ fontSize: 13, fontWeight: 'bold', color: text }}>{title}</div>
+        <div style={{ fontSize: 12, color: descMuted, lineHeight: 1.5 }}>{desc}</div>
       </div>
     </div>
   );
@@ -58,7 +66,7 @@ class TimelineCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveY(true).layout('vertical').backgroundColor('#ffffff')
+    this.moveY(true).layout('vertical').color('surface')
       .schema({
         items: { type: 'array', default: [] },
       })

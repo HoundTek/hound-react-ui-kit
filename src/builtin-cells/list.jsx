@@ -8,6 +8,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 列表视图：订阅 items/selected，渲染行列表，点击切换选中并高亮。
@@ -17,6 +18,11 @@ import { useCellData } from '../core/cell/cell-react';
 function ListView({ cell }) {
   const items = useCellData(cell, 'items') || [];
   const selected = useCellData(cell, 'selected');
+  const onPrimary = useThemeColor('on-primary', '#fff');
+  const text = useThemeColor('text', '#333');
+  const primaryDark = useThemeColor('primary-dark', '#357abd');
+  const surfaceMuted = useThemeColor('surface-muted', '#f7f7f7');
+  const border = useThemeColor('border', '#e8e8e8');
   return (
     <div style={{ width: '100%', height: '100%' }}>
       {items.map(item => (
@@ -26,9 +32,9 @@ function ListView({ cell }) {
           style={{
             display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px',
             height: 36, fontSize: 13, cursor: 'pointer', userSelect: 'none',
-            color: item.id === selected ? '#fff' : '#333',
-            backgroundColor: item.id === selected ? '#357abd' : '#f7f7f7',
-            borderBottom: '1px solid #e8e8e8',
+            color: item.id === selected ? onPrimary : text,
+            backgroundColor: item.id === selected ? primaryDark : surfaceMuted,
+            borderBottom: `1px solid ${border}`,
           }}
         >
           {item.icon ? <span style={{ flexShrink: 0 }}>{item.icon}</span> : null}

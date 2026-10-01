@@ -41,7 +41,7 @@ class TitleCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(40).backgroundColor('#ffffff')
+    this.fixedHeight(40).color('surface')
       .schema({
         text: { type: 'string', default: '' },
         size: { type: 'number', default: 16 },

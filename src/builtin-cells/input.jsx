@@ -2,6 +2,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /**
  * 输入框视图：支持占位文本（i18n key）、字号、文字对齐。
@@ -13,6 +15,8 @@ function InputView({ cell }) {
   const fontSize = useCellData(cell, 'fontSize');
   const align = useCellData(cell, 'align');
   const disabled = useCellData(cell, 'disabled');
+  const corner = useCornerType();
+  const surface = useThemeColor('surface', '#ffffff');
 
   const handleChange = (e) => {
     const next = e.target.value;
@@ -35,12 +39,12 @@ function InputView({ cell }) {
         height: '100%',
         boxSizing: 'border-box',
         border: '1px solid #dcdfe6',
-        borderRadius: 4,
+        ...cornerStyle(corner, 4),
         padding: '0 12px',
         outline: 'none',
         fontSize,
         textAlign: align,
-        background: disabled ? '#f5f7fa' : '#ffffff',
+        background: disabled ? '#f5f7fa' : surface,
         color: '#303133',
       }}
     />

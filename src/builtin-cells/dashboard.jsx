@@ -16,7 +16,7 @@ class DashboardCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.grid(140, 110).backgroundColor('#ffffff')
+    this.grid(140, 110).color('surface')
       .moveX(false).moveY(false).showChildOverlays(false);
   }
 }

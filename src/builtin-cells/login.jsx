@@ -9,6 +9,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle } from '../core/theme/shape';
 
 /**
  * 登录表单视图：订阅 username/password/submitText/submitted，
@@ -20,10 +22,16 @@ function LoginView({ cell }) {
   const username = useCellData(cell, 'username');
   const password = useCellData(cell, 'password');
   const submitText = useText(useCellData(cell, 'submitText'));
+  const corner = useCornerType();
+  const inputBorder = useThemeColor('border', '#ccc');
+  const inputBackground = useThemeColor('surface', '#ffffff');
+  const inputText = useThemeColor('text', '#333333');
+  const primaryColor = useThemeColor('primary', '#4a90d9');
+  const onPrimaryColor = useThemeColor('on-primary', '#ffffff');
   const inputStyle = {
     width: '100%', height: 30, padding: '0 8px', boxSizing: 'border-box',
-    border: '1px solid #ccc', borderRadius: 4, fontSize: 13,
-    outline: 'none', backgroundColor: '#ffffff', color: '#333333',
+    border: `1px solid ${inputBorder}`, ...cornerStyle(corner, 4), fontSize: 13,
+    outline: 'none', backgroundColor: inputBackground, color: inputText,
   };
   return (
     <div style={{
@@ -50,8 +58,8 @@ function LoginView({ cell }) {
           if (cell._onSubmit) cell._onSubmit({ username, password });
         }}
         style={{
-          width: '100%', height: 32, border: 'none', borderRadius: 4, cursor: 'pointer',
-          backgroundColor: '#4a90d9', color: '#ffffff', fontSize: 13, fontWeight: 'bold',
+          width: '100%', height: 32, border: 'none', ...cornerStyle(corner, 4), cursor: 'pointer',
+          backgroundColor: primaryColor, color: onPrimaryColor, fontSize: 13, fontWeight: 'bold',
         }}
       >
         {submitText}
@@ -71,7 +79,7 @@ class LoginCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(170).backgroundColor('#ffffff').layout('vertical')
+    this.fixedHeight(170).color('surface').layout('vertical')
       .schema({
         username: { type: 'string', default: '' },
         password: { type: 'string', default: '' },

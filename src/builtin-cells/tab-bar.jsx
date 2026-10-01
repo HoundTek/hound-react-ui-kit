@@ -9,6 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 标签栏单项：接收普通 props（不在 map 内调 hooks），title 经 useText 渲染。
@@ -17,6 +18,8 @@ import { useText } from '../core/i18n/i18n-react';
  */
 function TabBarItemView({ item, active, onClick }) {
   const title = useText(item.title);
+  const primary = useThemeColor('primary', '#4a90d9');
+  const textMuted = useThemeColor('text-muted', '#888');
   return (
     <div
       onClick={onClick}
@@ -24,8 +27,8 @@ function TabBarItemView({ item, active, onClick }) {
         flex: 1, minWidth: 0, height: '100%',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
         cursor: 'pointer', userSelect: 'none', fontSize: 12,
-        color: active ? '#4a90d9' : '#888',
-        borderTop: active ? '2px solid #4a90d9' : '2px solid transparent',
+        color: active ? primary : textMuted,
+        borderTop: active ? `2px solid ${primary}` : '2px solid transparent',
       }}
     >
       {item.icon ? <span style={{ lineHeight: 1, flexShrink: 0 }}>{item.icon}</span> : null}
@@ -66,7 +69,7 @@ class TabBarCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(48).backgroundColor('#ffffff')
+    this.fixedHeight(48).color('surface')
       .schema({
         items: { type: 'array', default: [] },
         activeId: { type: 'string', default: '' },

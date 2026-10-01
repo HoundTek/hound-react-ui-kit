@@ -9,6 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 多行编辑视图：订阅 content/placeholder，textarea 变更写回 content。
@@ -18,10 +19,13 @@ import { useText } from '../core/i18n/i18n-react';
 function EditorView({ cell }) {
   const content = useCellData(cell, 'content');
   const placeholder = useText(useCellData(cell, 'placeholder'));
+  const surfaceColor = useThemeColor('surface', '#ffffff');
+  const textColor = useThemeColor('text', '#333');
+  const countColor = useThemeColor('text-muted', '#999');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
-      backgroundColor: '#ffffff', overflow: 'hidden',
+      backgroundColor: surfaceColor, overflow: 'hidden',
     }}>
       <textarea
         value={content}
@@ -30,11 +34,11 @@ function EditorView({ cell }) {
         style={{
           flex: 1, width: '100%', padding: '8px 10px', boxSizing: 'border-box',
           border: 'none', outline: 'none', resize: 'none', fontSize: 13,
-          lineHeight: 1.6, color: '#333', backgroundColor: 'transparent',
+          lineHeight: 1.6, color: textColor, backgroundColor: 'transparent',
         }}
       />
       <div style={{
-        padding: '2px 10px 6px', fontSize: 11, color: '#999',
+        padding: '2px 10px 6px', fontSize: 11, color: countColor,
         textAlign: 'right', flexShrink: 0,
       }}>
         {content.length} 字
@@ -53,7 +57,7 @@ class EditorCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.layout('vertical').minHeight(120).defaultWidth(280).backgroundColor('#ffffff')
+    this.layout('vertical').minHeight(120).defaultWidth(280).color('surface')
       .schema({
         content: { type: 'string', default: '' },
         placeholder: { type: 'string', default: '' },

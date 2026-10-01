@@ -9,6 +9,8 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
+import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
 /**
  * 用户信息视图：订阅 name/role/description/color，渲染头像与文本。
@@ -20,18 +22,23 @@ function ProfileView({ cell }) {
   const role = useText(useCellData(cell, 'role'));
   const description = useText(useCellData(cell, 'description'));
   const color = useCellData(cell, 'color');
+  const corner = useCornerType();
+  const onPrimaryColor = useThemeColor('on-primary', '#fff');
+  const nameColor = useThemeColor('text', '#333');
+  const roleColor = useThemeColor('text-muted', '#888');
+  const descriptionColor = useThemeColor('text-muted', '#aaa');
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '0 12px' }}>
       <div style={{
-        width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-        backgroundColor: color, color: '#fff', display: 'flex',
+        width: 44, height: 44, ...cornerStyle(corner, CAPSULE_RADIUS), flexShrink: 0,
+        backgroundColor: color, color: onPrimaryColor, display: 'flex',
         alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 'bold',
         userSelect: 'none',
       }}>{name.charAt(0)}</div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden' }}>
-        <div style={{ fontSize: 14, fontWeight: 'bold', color: '#333' }}>{name}</div>
-        {role ? <div style={{ fontSize: 12, color: '#888' }}>{role}</div> : null}
-        {description ? <div style={{ fontSize: 11, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{description}</div> : null}
+        <div style={{ fontSize: 14, fontWeight: 'bold', color: nameColor }}>{name}</div>
+        {role ? <div style={{ fontSize: 12, color: roleColor }}>{role}</div> : null}
+        {description ? <div style={{ fontSize: 11, color: descriptionColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{description}</div> : null}
       </div>
     </div>
   );
@@ -47,7 +54,7 @@ class ProfileCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(88).backgroundColor('#ffffff')
+    this.fixedHeight(88).color('surface')
       .schema({
         name: { type: 'string', default: '' },
         role: { type: 'string', default: '' },
