@@ -67,6 +67,16 @@ class BoxBuilder extends Reflowable {
     this._visible = true;
     /** @type {boolean} 浮动视口是否可关闭（右上角渲染关闭按钮） */
     this._closable = false;
+    /** @type {'rect'|'capsule'|'circle'|null} 基础形状（见 docs/theme-shape-design.md）；null 为 rect */
+    this._shape = null;
+    /** @type {string|null} 组件角色：主题包裹层规范的查询键（如 'button'、'window'） */
+    this._styleRole = null;
+    /** @type {string|null} 颜色角色：渲染时经主题解析为色值（如 'primary'、'surface'） */
+    this._colorRole = null;
+    /** @type {string|null} 材质标识（solid / frosted / outlined / ...） */
+    this._material = null;
+    /** @type {number|null} 不透明度（0~1） */
+    this._opacity = null;
   }
 
   /**
@@ -158,6 +168,60 @@ class BoxBuilder extends Reflowable {
    */
   backgroundColor(color) {
     this._backgroundColor = color;
+    return this;
+  }
+
+  /**
+   * 声明基础形状（见 docs/theme-shape-design.md）：rect 圆角矩形（默认，圆角取主题
+   * 层规范）、capsule 胶囊（短轴全圆角）、circle 圆形（胶囊 + 1:1 宽高约束）。
+   * @param {'rect'|'capsule'|'circle'} shape 基础形状
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  shape(shape) {
+    this._shape = shape;
+    return this;
+  }
+
+  /**
+   * 声明组件角色：作为主题包裹层规范（shape.layers）的查询键，
+   * 角色的层数与逐层圆角/间距由主题决定
+   * @param {string} role 组件角色（如 'button'、'window'）
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  styleRole(role) {
+    this._styleRole = role;
+    return this;
+  }
+
+  /**
+   * 声明颜色角色：渲染时经主题解析为具体色值（普适配置项，见 docs/theme-shape-design.md）。
+   * 与 backgroundColor 的关系：backgroundColor（裸色值）优先，为背景色的逃生通道。
+   * @param {string} role 颜色角色（如 'primary'、'surface'）
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  color(role) {
+    this._colorRole = role;
+    return this;
+  }
+
+  /**
+   * 声明材质（普适配置项）：solid 纯色 / frosted 毛玻璃 / outlined 描边等，
+   * 具体实现参数由主题材质表给出；主题未声明时降级 solid
+   * @param {string} name 材质标识
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  material(name) {
+    this._material = name;
+    return this;
+  }
+
+  /**
+   * 设置不透明度（普适配置项）
+   * @param {number} value 不透明度（0~1）
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  opacity(value) {
+    this._opacity = value;
     return this;
   }
 

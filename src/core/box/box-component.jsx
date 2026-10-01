@@ -11,6 +11,8 @@ import FloatingScrollbar from './floating-scrollbar';
 import { useHoveredEdges } from './hovered-edges-context';
 import { resolveContainerDrag, getDraggableEdgeId, commitContainerRatios, makeEdgeId } from './drag-resize';
 import { ResizeEffectViewport } from '../theme/resize-effects';
+import { useTheme } from '../theme/theme-react';
+import { resolveBoxShape, resolveBoxPaint, cornerStyle, hexToRgba } from '../theme/shape';
 
 const styleSheet = `
   .drag-handle {
@@ -728,6 +730,13 @@ const ContentNode = ({ node, builder }) => (
 const ContentLayer = ({ builder }) => {
   const { containerRef, childRefs, layout } = useBoxContent(builder);
   const { style, getChildStyle, isHorizontal, isGrid, offsets, positions, containerClassName, innerClassName, innerStyle } = layout;
+  const theme = useTheme();
+
+  // 形状与普适样式（见 docs/theme-shape-design.md）：主题形状描述 → 具体 CSS。
+  // 形状（圆角/包裹层壳）与普适配置（材质/颜色角色/不透明度）在渲染时解析，
+  // 主题切换经 ThemeProvider 触发重新解析；背景色优先级：裸色值 > 颜色角色
+  const paintStyle = resolveBoxPaint(builder, theme);
+  const { selfStyle: shapeStyle, shells } = resolveBoxShape(builder, theme);
 
   const wrapperStyle = { position: 'relative' };
 
@@ -776,7 +785,7 @@ const ContentLayer = ({ builder }) => {
     <BoxLayerFrame
       containerRef={containerRef}
       containerClassName={containerClassName}
-      containerStyle={{ ...style, ...(isDragHandleActive ? { cursor: 'move' } : null) }}
+      containerStyle={{ ...style, ...paintStyle, ...shapeStyle, ...(isDragHandleActive ? { cursor: 'move' } : null) }}
       innerClassName={innerClassName}
       innerStyle={innerStyle}
       wrapperStyle={wrapperStyle}
@@ -786,6 +795,8 @@ const ContentLayer = ({ builder }) => {
         {builder._moveX === true && <FloatingScrollbar containerRef={containerRef} orientation="horizontal" />}
       </>}
     >
+      {/* 包裹层壳（第 1 层起）：绝对定位内缩的视觉壳，先于内容渲染而位于内容之下 */}
+      {shells.map(shell => <div key={`shape-shell-${shell.key}`} style={shell.style} />)}
       {childrenNode}
     </BoxLayerFrame>
   );
@@ -1226,13 +1237,15 @@ const FLOATING_LAYER_STYLE = {
   zIndex: DEFAULT_FLOATING_ZINDEX,
   pointerEvents: 'none',
 };
-// 可操作窗口遮罩基础样式（z-index 由调用处按渲染序动态计算，见 getFloatingMaskStyle）
+// 可操作窗口遮罩基础样式（z-index 由调用处按渲染序动态计算，见 getFloatingMaskStyle；
+// 颜色/不透明度为主题普适配置——materials.mask，未声明时用缺省值）
 const FLOATING_MASK_STYLE = {
   position: 'fixed',
   inset: 0,
-  backgroundColor: 'rgba(0, 0, 0, 0.45)',
   pointerEvents: 'auto',
 };
+const DEFAULT_MASK_COLOR = '#000000';
+const DEFAULT_MASK_OPACITY = 0.45;
 
 /** @type {Map<BoxBuilder|null, BoxBuilder[]>} 浮动窗口树：键为父窗口（null = 根 viewport，唯一根），
  *  值为该父窗口的有序子窗口列表（尾部 = 最近出现/聚焦，同层居上）。
@@ -1806,13 +1819,21 @@ function getFloatingVisualSize(builder) {
  * 取可操作窗口遮罩的样式：全屏 + 层级由调用处传入。
  * 遮罩与各浮动视口同级参与层叠比较，恰好压住所有非可操作窗口，
  * 又不遮挡可操作窗口及其子窗口链（见 FloatingLayer 的渲染序推导）。
+ * 颜色与不透明度取主题普适配置（materials.mask / 颜色角色 'mask'），未声明用缺省值。
  * @param {number} zIndex 遮罩层级（= 可操作子树最低成员的 zIndex - 1）
+ * @param {Theme|null} theme 当前主题
  * @returns {Object} 遮罩样式
  */
-function getFloatingMaskStyle(zIndex) {
+function getFloatingMaskStyle(zIndex, theme) {
+  const spec = theme?.getMask();
+  const color = spec?.color ?? theme?.resolveColor('mask') ?? DEFAULT_MASK_COLOR;
+  const opacity = spec?.opacity ?? DEFAULT_MASK_OPACITY;
+  const rgba = hexToRgba(color, opacity);
   return {
     ...FLOATING_MASK_STYLE,
     zIndex,
+    backgroundColor: rgba || color,
+    ...(rgba ? {} : { opacity }),
   };
 }
 
@@ -1872,10 +1893,14 @@ function FloatingWindow({ builder, zIndex }) {
     registerLayerRef(builder._path, 'shell', shellRef);
     return () => unregisterLayerRef(builder._path, 'shell');
   }, [builder]);
+  const theme = useTheme();
   const visual = getFloatingVisualSize(builder);
+  // 包壳圆角随主题形状描述（浮动视口根的层规范/形状），overflow 裁剪与圆角对齐
+  const { selfStyle: shellShape } = resolveBoxShape(builder, theme);
   const shellStyle = {
     position: 'relative',
     overflow: 'hidden',
+    ...shellShape,
     ...(visual.width !== undefined ? { width: visual.width } : {}),
     ...(visual.height !== undefined ? { height: visual.height } : {}),
   };
@@ -1913,6 +1938,7 @@ function FloatingWindow({ builder, zIndex }) {
 const FloatingLayer = () => {
   const [, forceUpdate] = useState(0);
   useEffect(() => subscribeFloating(() => forceUpdate(n => n + 1)), []);
+  const theme = useTheme();
   const order = buildRenderOrder();
   if (order.length === 0) return null;
   // zIndex 按渲染序步进 2 分配（2001, 2003, ...）：窗口占奇数，遮罩取可操作窗口 z - 1
@@ -1925,7 +1951,7 @@ const FloatingLayer = () => {
   const maskZ = operable ? zByPath.get(operable._path) - 1 : null;
   return (
     <div style={FLOATING_LAYER_STYLE}>
-      {maskZ !== null && <div style={getFloatingMaskStyle(maskZ)} />}
+      {maskZ !== null && <div style={getFloatingMaskStyle(maskZ, theme)} />}
       {order.map(b => (
         <FloatingWindow key={b._path} builder={b} zIndex={zByPath.get(b._path)} />
       ))}

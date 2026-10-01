@@ -29,6 +29,7 @@ const SLOT_BOX_CONFIG_KEYS = [
   'fixedWidth', 'fixedHeight', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight',
   'defaultWidth', 'defaultHeight', 'layout', 'moveX', 'moveY',
   'backgroundColor', 'alignItems', 'draggable', 'showChildOverlays', 'dragHandle',
+  'shape', 'styleRole', 'color', 'material', 'opacity',
 ];
 
 class CellBaseBuilder {
@@ -596,6 +597,39 @@ class CellBaseBuilder {
    * @returns {CellBaseBuilder} self（链式）
    */
   backgroundColor(c) { return this._recordBoxOp('backgroundColor', [c]); }
+  /**
+   * 声明基础形状：rect 圆角矩形（默认）、capsule 胶囊、circle 圆形
+   *（委托 BoxBuilder#shape，见 docs/theme-shape-design.md）
+   * @param {'rect'|'capsule'|'circle'} s 基础形状
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  shape(s) { return this._recordBoxOp('shape', [s]); }
+  /**
+   * 声明组件角色：主题包裹层规范的查询键，层数与逐层圆角/间距由主题决定
+   *（委托 BoxBuilder#styleRole）
+   * @param {string} role 组件角色（如 'button'、'window'）
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  styleRole(role) { return this._recordBoxOp('styleRole', [role]); }
+  /**
+   * 声明颜色角色：渲染时经主题解析为色值（普适配置项；委托 BoxBuilder#color）
+   * @param {string} role 颜色角色（如 'primary'、'surface'）
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  color(role) { return this._recordBoxOp('color', [role]); }
+  /**
+   * 声明材质：solid / frosted / outlined 等，实现参数由主题材质表给出
+   *（普适配置项；委托 BoxBuilder#material）
+   * @param {string} name 材质标识
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  material(name) { return this._recordBoxOp('material', [name]); }
+  /**
+   * 设置不透明度（普适配置项；委托 BoxBuilder#opacity）
+   * @param {number} v 不透明度（0~1）
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  opacity(v) { return this._recordBoxOp('opacity', [v]); }
   /**
    * 设置交叉轴对齐方式（委托 BoxBuilder#alignItems）
    * @param {string} a CSS align-items 值
