@@ -8,7 +8,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -27,6 +27,7 @@ function ConfirmView({ cell }) {
   const primary = useThemeColor('primary', '#4a90d9');
   const onPrimary = useThemeColor('on-primary', '#ffffff');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   return (
     <div style={{
       display: 'flex', flexDirection: 'column',
@@ -42,7 +43,7 @@ function ConfirmView({ cell }) {
         <button
           onClick={() => cell.close()}
           style={{
-            padding: '6px 14px', border: `1px solid ${borderColor}`, ...cornerStyle(corner, 4),
+            padding: '6px 14px', border: `1px solid ${borderColor}`, ...cornerStyle(corner, controlR),
             backgroundColor: surface, color: cancelColor, fontSize: 13, cursor: 'pointer',
           }}
         >
@@ -51,7 +52,7 @@ function ConfirmView({ cell }) {
         <button
           onClick={() => { if (cell._onOk) cell._onOk(); cell.close(); }}
           style={{
-            padding: '6px 14px', border: `1px solid ${primary}`, ...cornerStyle(corner, 4),
+            padding: '6px 14px', border: `1px solid ${primary}`, ...cornerStyle(corner, controlR),
             backgroundColor: primary, color: onPrimary, fontSize: 13, cursor: 'pointer',
           }}
         >
@@ -74,7 +75,7 @@ class ConfirmCell extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.floatingViewport().movable(false).resizable(false)
-      .fixedWidth(280).fixedHeight(120).color('surface').layout('vertical')
+      .fixedWidth(280).fixedHeight(120).color('surface').styleRole('window').layout('vertical')
       .schema({
         text: { type: 'string', default: '' },
         okText: { type: 'string', default: '确定' },

@@ -9,7 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -23,6 +23,7 @@ function LoginView({ cell }) {
   const password = useCellData(cell, 'password');
   const submitText = useText(useCellData(cell, 'submitText'));
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   const inputBorder = useThemeColor('border', '#ccc');
   const inputBackground = useThemeColor('surface', '#ffffff');
   const inputText = useThemeColor('text', '#333333');
@@ -30,7 +31,7 @@ function LoginView({ cell }) {
   const onPrimaryColor = useThemeColor('on-primary', '#ffffff');
   const inputStyle = {
     width: '100%', height: 30, padding: '0 8px', boxSizing: 'border-box',
-    border: `1px solid ${inputBorder}`, ...cornerStyle(corner, 4), fontSize: 13,
+    border: `1px solid ${inputBorder}`, ...cornerStyle(corner, controlR), fontSize: 13,
     outline: 'none', backgroundColor: inputBackground, color: inputText,
   };
   return (
@@ -58,7 +59,7 @@ function LoginView({ cell }) {
           if (cell._onSubmit) cell._onSubmit({ username, password });
         }}
         style={{
-          width: '100%', height: 32, border: 'none', ...cornerStyle(corner, 4), cursor: 'pointer',
+          width: '100%', height: 32, border: 'none', ...cornerStyle(corner, controlR), cursor: 'pointer',
           backgroundColor: primaryColor, color: onPrimaryColor, fontSize: 13, fontWeight: 'bold',
         }}
       >

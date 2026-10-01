@@ -62,6 +62,17 @@ class Theme {
   }
 
   /**
+   * 取组件角色的基准圆角（其层规范第 0 层的 radius）。供元素级圆角
+   * 按角色对齐主题半径尺度（见 docs/theme-shape-design.md）
+   * @param {string} [role] 组件角色（如 'control'、'card'）
+   * @returns {number|null} 基准圆角（px）；未声明或非数值返回 null
+   */
+  getBaseRadius(role) {
+    const r = this.getShapeLayers(role)?.[0]?.radius;
+    return typeof r === 'number' ? r : null;
+  }
+
+  /**
    * 把颜色角色解析为具体色值
    * @param {string} role 颜色角色（如 'primary'、'surface'）
    * @returns {string|null} 色值；角色未定义返回 null

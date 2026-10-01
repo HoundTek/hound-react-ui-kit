@@ -8,7 +8,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -24,6 +24,7 @@ function IndexBarView({ cell }) {
   const onPrimary = useThemeColor('on-primary', '#fff');
   const primary = useThemeColor('primary', '#4a90d9');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 3);
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
@@ -37,7 +38,7 @@ function IndexBarView({ cell }) {
             onClick={() => cell.setActiveIndex(letter)}
             style={{
               height: 20, lineHeight: '20px', textAlign: 'center', fontSize: 12,
-              margin: '0 2px', ...cornerStyle(corner, 3), cursor: 'pointer', userSelect: 'none',
+              margin: '0 2px', ...cornerStyle(corner, controlR), cursor: 'pointer', userSelect: 'none',
               color: active ? onPrimary : textSecondary,
               backgroundColor: active ? primary : 'transparent',
             }}

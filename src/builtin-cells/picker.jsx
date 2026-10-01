@@ -10,7 +10,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -66,6 +66,7 @@ function PickerView({ cell }) {
   const textMuted = useThemeColor('text-muted', '#999');
   const surface = useThemeColor('surface', '#fff');
   const corner = useCornerType();
+  const overlayR = useShapeRadius('overlay', 6);
   const current = options.find(o => o.id === value);
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -85,7 +86,7 @@ function PickerView({ cell }) {
       {open && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
-          backgroundColor: surface, ...cornerStyle(corner, 6), boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          backgroundColor: surface, ...cornerStyle(corner, overlayR), boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           overflow: 'hidden', padding: '4px 0',
         }}>
           {options.map(o => <OptionRow key={o.id} cell={cell} item={o} value={value} />)}

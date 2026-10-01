@@ -8,7 +8,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -21,6 +21,7 @@ function CheckboxView({ cell }) {
   const checked = useCellData(cell, 'checked');
   const disabled = useCellData(cell, 'disabled');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 3);
   const text = useThemeColor('text', '#333');
   const primary = useThemeColor('primary', '#4a90d9');
   const surface = useThemeColor('surface', '#fff');
@@ -36,7 +37,7 @@ function CheckboxView({ cell }) {
       }}
     >
       <div style={{
-        width: 16, height: 16, ...cornerStyle(corner, 3), flexShrink: 0,
+        width: 16, height: 16, ...cornerStyle(corner, controlR), flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         backgroundColor: checked ? primary : surface,
         border: checked ? `1px solid ${primary}` : `1px solid ${borderColor}`,

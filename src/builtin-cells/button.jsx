@@ -9,7 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -23,6 +23,7 @@ function ButtonView({ cell }) {
   const type = useCellData(cell, 'type');
   const size = useCellData(cell, 'size');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   const primary = useThemeColor('primary', '#4a90d9');
   const onPrimary = useThemeColor('on-primary', '#fff');
   const surface = useThemeColor('surface', '#ffffff');
@@ -53,7 +54,7 @@ function ButtonView({ cell }) {
         }}
         style={{
           height: s.height, padding: '0 16px', fontSize: s.fontSize,
-          ...cornerStyle(corner, 4), cursor: disabled ? 'not-allowed' : 'pointer',
+          ...cornerStyle(corner, controlR), cursor: disabled ? 'not-allowed' : 'pointer',
           border: t.border, backgroundColor: disabled ? surfaceMuted : t.background,
           color: disabled ? textMuted : t.color, whiteSpace: 'nowrap',
         }}

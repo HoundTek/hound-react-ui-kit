@@ -9,7 +9,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
 /**
@@ -24,8 +24,9 @@ function AvatarView({ cell }) {
   const shape = useCellData(cell, 'shape');
   const color = useCellData(cell, 'color');
   const corner = useCornerType();
+  const overlayR = useShapeRadius('overlay', 6);
   const onPrimary = useThemeColor('on-primary', '#fff');
-  const radiusStyle = shape === 'square' ? cornerStyle(corner, 6) : cornerStyle(corner, CAPSULE_RADIUS);
+  const radiusStyle = shape === 'square' ? cornerStyle(corner, overlayR) : cornerStyle(corner, CAPSULE_RADIUS);
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       {src ? (

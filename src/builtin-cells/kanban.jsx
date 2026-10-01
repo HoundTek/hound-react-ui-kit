@@ -8,7 +8,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -20,6 +20,7 @@ function KanbanView({ cell }) {
   const columns = useCellData(cell, 'columns') || [];
   const selectedItem = useCellData(cell, 'selectedItem');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   const surface = useThemeColor('surface', '#ffffff');
   const border = useThemeColor('border', '#eeeeee');
   const surfaceMuted = useThemeColor('surface-muted', '#f5f5f5');
@@ -54,7 +55,7 @@ function KanbanView({ cell }) {
                   marginBottom: 4, boxSizing: 'border-box', cursor: 'pointer',
                   backgroundColor: surface, border: '1px solid',
                   borderColor: selectedItem === item.id ? primary : '#e5e5e5',
-                  ...cornerStyle(corner, 4), fontSize: 12, color: text,
+                  ...cornerStyle(corner, controlR), fontSize: 12, color: text,
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}
               >

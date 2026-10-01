@@ -32,6 +32,7 @@ import React, { useEffect } from 'react';
 import {
   CellBaseBuilder, DataDag, useCellData, useNodeData, useText, useI18n,
   ButtonCell, WindowCell, TextCell, ListCell, CloseButtonCell,
+  useThemeColor, useCornerType, useShapeRadius, cornerStyle, CAPSULE_RADIUS,
 } from '../core/ui-kit';
 import { openFloatingDemo, closeFloatingDemo } from './box-demo-page';
 
@@ -46,11 +47,12 @@ import { openFloatingDemo, closeFloatingDemo } from './box-demo-page';
  */
 function LogoView({ cell }) {
   const text = useCellData(cell, 'text');
+  const onPrimary = useThemeColor('on-primary', '#fff');
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       width: '100%', height: '100%',
-      color: '#fff', fontWeight: 'bold', fontSize: 18, letterSpacing: 2,
+      color: onPrimary, fontWeight: 'bold', fontSize: 18, letterSpacing: 2,
     }}>
       {text}
     </div>
@@ -65,11 +67,12 @@ function LogoView({ cell }) {
 function NavView({ cell }) {
   const items = useCellData(cell, 'items') || [];
   const activeIndex = useCellData(cell, 'activeIndex') ?? 0;
+  const onPrimary = useThemeColor('on-primary', '#fff');
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 16,
       padding: '0 16px', width: '100%', height: '100%',
-      color: '#fff', fontSize: 14,
+      color: onPrimary, fontSize: 14,
     }}>
       {items.map((key, i) => (
         <NavLabel
@@ -91,13 +94,14 @@ function NavView({ cell }) {
  */
 function NavLabel({ itemKey, active, onClick }) {
   const text = useText(itemKey);
+  const onPrimary = useThemeColor('on-primary', '#fff');
   return (
     <span
       onClick={onClick}
       style={{
         cursor: 'pointer', opacity: active ? 1 : 0.75,
         fontWeight: active ? 'bold' : 'normal',
-        borderBottom: active ? '2px solid #fff' : '2px solid transparent',
+        borderBottom: active ? `2px solid ${onPrimary}` : '2px solid transparent',
         paddingBottom: 2, userSelect: 'none',
       }}
     >
@@ -118,11 +122,12 @@ function ProfileView({ cell }) {
   const switchLabel = useText('profile.switch');
   const names = ['访客', 'Alice', 'Bob', 'Charlie'];
   const roles = ['guest', 'admin', 'editor', 'viewer'];
+  const onPrimary = useThemeColor('on-primary', '#fff');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       alignItems: 'center', width: '100%', height: '100%',
-      color: '#fff', fontSize: 12, gap: 2,
+      color: onPrimary, fontSize: 12, gap: 2,
     }}>
       <div style={{ fontWeight: 'bold' }}>{name}</div>
       <div style={{ fontSize: 10, opacity: 0.7 }}>{role}</div>
@@ -149,6 +154,9 @@ function ProfileView({ cell }) {
 function LangSwitchView({ cell }) {
   const inst = useI18n();
   const label = useText('lang.switchTo');
+  const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
+  const onPrimary = useThemeColor('on-primary', '#fff');
   if (!inst) return null;
   return (
     <div style={{
@@ -159,8 +167,8 @@ function LangSwitchView({ cell }) {
         onClick={() => inst.setLocale(inst.locale === 'zh-CN' ? 'en' : 'zh-CN')}
         style={{
           padding: '4px 12px', height: 30, cursor: 'pointer',
-          border: '1px solid rgba(255,255,255,0.6)', borderRadius: 4,
-          background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 12,
+          border: '1px solid rgba(255,255,255,0.6)', ...cornerStyle(corner, controlR),
+          background: 'rgba(255,255,255,0.18)', color: onPrimary, fontSize: 12,
         }}
       >
         {label}
@@ -179,14 +187,17 @@ function MenuView({ cell }) {
   const titleKey = useCellData(cell, 'title');
   const active = useCellData(cell, 'active');
   const title = useText(titleKey);
+  const onPrimary = useThemeColor('on-primary', '#fff');
+  const text = useThemeColor('text', '#333');
+  const primaryDark = useThemeColor('primary-dark', '#357abd');
   return (
     <div
       onClick={() => cell.setActive(!active)}
       style={{
         display: 'flex', alignItems: 'center', padding: '0 16px',
         width: '100%', height: '100%',
-        color: active ? '#fff' : '#333',
-        backgroundColor: active ? '#357abd' : 'transparent',
+        color: active ? onPrimary : text,
+        backgroundColor: active ? primaryDark : 'transparent',
         cursor: 'pointer', userSelect: 'none',
       }}
     >
@@ -224,6 +235,10 @@ function StatCardView({ cell }) {
   const title = useText(titleKey);
   const clickLabel = useText('stat.clickCount');
   const incLabel = useText('stat.increment');
+  const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
+  const surface = useThemeColor('surface', '#fff');
+  const textMuted = useThemeColor('text-muted', '#999');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
@@ -234,11 +249,11 @@ function StatCardView({ cell }) {
       <div style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 4 }}>{count}</div>
       <button
         onClick={() => cell.setCount(count + 1)}
-        style={{ marginTop: 4, padding: '4px 10px', cursor: 'pointer', border: '1px solid #d8b88a', borderRadius: 4, background: '#fff' }}
+        style={{ marginTop: 4, padding: '4px 10px', cursor: 'pointer', border: '1px solid #d8b88a', ...cornerStyle(corner, controlR), background: surface }}
       >
         {incLabel}
       </button>
-      <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>{clickLabel}{count}</div>
+      <div style={{ fontSize: 11, color: textMuted, marginTop: 4 }}>{clickLabel}{count}</div>
     </div>
   );
 }
@@ -252,6 +267,11 @@ function StatCardView({ cell }) {
 function TaskListView({ cell }) {
   const items = useCellData(cell, 'items') || [];
   const selected = useCellData(cell, 'selected');
+  const onPrimary = useThemeColor('on-primary', '#fff');
+  const text = useThemeColor('text', '#333');
+  const primaryDark = useThemeColor('primary-dark', '#357abd');
+  const surfaceMuted = useThemeColor('surface-muted', '#f7f7f7');
+  const border = useThemeColor('border', '#e8e8e8');
   return (
     <div style={{ width: '100%', height: '100%' }}>
       {items.map(item => (
@@ -261,9 +281,9 @@ function TaskListView({ cell }) {
           style={{
             display: 'flex', alignItems: 'center', padding: '0 10px',
             height: 34, fontSize: 13, cursor: 'pointer', userSelect: 'none',
-            color: item.id === selected ? '#fff' : '#333',
-            backgroundColor: item.id === selected ? '#357abd' : '#f7f7f7',
-            borderBottom: '1px solid #e8e8e8',
+            color: item.id === selected ? onPrimary : text,
+            backgroundColor: item.id === selected ? primaryDark : surfaceMuted,
+            borderBottom: `1px solid ${border}`,
           }}
         >
           {item.title}
@@ -282,6 +302,11 @@ function TaskListView({ cell }) {
 function TaskDetailView({ cell }) {
   const selectedId = useCellData(cell, 'detail');
   const emptyLabel = useText('task.empty');
+  const textMuted = useThemeColor('text-muted', '#bbb');
+  const text = useThemeColor('text', '#333');
+  const textSecondary = useThemeColor('text-secondary', '#666');
+  const success = useThemeColor('success', '#1a8a4a');
+  const warning = useThemeColor('warning', '#c07a1a');
   const listCell = cell.find('@taskList');
   const items = listCell ? listCell.getData('items') || [] : [];
   const item = items.find(t => t.id === selectedId);
@@ -289,7 +314,7 @@ function TaskDetailView({ cell }) {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: '100%', height: '100%', color: '#bbb', fontSize: 13,
+        width: '100%', height: '100%', color: textMuted, fontSize: 13,
       }}>
         {emptyLabel}
       </div>
@@ -298,11 +323,11 @@ function TaskDetailView({ cell }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
-      padding: '0 16px', width: '100%', height: '100%', color: '#333', gap: 4,
+      padding: '0 16px', width: '100%', height: '100%', color: text, gap: 4,
     }}>
       <div style={{ fontWeight: 'bold', fontSize: 15 }}>{item.title}</div>
-      <div style={{ fontSize: 13, color: '#666' }}>{item.desc}</div>
-      <div style={{ fontSize: 12, color: item.status === '已完成' ? '#1a8a4a' : '#c07a1a' }}>
+      <div style={{ fontSize: 13, color: textSecondary }}>{item.desc}</div>
+      <div style={{ fontSize: 12, color: item.status === '已完成' ? success : warning }}>
         {item.status}
       </div>
     </div>
@@ -318,18 +343,23 @@ function InputView({ cell }) {
   const value = useCellData(cell, 'value');
   const label = useText('input.label');
   const current = useText('input.current', { value: value || '—' });
+  const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
+  const textMuted = useThemeColor('text-muted', '#888');
+  const border = useThemeColor('border', '#ccc');
+  const primaryDark = useThemeColor('primary-dark', '#357abd');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       padding: '0 16px', width: '100%', height: '100%', gap: 6,
     }}>
-      <div style={{ fontSize: 12, color: '#888' }}>{label}</div>
+      <div style={{ fontSize: 12, color: textMuted }}>{label}</div>
       <input
         value={value}
         onChange={e => cell.setValue(e.target.value)}
-        style={{ padding: '4px 8px', border: '1px solid #ccc', borderRadius: 4, fontSize: 13 }}
+        style={{ padding: '4px 8px', border: `1px solid ${border}`, ...cornerStyle(corner, controlR), fontSize: 13 }}
       />
-      <div style={{ fontSize: 12, color: '#357abd' }}>{current}</div>
+      <div style={{ fontSize: 12, color: primaryDark }}>{current}</div>
     </div>
   );
 }
@@ -343,25 +373,34 @@ function ToggleView({ cell }) {
   const enabled = useCellData(cell, 'enabled');
   const label = useText('toggle.label');
   const stateText = useText(enabled ? 'toggle.on' : 'toggle.off');
+  const corner = useCornerType();
+  const text = useThemeColor('text', '#333');
+  const success = useThemeColor('success', '#1a8a4a');
+  const warning = useThemeColor('warning', '#c07a1a');
+  const primary = useThemeColor('primary', '#4a90d9');
+  const trackOff = useThemeColor('border', '#ccc');
+  const knob = useThemeColor('on-primary', '#fff');
   return (
     <div
       onClick={() => cell.setEnabled(!enabled)}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 16px', width: '100%', height: '100%',
-        cursor: 'pointer', userSelect: 'none', fontSize: 13, color: '#333',
+        cursor: 'pointer', userSelect: 'none', fontSize: 13, color: text,
       }}
     >
       <span>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ color: enabled ? '#1a8a4a' : '#c07a1a', fontWeight: 'bold' }}>{stateText}</span>
+        <span style={{ color: enabled ? success : warning, fontWeight: 'bold' }}>{stateText}</span>
         <div style={{
-          width: 36, height: 20, borderRadius: 10, position: 'relative',
-          backgroundColor: enabled ? '#4a90d9' : '#ccc', transition: 'background-color .15s',
+          width: 36, height: 20, position: 'relative',
+          ...cornerStyle(corner, CAPSULE_RADIUS),
+          backgroundColor: enabled ? primary : trackOff, transition: 'background-color .15s',
         }}>
           <div style={{
-            position: 'absolute', top: 2, width: 16, height: 16, borderRadius: 8,
-            backgroundColor: '#fff', transition: 'left .15s',
+            position: 'absolute', top: 2, width: 16, height: 16,
+            ...cornerStyle(corner, CAPSULE_RADIUS),
+            backgroundColor: knob, transition: 'left .15s',
             left: enabled ? 18 : 2,
           }} />
         </div>
@@ -470,7 +509,7 @@ class HeaderCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(60).backgroundColor('#4a90d9')
+    this.fixedHeight(60).color('primary')
       .moveY(false).moveX(false).layout('horizontal');
   }
 }
@@ -482,7 +521,7 @@ class SidebarCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedWidth(200).backgroundColor('#f2f2f2')
+    this.fixedWidth(200).color('surface-muted')
       .moveY(true).layout('vertical');
   }
 }
@@ -494,7 +533,7 @@ class ContentAreaCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.minHeight(200).backgroundColor('#f0f0f0')
+    this.minHeight(200).color('surface-muted')
       .moveY(false).moveX(false).layout('horizontal');
   }
 }
@@ -506,10 +545,10 @@ class MainPanelCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.layout('vertical').minWidth(320).backgroundColor('#ffffff')
+    this.layout('vertical').minWidth(320).color('surface')
       .moveY(false).moveX(false)
       .defineSlot('header', { fixedHeight: 44, backgroundColor: '#ffe8cc', single: true })
-      .defineSlot('body', { minHeight: 100, moveY: true, layout: 'vertical', backgroundColor: '#fff', showChildOverlays: false });
+      .defineSlot('body', { minHeight: 100, moveY: true, layout: 'vertical', color: 'surface', showChildOverlays: false });
   }
 }
 
@@ -532,7 +571,7 @@ class LogoCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedWidth(120).backgroundColor('#357abd')
+    this.fixedWidth(120).color('primary-dark')
       .schema({ text: { type: 'string', default: 'HOUND' } })
       .renderContent(LogoView);
   }
@@ -561,7 +600,7 @@ class ProfileCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedWidth(100).minHeight(60).backgroundColor('#357abd')
+    this.fixedWidth(100).minHeight(60).color('primary-dark')
       .schema({
         name: { type: 'string', default: '访客' },
         role: { type: 'string', default: 'guest' },
@@ -578,7 +617,7 @@ class MenuItemCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(44).backgroundColor('#e6e6e6')
+    this.fixedHeight(44).color('surface-muted')
       .schema({
         title: { type: 'string', default: 'menu.default' },
         active: { type: 'boolean', default: false },
@@ -607,7 +646,7 @@ class StatRowCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(120).backgroundColor('#ffffff')
+    this.fixedHeight(120).color('surface')
       .moveY(false).moveX(false).layout('horizontal')
       .showChildOverlays(false);
   }
@@ -620,7 +659,7 @@ class TaskSectionCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(150).backgroundColor('#ffffff')
+    this.fixedHeight(150).color('surface')
       .moveY(false).moveX(false).layout('horizontal')
       .showChildOverlays(false);
   }
@@ -650,7 +689,7 @@ class TaskListCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedWidth(200).backgroundColor('#ffffff')
+    this.fixedWidth(200).color('surface')
       .moveY(true).layout('vertical')
       .schema({
         items: {

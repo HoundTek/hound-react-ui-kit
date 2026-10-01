@@ -7,7 +7,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -21,13 +21,14 @@ function ProgressView({ cell }) {
   const color = useCellData(cell, 'color');
   const trackColor = useCellData(cell, 'trackColor');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   const textSecondary = useThemeColor('text-secondary', '#666');
   const clamped = Math.max(0, Math.min(100, percent || 0));
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px' }}>
-      <div style={{ flex: 1, height: 8, ...cornerStyle(corner, 4), backgroundColor: trackColor, overflow: 'hidden' }}>
+      <div style={{ flex: 1, height: 8, ...cornerStyle(corner, controlR), backgroundColor: trackColor, overflow: 'hidden' }}>
         <div style={{
-          width: `${clamped}%`, height: '100%', ...cornerStyle(corner, 4),
+          width: `${clamped}%`, height: '100%', ...cornerStyle(corner, controlR),
           backgroundColor: color, transition: 'width .2s',
         }} />
       </div>

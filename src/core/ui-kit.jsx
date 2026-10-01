@@ -14,7 +14,7 @@ import { DataDag, DataNode } from './data-dag/data-dag';
 import I18n from './i18n/i18n';
 import { I18nProvider, I18nContext, useText, useI18n } from './i18n/i18n-react';
 import Theme from './theme/theme';
-import { ThemeProvider, ThemeContext, useTheme, useThemeColor, useCornerType } from './theme/theme-react';
+import { ThemeProvider, ThemeContext, useTheme, useThemeColor, useCornerType, useShapeRadius } from './theme/theme-react';
 import { resizeEffectRegistry, resolveResizeEffect } from './theme/resize-effects';
 import { cornerStyle, supportsCornerShape, CAPSULE_RADIUS } from './theme/shape';
 import {
@@ -55,6 +55,7 @@ export {
   useTheme,
   useThemeColor,
   useCornerType,
+  useShapeRadius,
   resizeEffectRegistry,
   resolveResizeEffect,
   cornerStyle,

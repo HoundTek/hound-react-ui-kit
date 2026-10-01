@@ -10,7 +10,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -22,6 +22,7 @@ function UploadView({ cell }) {
   const text = useText(useCellData(cell, 'text'));
   const fileList = useCellData(cell, 'fileList') || [];
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   const borderColor = useThemeColor('border', '#e8e8e8');
   const primaryColor = useThemeColor('primary', '#4a90d9');
   const onPrimaryColor = useThemeColor('on-primary', '#fff');
@@ -41,7 +42,7 @@ function UploadView({ cell }) {
           type="button"
           onClick={addFile}
           style={{
-            backgroundColor: primaryColor, color: onPrimaryColor, border: 'none', ...cornerStyle(corner, 4),
+            backgroundColor: primaryColor, color: onPrimaryColor, border: 'none', ...cornerStyle(corner, controlR),
             padding: '6px 16px', fontSize: 13, cursor: 'pointer', userSelect: 'none',
           }}
         >

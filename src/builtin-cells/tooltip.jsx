@@ -9,7 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -22,11 +22,12 @@ function TooltipView({ cell }) {
   const bubbleBg = useThemeColor('text', '#333');
   const onPrimary = useThemeColor('on-primary', '#fff');
   const corner = useCornerType();
+  const overlayR = useShapeRadius('overlay', 6);
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <div style={{
         backgroundColor: bubbleBg, color: onPrimary, fontSize: 12, lineHeight: 1.5,
-        padding: '8px 12px', ...cornerStyle(corner, 6), textAlign: 'center',
+        padding: '8px 12px', ...cornerStyle(corner, overlayR), textAlign: 'center',
       }}>
         {text}
       </div>

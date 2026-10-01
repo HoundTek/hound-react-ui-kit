@@ -10,7 +10,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -23,6 +23,7 @@ function SearchView({ cell }) {
   const placeholder = useText(useCellData(cell, 'placeholder'));
   const value = useCellData(cell, 'value') || '';
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   const surface = useThemeColor('surface', '#fff');
   const text = useThemeColor('text', '#333');
   const primary = useThemeColor('primary', '#4a90d9');
@@ -51,7 +52,7 @@ function SearchView({ cell }) {
           flexShrink: 0, padding: '0 12px', height: 28, display: 'flex',
           alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
           backgroundColor: primary, color: onPrimary, fontSize: 13,
-          ...cornerStyle(corner, 4), userSelect: 'none',
+          ...cornerStyle(corner, controlR), userSelect: 'none',
         }}
       >搜索</div>
     </div>

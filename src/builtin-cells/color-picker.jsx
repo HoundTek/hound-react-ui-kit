@@ -7,7 +7,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 const DEFAULT_SWATCHES = ['#4a90d9', '#1a8a4a', '#c03a2a', '#c07a1a', '#8a6fd9', '#d96f9a', '#333333', '#888888'];
@@ -23,6 +23,7 @@ function ColorPickerView({ cell }) {
   const surface = useThemeColor('surface', '#ffffff');
   const text = useThemeColor('text', '#333333');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', gap: 8,
@@ -35,7 +36,7 @@ function ColorPickerView({ cell }) {
             key={i}
             onClick={() => cell.setColor(sw)}
             style={{
-              width: 20, height: 20, ...cornerStyle(corner, 4), backgroundColor: sw,
+              width: 20, height: 20, ...cornerStyle(corner, controlR), backgroundColor: sw,
               cursor: 'pointer', flexShrink: 0, boxSizing: 'border-box',
               border: sw === color ? `2px solid ${text}` : '1px solid rgba(0,0,0,0.15)',
             }}

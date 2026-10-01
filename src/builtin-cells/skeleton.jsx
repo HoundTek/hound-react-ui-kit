@@ -8,7 +8,7 @@
 import React, { useEffect, useRef } from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
 /**
@@ -20,6 +20,7 @@ function SkeletonView({ cell }) {
   const type = useCellData(cell, 'type');
   const height = useCellData(cell, 'height');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   const border = useThemeColor('border', '#e8e8e8');
   const ref = useRef(null);
   useEffect(() => {
@@ -34,8 +35,8 @@ function SkeletonView({ cell }) {
   const blockStyle = isCircle
     ? { width: height, height, ...cornerStyle(corner, CAPSULE_RADIUS) }
     : isBlock
-      ? { width: height * 4, height: height * 4, ...cornerStyle(corner, 4) }
-      : { width: '80%', height, ...cornerStyle(corner, 4) };
+      ? { width: height * 4, height: height * 4, ...cornerStyle(corner, controlR) }
+      : { width: '80%', height, ...cornerStyle(corner, controlR) };
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div ref={ref} style={{ backgroundColor: border, flexShrink: 0, ...blockStyle }} />

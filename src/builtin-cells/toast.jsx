@@ -10,7 +10,7 @@ import React, { useEffect } from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -28,6 +28,7 @@ function ToastView({ cell }) {
   const errorColor = useThemeColor('danger', '#c03a2a');
   const onPrimary = useThemeColor('on-primary', '#fff');
   const corner = useCornerType();
+  const overlayR = useShapeRadius('overlay', 6);
   useEffect(() => {
     if (!duration || !cell._mounts[0]) return;
     const timer = setTimeout(() => cell.close(), duration);
@@ -44,7 +45,7 @@ function ToastView({ cell }) {
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px',
       width: '100%', height: '100%', color: onPrimary, fontSize: 13,
-      backgroundColor: t.color, ...cornerStyle(corner, 6), boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+      backgroundColor: t.color, ...cornerStyle(corner, overlayR), boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
     }}>
       <span style={{ fontWeight: 'bold' }}>{t.glyph}</span>
       <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{text}</span>

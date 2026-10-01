@@ -9,7 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -22,6 +22,7 @@ function ChatMessageView({ msg }) {
   const text = useText(msg.text);
   const mine = !!msg.mine;
   const corner = useCornerType();
+  const overlayR = useShapeRadius('overlay', 8);
   const otherFromColor = useThemeColor('text-muted', '#999');
   const primaryColor = useThemeColor('primary', '#4a90d9');
   const surfaceMutedColor = useThemeColor('surface-muted', '#f0f0f0');
@@ -34,7 +35,7 @@ function ChatMessageView({ msg }) {
     }}>
       <div style={{ fontSize: 10, color: mine ? '#a8d0f5' : otherFromColor, marginBottom: 2, padding: '0 2px' }}>{from}</div>
       <div style={{
-        padding: '6px 10px', ...cornerStyle(corner, 8), fontSize: 13, lineHeight: 1.5,
+        padding: '6px 10px', ...cornerStyle(corner, overlayR), fontSize: 13, lineHeight: 1.5,
         backgroundColor: mine ? primaryColor : surfaceMutedColor, color: mine ? onPrimaryColor : textColor,
         whiteSpace: 'pre-wrap', wordBreak: 'break-word',
       }}>
@@ -55,6 +56,7 @@ function ChatView({ cell }) {
   const placeholder = useText('输入消息…');
   const sendLabel = useText('发送');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   const surfaceColor = useThemeColor('surface', '#ffffff');
   const borderColor = useThemeColor('border', '#eeeeee');
   const inputBorder = useThemeColor('border', '#cccccc');
@@ -76,12 +78,12 @@ function ChatView({ cell }) {
           placeholder={placeholder}
           onChange={e => cell.setInputValue(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') send(); }}
-          style={{ flex: 1, minWidth: 0, padding: '6px 8px', border: `1px solid ${inputBorder}`, ...cornerStyle(corner, 4), fontSize: 13 }}
+          style={{ flex: 1, minWidth: 0, padding: '6px 8px', border: `1px solid ${inputBorder}`, ...cornerStyle(corner, controlR), fontSize: 13 }}
         />
         <button
           onClick={send}
           style={{
-            padding: '6px 14px', border: 'none', ...cornerStyle(corner, 4), flexShrink: 0,
+            padding: '6px 14px', border: 'none', ...cornerStyle(corner, controlR), flexShrink: 0,
             backgroundColor: primaryColor, color: onPrimaryColor, fontSize: 13, cursor: 'pointer',
           }}
         >

@@ -53,4 +53,16 @@ function useCornerType() {
   return theme?.getCornerType() || 'g1';
 }
 
-export { ThemeProvider, ThemeContext, useTheme, useThemeColor, useCornerType };
+/**
+ * 取组件角色的基准圆角（主题层规范第 0 层），供元素级圆角按角色
+ * 对齐主题半径尺度；角色未声明时回退 fallback
+ * @param {string} role 组件角色（如 'control'、'overlay'、'card'）
+ * @param {number} fallback 缺省圆角（px，通常为迁移前的原值）
+ * @returns {number} 圆角半径（px）
+ */
+function useShapeRadius(role, fallback) {
+  const theme = useTheme();
+  return theme?.getBaseRadius(role) ?? fallback;
+}
+
+export { ThemeProvider, ThemeContext, useTheme, useThemeColor, useCornerType, useShapeRadius };

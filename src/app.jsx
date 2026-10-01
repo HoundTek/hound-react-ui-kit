@@ -88,43 +88,48 @@ const messages = {
 const i18n = new I18n(messages, 'zh-CN');
 
 /**
- * 应用主题：声明形状（G2 曲率平滑圆角 + 包裹层规范）、普适样式配置（颜色角色表 /
- * 材质表 / 遮罩）与尺寸变化特效（stretch）。
- * - shape.corner='g2'：运行时支持 corner-shape 时呈现曲率平滑圆角，否则自动降级 G1 圆弧
- * - shape.layers：包裹层规范（按组件角色）。window 角色使浮动窗口获得圆角轮廓
- * - materials.colors：颜色角色表——Cell/Box 只引用角色（color('primary')），色值集中于此
+ * 应用主题：完整设计令牌（见 docs/theme-shape-design.md）。
+ * - 形状：G2 曲率平滑圆角（运行时不支持 corner-shape 自动降级 G1）；
+ *   包裹层规范按组件角色给出基准圆角尺度——control 6 / default 8 /
+ *   overlay 10 / card 14 / window 16，元素级圆角经 useShapeRadius 对齐同一尺度
+ * - 普适配置：颜色角色表（primary/surface/text/border/语义色三级体系）、
+ *   材质表（frosted 毛玻璃）、遮罩（mask 颜色 + 不透明度）
+ * - 动态属性：尺寸变化特效 stretch（投影四角对齐 + 实时追赶）
  * @type {Theme}
  */
 const theme = new Theme({
-  name: 'stretch',
+  name: 'hound-light',
   shape: {
     corner: 'g2',
     layers: {
       default: [{ inset: 0, radius: 8 }],
-      window: [{ inset: 0, radius: 12 }],
+      control: [{ inset: 0, radius: 6 }],
+      overlay: [{ inset: 0, radius: 10 }],
+      card: [{ inset: 0, radius: 14 }],
+      window: [{ inset: 0, radius: 16 }],
     },
   },
   materials: {
     colors: {
-      primary: '#4a90d9',
-      'primary-dark': '#357abd',
-      'primary-soft': '#e8f0fa',
+      primary: '#3b82f6',
+      'primary-dark': '#2563eb',
+      'primary-soft': '#eaf1fe',
       'on-primary': '#ffffff',
-      danger: '#c03a2a',
-      success: '#1a8a4a',
-      warning: '#c07a1a',
+      danger: '#e5484d',
+      success: '#2f9e63',
+      warning: '#d9870d',
       surface: '#ffffff',
-      'surface-muted': '#fafafa',
-      border: '#e8e8e8',
-      text: '#333333',
-      'text-secondary': '#666666',
-      'text-muted': '#999999',
-      mask: '#000000',
+      'surface-muted': '#f7f8fa',
+      border: '#e5e7eb',
+      text: '#1f2329',
+      'text-secondary': '#4e5561',
+      'text-muted': '#939aa5',
+      mask: '#101418',
     },
     material: {
       frosted: { blur: 20, baseOpacity: 0.6 },
     },
-    mask: { color: '#000000', opacity: 0.45 },
+    mask: { color: '#101418', opacity: 0.45 },
   },
   effects: { resize: { type: 'stretch' } },
 });
@@ -142,7 +147,8 @@ const theme = new Theme({
  */
 const App = () => {
   const [page, setPage] = useState('presets');
-  const switchBtn = { position: 'fixed', right: 12, bottom: 12, zIndex: 9000, padding: '6px 12px', borderRadius: 4, border: '1px solid #4a90d9', background: '#4a90d9', color: '#fff', fontSize: 12, cursor: 'pointer' };
+  const primary = theme.resolveColor('primary') ?? '#3b82f6';
+  const switchBtn = { position: 'fixed', right: 12, bottom: 12, zIndex: 9000, padding: '6px 12px', borderRadius: 4, border: `1px solid ${primary}`, background: primary, color: '#fff', fontSize: 12, cursor: 'pointer' };
   return (
     <I18nProvider i18n={i18n}>
       <ThemeProvider theme={theme}>

@@ -8,7 +8,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -21,6 +21,7 @@ function TextareaView({ cell }) {
   const placeholder = useText(useCellData(cell, 'placeholder'));
   const value = useCellData(cell, 'value');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   const textMuted = useThemeColor('text-muted', '#888');
   const borderColor = useThemeColor('border', '#ccc');
   const text = useThemeColor('text', '#333');
@@ -36,7 +37,7 @@ function TextareaView({ cell }) {
         onChange={e => cell.setValue(e.target.value)}
         style={{
           flex: 1, width: '100%', resize: 'none', padding: 8, boxSizing: 'border-box',
-          border: `1px solid ${borderColor}`, ...cornerStyle(corner, 4), fontSize: 13, color: text,
+          border: `1px solid ${borderColor}`, ...cornerStyle(corner, controlR), fontSize: 13, color: text,
           fontFamily: 'inherit', outline: 'none',
         }}
       />

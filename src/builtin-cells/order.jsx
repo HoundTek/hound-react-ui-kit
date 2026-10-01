@@ -22,7 +22,7 @@ function OrderView({ cell }) {
   const sortField = useCellData(cell, 'sortField');
   const sortDir = useCellData(cell, 'sortDir');
   const surfaceMuted = useThemeColor('surface-muted', '#f5f5f5');
-  const rowBorder = useThemeColor('surface-muted', '#f0f0f0');
+  const rowBorder = useThemeColor('border', '#f0f0f0');
   const text = useThemeColor('text', '#333333');
   const toggle = (field) => {
     if (sortField === field) {

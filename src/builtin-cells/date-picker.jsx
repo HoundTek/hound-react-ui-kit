@@ -10,7 +10,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /** 周历表头：日一二三四五六 */
@@ -37,6 +37,8 @@ function DatePickerView({ cell }) {
   const primary = useThemeColor('primary', '#4a90d9');
   const onPrimary = useThemeColor('on-primary', '#fff');
   const corner = useCornerType();
+  const controlR4 = useShapeRadius('control', 4);
+  const controlR3 = useShapeRadius('control', 3);
   // 首日偏移（0=周日）与当月天数，构建月历格子数组（开头空位补齐）
   const firstWeekday = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -62,7 +64,7 @@ function DatePickerView({ cell }) {
         onClick={() => cell.setOpen(!open)}
         style={{
           display: 'flex', alignItems: 'center', height: 32, margin: 6, padding: '0 10px',
-          border: `1px solid ${border}`, ...cornerStyle(corner, 4), backgroundColor: surfaceMuted,
+          border: `1px solid ${border}`, ...cornerStyle(corner, controlR4), backgroundColor: surfaceMuted,
           cursor: 'pointer', flexShrink: 0, userSelect: 'none',
         }}
       >
@@ -96,7 +98,7 @@ function DatePickerView({ cell }) {
                 key={d}
                 onClick={() => cell.setValue(`${year}-${month}-${d}`).setOpen(false)}
                 style={{
-                  height: 24, lineHeight: '24px', ...cornerStyle(corner, 3), cursor: 'pointer',
+                  height: 24, lineHeight: '24px', ...cornerStyle(corner, controlR3), cursor: 'pointer',
                   userSelect: 'none',
                   color: value === `${year}-${month}-${d}` ? onPrimary : text,
                   backgroundColor: value === `${year}-${month}-${d}` ? primary : 'transparent',

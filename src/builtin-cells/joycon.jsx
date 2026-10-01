@@ -8,7 +8,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 const DIR_MAP = [
@@ -61,6 +61,7 @@ function JoyConButton({ cell, spec, active }) {
   const onPrimary = useThemeColor('on-primary', '#ffffff');
   const textSecondary = useThemeColor('text-secondary', '#666666');
   const corner = useCornerType();
+  const overlayR = useShapeRadius('overlay', 6);
   const size = spec.dir === 'center' ? 40 : 36;
   return (
     <button
@@ -69,7 +70,7 @@ function JoyConButton({ cell, spec, active }) {
       style={{
         width: size, height: size, margin: 2, padding: 0, boxSizing: 'border-box',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: '1px solid #d0d0d0', ...cornerStyle(corner, 6), cursor: 'pointer',
+        border: '1px solid #d0d0d0', ...cornerStyle(corner, overlayR), cursor: 'pointer',
         backgroundColor: active ? primary : surface,
         color: active ? onPrimary : textSecondary, fontSize: 16, flexShrink: 0,
       }}

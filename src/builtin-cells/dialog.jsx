@@ -21,9 +21,9 @@ class DialogCell extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.floatingViewport().movable(true).resizable(false)
-      .fixedWidth(320).fixedHeight(200).color('surface').layout('vertical')
+      .fixedWidth(320).fixedHeight(200).color('surface').styleRole('window').layout('vertical')
       .defineSlot('header', {
-        fixedHeight: 40, color: 'border',
+        fixedHeight: 40, color: 'surface-muted',
         layout: 'horizontal', moveX: false, moveY: false, single: true,
       })
       .defineSlot('body', {

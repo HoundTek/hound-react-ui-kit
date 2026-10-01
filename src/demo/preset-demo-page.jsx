@@ -47,7 +47,7 @@ class DemoRow extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.layout('horizontal').moveX(false).moveY(false)
-      .backgroundColor('#f7f8fa').showChildOverlays(false);
+      .color('surface-muted').showChildOverlays(false);
   }
 }
 
@@ -61,14 +61,14 @@ class DemoUnit extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.layout('vertical').moveX(false).moveY(false).backgroundColor('#ffffff')
+    this.layout('vertical').moveX(false).moveY(false).color('surface')
       .defineSlot('label', {
-        fixedHeight: 22, backgroundColor: '#eef2f7', layout: 'horizontal',
+        fixedHeight: 22, color: 'primary-soft', layout: 'horizontal',
         moveX: false, moveY: false, single: true,
       })
       .defineSlot('content', {
         layout: 'vertical', moveX: false, moveY: false,
-        backgroundColor: '#ffffff', showChildOverlays: false,
+        color: 'surface', showChildOverlays: false,
       });
   }
 }
@@ -83,9 +83,9 @@ class DemoSection extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.layout('vertical').moveX(false).moveY(false).backgroundColor('#ffffff')
+    this.layout('vertical').moveX(false).moveY(false).color('surface')
       .defineSlot('title', {
-        fixedHeight: 32, backgroundColor: '#fafafa', layout: 'horizontal',
+        fixedHeight: 32, color: 'surface-muted', layout: 'horizontal',
         moveX: false, moveY: false, single: true,
       })
       .showChildOverlays(false);
@@ -102,7 +102,7 @@ class DemoHeroCell extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.layout('vertical').moveX(false).moveY(false).fixedHeight(92)
-      .backgroundColor('#4a90d9').showChildOverlays(false);
+      .color('primary').showChildOverlays(false);
   }
 }
 

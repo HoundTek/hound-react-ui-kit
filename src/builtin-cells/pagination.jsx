@@ -8,7 +8,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 const BTN_BASE = {
@@ -32,8 +32,9 @@ function PaginationView({ cell }) {
   const primary = useThemeColor('primary', '#4a90d9');
   const onPrimary = useThemeColor('on-primary', '#ffffff');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   const btnBase = {
-    ...BTN_BASE, border: `1px solid ${border}`, ...cornerStyle(corner, 4),
+    ...BTN_BASE, border: `1px solid ${border}`, ...cornerStyle(corner, controlR),
     backgroundColor: surface, color: text,
   };
   const pages = Math.max(1, Math.ceil(total / pageSize));

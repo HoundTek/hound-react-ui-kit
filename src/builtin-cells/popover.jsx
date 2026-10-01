@@ -9,7 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -24,11 +24,12 @@ function PopoverView({ cell }) {
   const titleColor = useThemeColor('text', '#333');
   const textColor = useThemeColor('text-secondary', '#666');
   const corner = useCornerType();
+  const overlayR = useShapeRadius('overlay', 8);
   return (
     <div style={{
       width: '100%', height: '100%', boxSizing: 'border-box', padding: 12,
       display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden',
-      backgroundColor: surface, ...cornerStyle(corner, 8), boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+      backgroundColor: surface, ...cornerStyle(corner, overlayR), boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
     }}>
       {title ? <div style={{ fontSize: 14, fontWeight: 'bold', color: titleColor }}>{title}</div> : null}
       {text ? <div style={{ fontSize: 13, color: textColor, lineHeight: 1.5 }}>{text}</div> : null}
@@ -49,6 +50,7 @@ class PopoverCell extends CellBaseBuilder {
     this.floatingViewport()
       .movable(false).resizable(false)
       .defaultWidth(180).defaultHeight(64)
+      .styleRole('overlay')
       .schema({
         title: { type: 'string', default: '' },
         text: { type: 'string', default: '' },

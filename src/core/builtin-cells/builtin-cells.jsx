@@ -24,7 +24,7 @@ import CellBaseBuilder from '../cell/cell-base';
 import { useCellData } from '../cell/cell-react';
 import { useText } from '../i18n/i18n-react';
 import { FloatingCloseButton } from '../box/box-component';
-import { useTheme, useThemeColor } from '../theme/theme-react';
+import { useTheme, useThemeColor, useShapeRadius, useCornerType } from '../theme/theme-react';
 import { cornerStyle, CAPSULE_RADIUS } from '../theme/shape';
 
 // =========================================================================
@@ -86,6 +86,7 @@ function ButtonView({ cell }) {
   // 颜色角色解析（普适配置），圆角随主题圆角类型（g2 曲率平滑 / g1 圆弧）
   const primary = theme?.resolveColor('primary') ?? '#4a90d9';
   const corner = theme?.getCornerType() || 'g1';
+  const controlR = useShapeRadius('control', 4);
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -100,7 +101,7 @@ function ButtonView({ cell }) {
         style={{
           height: 30, padding: '0 16px', cursor: disabled ? 'not-allowed' : 'pointer',
           border: `1px solid ${primary}`,
-          ...cornerStyle(corner, 4),
+          ...cornerStyle(corner, controlR),
           background: disabled ? (theme?.resolveColor('surface-muted') ?? '#f0f0f0') : primary,
           color: disabled ? (theme?.resolveColor('text-muted') ?? '#999') : (theme?.resolveColor('on-primary') ?? '#fff'),
           fontSize: 13,
@@ -154,6 +155,8 @@ function InputView({ cell }) {
   const theme = useTheme();
   const border = theme?.resolveColor('border') ?? '#ccc';
   const textMuted = theme?.resolveColor('text-muted') ?? '#888';
+  const controlR = useShapeRadius('control', 4);
+  const corner = useCornerType();
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
@@ -166,7 +169,7 @@ function InputView({ cell }) {
         onChange={e => cell.setValue(e.target.value)}
         style={{
           padding: '4px 8px', border: `1px solid ${border}`, fontSize: 13,
-          ...cornerStyle(theme?.getCornerType() || 'g1', 4),
+          ...cornerStyle(corner, controlR),
         }}
       />
     </div>

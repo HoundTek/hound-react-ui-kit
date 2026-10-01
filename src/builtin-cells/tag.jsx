@@ -8,7 +8,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useCornerType } from '../core/theme/theme-react';
+import { useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -23,6 +23,7 @@ function TagView({ cell }) {
   const color = useCellData(cell, 'color');
   const size = useCellData(cell, 'size');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   if (!visible) return null;
   const sizeMap = {
     small: { fontSize: 10, height: 18, padding: '0 6px' },
@@ -34,7 +35,7 @@ function TagView({ cell }) {
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{
         display: 'inline-flex', alignItems: 'center', gap: 4, height: s.height, padding: s.padding,
-        ...cornerStyle(corner, 4), fontSize: s.fontSize, lineHeight: 1,
+        ...cornerStyle(corner, controlR), fontSize: s.fontSize, lineHeight: 1,
         backgroundColor: `${color}1f`, color, border: `1px solid ${color}55`,
         userSelect: 'none', whiteSpace: 'nowrap',
       }}>

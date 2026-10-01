@@ -9,7 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -20,12 +20,13 @@ import { cornerStyle } from '../core/theme/shape';
 function ChartBarView({ value, label, max, color }) {
   const labelText = useText(label);
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 2);
   const labelColor = useThemeColor('text-muted', '#888');
   const percent = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', minWidth: 0 }}>
       <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', minHeight: 0 }}>
-        <div style={{ width: 18, height: `${percent}%`, backgroundColor: color, ...cornerStyle(corner, 2) }} />
+        <div style={{ width: 18, height: `${percent}%`, backgroundColor: color, ...cornerStyle(corner, controlR) }} />
       </div>
       <div style={{
         fontSize: 10, color: labelColor, maxWidth: '100%', paddingTop: 2,

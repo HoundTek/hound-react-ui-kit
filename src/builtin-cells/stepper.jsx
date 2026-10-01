@@ -9,7 +9,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -24,6 +24,7 @@ function StepperView({ cell }) {
   const max = useCellData(cell, 'max');
   const step = useCellData(cell, 'step');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   const borderColor = useThemeColor('border', '#ccc');
   const surface = useThemeColor('surface', '#ffffff');
   const text = useThemeColor('text', '#333');
@@ -31,7 +32,7 @@ function StepperView({ cell }) {
   const btnStyle = (disabled) => ({
     width: 28, height: 28, flexShrink: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    border: `1px solid ${borderColor}`, ...cornerStyle(corner, 4), backgroundColor: surface,
+    border: `1px solid ${borderColor}`, ...cornerStyle(corner, controlR), backgroundColor: surface,
     color: text, fontSize: 16, lineHeight: 1,
     cursor: disabled ? 'not-allowed' : 'pointer', userSelect: 'none',
     opacity: disabled ? 0.4 : 1,

@@ -2,7 +2,7 @@ import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
@@ -16,6 +16,7 @@ function InputView({ cell }) {
   const align = useCellData(cell, 'align');
   const disabled = useCellData(cell, 'disabled');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   const surface = useThemeColor('surface', '#ffffff');
 
   const handleChange = (e) => {
@@ -39,7 +40,7 @@ function InputView({ cell }) {
         height: '100%',
         boxSizing: 'border-box',
         border: '1px solid #dcdfe6',
-        ...cornerStyle(corner, 4),
+        ...cornerStyle(corner, controlR),
         padding: '0 12px',
         outline: 'none',
         fontSize,

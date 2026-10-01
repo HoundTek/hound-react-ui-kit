@@ -8,7 +8,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData } from '../core/cell/cell-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
+import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 const WEEK_HEADERS = ['日', '一', '二', '三', '四', '五', '六'];
@@ -41,6 +41,7 @@ function CalendarView({ cell }) {
   const selected = useCellData(cell, 'selected');
   const firstDay = useCellData(cell, 'firstDay');
   const corner = useCornerType();
+  const controlR = useShapeRadius('control', 4);
   const surfaceColor = useThemeColor('surface', '#ffffff');
   const primaryColor = useThemeColor('primary', '#4a90d9');
   const onPrimaryColor = useThemeColor('on-primary', '#ffffff');
@@ -59,7 +60,7 @@ function CalendarView({ cell }) {
         key={ds}
         onClick={() => cell.setSelected(ds)}
         style={{
-          ...CELL_STYLE, cursor: 'pointer', ...cornerStyle(corner, 4),
+          ...CELL_STYLE, cursor: 'pointer', ...cornerStyle(corner, controlR),
           backgroundColor: isSelected ? primaryColor : surfaceColor,
           color: isSelected ? onPrimaryColor : textColor,
         }}
