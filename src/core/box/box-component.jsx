@@ -1850,8 +1850,12 @@ function getFloatingMaskStyle(zIndex, theme) {
 function FloatingCloseButton({ builder }) {
   const [hovered, setHovered] = useState(false);
   const injected = useContext(ContentBuilderContext);
+  const theme = useTheme();
   const root = (builder || injected)?._root;
   if (!root?._isFloatingViewport) return null;
+  // 颜色取主题颜色角色（danger / on-primary），圆角随主题圆角类型；未声明用缺省值
+  const danger = theme?.resolveColor('danger') ?? 'rgba(200, 60, 60, 0.9)';
+  const onPrimary = theme?.resolveColor('on-primary') ?? '#ffffff';
   return (
     <button
       type="button"
@@ -1862,10 +1866,11 @@ function FloatingCloseButton({ builder }) {
       style={{
         width: 20, height: 20,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: 'none', borderRadius: 4, cursor: 'pointer',
+        border: 'none', cursor: 'pointer',
         fontSize: 12, lineHeight: 1, padding: 0, userSelect: 'none',
-        color: hovered ? '#fff' : 'rgba(255, 255, 255, 0.9)',
-        backgroundColor: hovered ? 'rgba(200, 60, 60, 0.9)' : 'rgba(0, 0, 0, 0.28)',
+        ...cornerStyle(theme?.getCornerType() || 'g1', 4),
+        color: hovered ? onPrimary : 'rgba(255, 255, 255, 0.9)',
+        backgroundColor: hovered ? danger : 'rgba(0, 0, 0, 0.28)',
       }}
     >
       ✕

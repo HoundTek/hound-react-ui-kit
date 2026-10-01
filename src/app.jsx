@@ -88,12 +88,42 @@ const messages = {
 const i18n = new I18n(messages, 'zh-CN');
 
 /**
- * 应用主题：固定使用"拉伸"尺寸变化特效（stretch）。
- * 投影四角对齐 + 实时追赶——不冻结，真实布局实时计算，reflow 就绪（下一帧）
- * 立即把当前屏上的拉伸替换为新布局（无防抖），拖拽全程一段连续拉伸。
+ * 应用主题：声明形状（G2 曲率平滑圆角 + 包裹层规范）、普适样式配置（颜色角色表 /
+ * 材质表 / 遮罩）与尺寸变化特效（stretch）。
+ * - shape.corner='g2'：运行时支持 corner-shape 时呈现曲率平滑圆角，否则自动降级 G1 圆弧
+ * - shape.layers：包裹层规范（按组件角色）。window 角色使浮动窗口获得圆角轮廓
+ * - materials.colors：颜色角色表——Cell/Box 只引用角色（color('primary')），色值集中于此
  * @type {Theme}
  */
-const theme = new Theme({ name: 'stretch', effects: { resize: { type: 'stretch' } } });
+const theme = new Theme({
+  name: 'stretch',
+  shape: {
+    corner: 'g2',
+    layers: {
+      default: [{ inset: 0, radius: 8 }],
+      window: [{ inset: 0, radius: 12 }],
+    },
+  },
+  materials: {
+    colors: {
+      primary: '#4a90d9',
+      'primary-dark': '#357abd',
+      'on-primary': '#ffffff',
+      danger: '#c83c3c',
+      surface: '#ffffff',
+      'surface-muted': '#fafafa',
+      border: '#e8e8e8',
+      text: '#333333',
+      'text-muted': '#888888',
+      mask: '#000000',
+    },
+    material: {
+      frosted: { blur: 20, baseOpacity: 0.6 },
+    },
+    mask: { color: '#000000', opacity: 0.45 },
+  },
+  effects: { resize: { type: 'stretch' } },
+});
 
 /**
  * 应用根组件。I18nProvider 与 ThemeProvider 并列包裹演示页：

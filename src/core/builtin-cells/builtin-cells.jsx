@@ -24,6 +24,21 @@ import CellBaseBuilder from '../cell/cell-base';
 import { useCellData } from '../cell/cell-react';
 import { useText } from '../i18n/i18n-react';
 import { FloatingCloseButton } from '../box/box-component';
+import { useTheme } from '../theme/theme-react';
+import { cornerStyle, CAPSULE_RADIUS } from '../theme/shape';
+
+/**
+ * 内容组件取主题颜色角色的 Hook：角色未定义时回退缺省色值（普适配置的颜色解析，
+ * 见 docs/theme-shape-design.md；Box 级背景由 ContentLayer 自动解析，本 Hook 供
+ * 内容组件内部的元素级用色）
+ * @param {string} role 颜色角色
+ * @param {string} fallback 缺省色值
+ * @returns {string} 色值
+ */
+function useThemeColor(role, fallback) {
+  const theme = useTheme();
+  return theme?.resolveColor(role) ?? fallback;
+}
 
 // =========================================================================
 //  基础构件
@@ -80,6 +95,10 @@ class TextCell extends CellBaseBuilder {
 function ButtonView({ cell }) {
   const label = useText(useCellData(cell, 'label'));
   const disabled = useCellData(cell, 'disabled');
+  const theme = useTheme();
+  // 颜色角色解析（普适配置），圆角随主题圆角类型（g2 曲率平滑 / g1 圆弧）
+  const primary = theme?.resolveColor('primary') ?? '#4a90d9';
+  const corner = theme?.getCornerType() || 'g1';
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -93,8 +112,11 @@ function ButtonView({ cell }) {
         }}
         style={{
           height: 30, padding: '0 16px', cursor: disabled ? 'not-allowed' : 'pointer',
-          border: '1px solid #4a90d9', borderRadius: 4,
-          background: disabled ? '#f0f0f0' : '#4a90d9', color: disabled ? '#999' : '#fff', fontSize: 13,
+          border: `1px solid ${primary}`,
+          ...cornerStyle(corner, 4),
+          background: disabled ? (theme?.resolveColor('surface-muted') ?? '#f0f0f0') : primary,
+          color: disabled ? (theme?.resolveColor('text-muted') ?? '#999') : (theme?.resolveColor('on-primary') ?? '#fff'),
+          fontSize: 13,
         }}
       >
         {label}
@@ -142,17 +164,23 @@ function InputView({ cell }) {
   const label = useText(useCellData(cell, 'label'));
   const placeholder = useText(useCellData(cell, 'placeholder'));
   const value = useCellData(cell, 'value');
+  const theme = useTheme();
+  const border = theme?.resolveColor('border') ?? '#ccc';
+  const textMuted = theme?.resolveColor('text-muted') ?? '#888';
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       padding: '0 12px', width: '100%', height: '100%', gap: 6,
     }}>
-      {label ? <div style={{ fontSize: 12, color: '#888' }}>{label}</div> : null}
+      {label ? <div style={{ fontSize: 12, color: textMuted }}>{label}</div> : null}
       <input
         value={value}
         placeholder={placeholder}
         onChange={e => cell.setValue(e.target.value)}
-        style={{ padding: '4px 8px', border: '1px solid #ccc', borderRadius: 4, fontSize: 13 }}
+        style={{
+          padding: '4px 8px', border: `1px solid ${border}`, fontSize: 13,
+          ...cornerStyle(theme?.getCornerType() || 'g1', 4),
+        }}
       />
     </div>
   );
@@ -168,7 +196,7 @@ class InputCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.defaultHeight(64).backgroundColor('#fafafa')
+    this.defaultHeight(64).color('surface-muted')
       .schema({
         label: { type: 'string', default: '' },
         placeholder: { type: 'string', default: '' },
@@ -186,23 +214,32 @@ class InputCell extends CellBaseBuilder {
 function ToggleView({ cell }) {
   const label = useText(useCellData(cell, 'label'));
   const enabled = useCellData(cell, 'enabled');
+  const theme = useTheme();
+  const corner = theme?.getCornerType() || 'g1';
+  const trackOn = theme?.resolveColor('primary') ?? '#4a90d9';
+  const trackOff = theme?.resolveColor('border') ?? '#ccc';
+  const knob = theme?.resolveColor('surface') ?? '#fff';
   return (
     <div
       onClick={() => cell.setEnabled(!enabled)}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 12px', width: '100%', height: '100%',
-        cursor: 'pointer', userSelect: 'none', fontSize: 13, color: '#333',
+        cursor: 'pointer', userSelect: 'none', fontSize: 13,
+        color: theme?.resolveColor('text') ?? '#333',
       }}
     >
       <span>{label}</span>
+      {/* 轨道为胶囊形（短轴全圆角），圆角品质随主题圆角类型 */}
       <div style={{
-        width: 36, height: 20, borderRadius: 10, position: 'relative', flexShrink: 0,
-        backgroundColor: enabled ? '#4a90d9' : '#ccc', transition: 'background-color .15s',
+        width: 36, height: 20, position: 'relative', flexShrink: 0,
+        ...cornerStyle(corner, CAPSULE_RADIUS),
+        backgroundColor: enabled ? trackOn : trackOff, transition: 'background-color .15s',
       }}>
         <div style={{
-          position: 'absolute', top: 2, width: 16, height: 16, borderRadius: 8,
-          backgroundColor: '#fff', transition: 'left .15s',
+          position: 'absolute', top: 2, width: 16, height: 16,
+          ...cornerStyle(corner, CAPSULE_RADIUS),
+          backgroundColor: knob, transition: 'left .15s',
           left: enabled ? 18 : 2,
         }} />
       </div>
@@ -219,7 +256,7 @@ class ToggleCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(48).backgroundColor('#fafafa')
+    this.fixedHeight(48).color('surface-muted')
       .schema({
         label: { type: 'string', default: '' },
         enabled: { type: 'boolean', default: true },
@@ -236,6 +273,10 @@ class ToggleCell extends CellBaseBuilder {
 function ListView({ cell }) {
   const items = useCellData(cell, 'items') || [];
   const selected = useCellData(cell, 'selected');
+  const theme = useTheme();
+  const active = theme?.resolveColor('primary-dark') ?? '#357abd';
+  const itemBg = theme?.resolveColor('surface-muted') ?? '#f7f7f7';
+  const border = theme?.resolveColor('border') ?? '#e8e8e8';
   return (
     <div style={{ width: '100%', height: '100%' }}>
       {items.map(item => (
@@ -245,9 +286,9 @@ function ListView({ cell }) {
           style={{
             display: 'flex', alignItems: 'center', padding: '0 10px',
             height: 34, fontSize: 13, cursor: 'pointer', userSelect: 'none',
-            color: item.id === selected ? '#fff' : '#333',
-            backgroundColor: item.id === selected ? '#357abd' : '#f7f7f7',
-            borderBottom: '1px solid #e8e8e8',
+            color: item.id === selected ? (theme?.resolveColor('on-primary') ?? '#fff') : (theme?.resolveColor('text') ?? '#333'),
+            backgroundColor: item.id === selected ? active : itemBg,
+            borderBottom: `1px solid ${border}`,
           }}
         >
           {item.title}
@@ -325,6 +366,7 @@ class CloseButtonCell extends CellBaseBuilder {
 function NotificationView({ cell }) {
   const text = useText(useCellData(cell, 'text'));
   const duration = useCellData(cell, 'duration');
+  const onPrimary = useThemeColor('on-primary', '#fff');
   useEffect(() => {
     if (!duration || !cell._mounts[0]) return;
     const timer = setTimeout(() => cell.close(), duration);
@@ -333,7 +375,7 @@ function NotificationView({ cell }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', padding: '0 16px',
-      width: '100%', height: '100%', color: '#fff', fontSize: 13,
+      width: '100%', height: '100%', color: onPrimary, fontSize: 13,
     }}>
       {text}
     </div>
@@ -341,7 +383,7 @@ function NotificationView({ cell }) {
 }
 
 /**
- * NotificationCell：通知条（浮动视口）。默认固定尺寸、不可移动/缩放；
+ * NotificationCell：通知条（浮动视口，胶囊形 + 主色）。默认固定尺寸、不可移动/缩放；
  * 位置由页面作者用 posX/posY 指定（如屏幕右上角），duration（ms）非空时自动关闭。
  * text 存 i18n key 或纯文本。层级由系统管理（后聚焦/出现居上 + 模态序排列）。
  */
@@ -354,7 +396,7 @@ class NotificationCell extends CellBaseBuilder {
     this.floatingViewport()
       .movable(false).resizable(false)
       .fixedWidth(280).defaultHeight(48)
-      .backgroundColor('#4a90d9')
+      .shape('capsule').color('primary')
       .schema({
         text: { type: 'string', default: '' },
         duration: { type: 'number', default: null },
@@ -380,12 +422,12 @@ class ModalCell extends CellBaseBuilder {
     this.floatingViewport()
       .movable(false).resizable(false)
       .fixedWidth(320).fixedHeight(200)
-      .backgroundColor('#ffffff').layout('vertical')
+      .styleRole('window').color('surface').layout('vertical')
       .defineSlot('header', {
-        fixedHeight: 44, backgroundColor: '#e8e8e8',
+        fixedHeight: 44, color: 'surface-muted',
         layout: 'horizontal', moveX: false, moveY: false,
       })
-      .defineSlot('body', { minHeight: 100, moveY: true, layout: 'vertical', backgroundColor: '#ffffff', showChildOverlays: false });
+      .defineSlot('body', { minHeight: 100, moveY: true, layout: 'vertical', color: 'surface', showChildOverlays: false });
   }
 }
 
@@ -405,12 +447,12 @@ class WindowCell extends CellBaseBuilder {
     this.floatingViewport()
       .movable(true).resizable(true)
       .fixedWidth(320).fixedHeight(200)
-      .backgroundColor('#ffffff').layout('vertical')
+      .styleRole('window').color('surface').layout('vertical')
       .defineSlot('title', {
-        fixedHeight: 36, backgroundColor: '#4a90d9', dragHandle: true,
+        fixedHeight: 36, color: 'primary', dragHandle: true,
         layout: 'horizontal', moveX: false, moveY: false,
       })
-      .defineSlot('body', { minHeight: 120, moveY: true, layout: 'vertical', backgroundColor: '#ffffff', showChildOverlays: false });
+      .defineSlot('body', { minHeight: 120, moveY: true, layout: 'vertical', color: 'surface', showChildOverlays: false });
   }
 }
 

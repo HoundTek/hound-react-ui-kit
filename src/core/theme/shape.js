@@ -102,7 +102,11 @@ function resolveShapeLayers(layersSpec, shape) {
 function resolveBoxShape(builder, theme) {
   const corner = theme?.getCornerType() || 'g1';
   const shape = builder._shape || 'rect';
-  const layersSpec = theme?.getShapeLayers(builder._styleRole) || null;
+  // 仅声明了组件角色或基础形状的 Box 参与层规范解析：
+  // 未声明者不受主题层规范影响（避免 default 角色半径波及全部布局 Box）
+  const layersSpec = (builder._styleRole || builder._shape)
+    ? theme?.getShapeLayers(builder._styleRole) || null
+    : null;
 
   const selfStyle = {};
   const shells = [];

@@ -16,6 +16,7 @@ import { I18nProvider, I18nContext, useText, useI18n } from './i18n/i18n-react';
 import Theme from './theme/theme';
 import { ThemeProvider, ThemeContext, useTheme } from './theme/theme-react';
 import { resizeEffectRegistry, resolveResizeEffect } from './theme/resize-effects';
+import { cornerStyle, supportsCornerShape, CAPSULE_RADIUS } from './theme/shape';
 import {
   TextCell, ToggleCell,
   CloseButtonCell,
@@ -54,6 +55,9 @@ export {
   useTheme,
   resizeEffectRegistry,
   resolveResizeEffect,
+  cornerStyle,
+  supportsCornerShape,
+  CAPSULE_RADIUS,
   // 核心预设（基础构件）
   TextCell,
   ToggleCell,

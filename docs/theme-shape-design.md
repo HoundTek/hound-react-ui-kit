@@ -26,6 +26,11 @@
 |------|------|
 | `inset` | 本层与向外一层的间距（px）。第 0 层 inset 恒为 0 |
 | `radius` | 本层圆角尺寸 |
+| `color`（可选） | 本层壳的填充颜色角色（不声明则该层壳不填充，仅参与圆角递推） |
+| `opacity`（可选） | 本层壳的填充不透明度 |
+
+包裹层壳（第 1 层起）在渲染时映射为**绝对定位逐层内缩的视觉壳**（pointer-events: none，
+位于内容之下）：纯视觉呈现，不参与 reflow 计算，布局树与拖拽/滚动机制不受影响。
 
 `radius` 支持两种声明方式：
 
@@ -46,8 +51,8 @@
 G2 的实现按运行时能力**分级降级**（与尺寸变化特效同一思路，见 theme-i18n-design.md「可降级」）：
 
 1. 首选 `corner-shape: squircle`（CSS Backgrounds 4，能力检测 `CSS.supports('corner-shape: squircle')`）
-2. 回退 `clip-path: path(...)` / SVG mask 的超椭圆路径（按 radius 与盒尺寸生成）
-3. 最终降级为 `border-radius`（G1 呈现，功能不受影响）
+2.（保留）`clip-path: path(...)` / SVG mask 的超椭圆路径——依赖盒像素尺寸，首版未启用
+3. 降级为 `border-radius`（G1 呈现，功能不受影响）
 
 主题只声明 `{ corner: 'g2' }`，不感知实现路径；实现解析由形状渲染注册表完成（见「解析与渲染」）。
 
@@ -122,14 +127,18 @@ Cell 侧的声明（不感知具体取值）：
 ```js
 // Cell 类型作者在构造函数中声明形状需求
 this.shape('capsule')            // 基础形状：rect | capsule | circle
+    .styleRole('button')         // 组件角色：主题包裹层规范（shape.layers）的查询键
     .color('primary')            // 颜色角色
     .material('frosted');        // 材质
 ```
 
+未声明 `styleRole` 与 `shape` 的 Box 不参与层规范解析（避免 `default` 角色的圆角波及全部布局 Box）。
+
 ## 解析与渲染
 
 - **形状渲染注册表**：与 resize-effects 同构。渲染层按 `corner` 类型从注册表解析实现策略（g1 → border-radius；g2 → corner-shape / clip-path / 降级），未识别类型降级为 g1
-- **注入时机**：形状与普适配置经 ThemeProvider 注入，Box 内容层渲染时读取当前主题的形状描述，把层规范解析为具体 CSS（borderRadius / cornerShape / padding inset / clip-path）
+- **注入时机**：形状与普适配置经 ThemeProvider 注入，Box 内容层渲染时读取当前主题的形状描述，把层规范解析为具体 CSS（borderRadius / cornerShape / clip-path / padding inset）
+- **实现落点**（首版，对应 `src/core/theme/shape.js`）：Box 元素自身承担第 0 层（圆角、形状、材质、颜色角色、不透明度）；第 1 层起渲染为绝对定位内缩的视觉壳（pointer-events: none，位于内容之下，不参与 reflow）；浮动视口的包壳（floating-shell）同步应用第 0 层圆角，保证 overflow 裁剪与圆角对齐
 - **响应式**：主题切换广播变更，订阅方重新解析形状描述并重新呈现；对 Cell 透明
 - **单向性**：主题流向 Cell/Box，Cell 不反向修改主题
 
