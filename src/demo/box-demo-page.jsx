@@ -430,7 +430,7 @@ const _builder = new BoxBuilder("@demo")
  * 固定位置/尺寸，内部为完整 Box 布局树（标题栏 + 可滚动正文），拖拽分界线同样可用。
  * movable(true).resizable(true) 开启窗口移动与缩放：拖动标题栏（dragHandle）移动窗口，
  * 拖动边缘/角手柄调整尺寸。窗口层级由系统按"父子窗口树 + 可操作窗口"管理
- *（见 floating-window-tree-design.md，下文的 _floatingModal 为其子窗口演示）；
+ *（见 docs/floating-window-tree-design.md，下文的 _floatingModal 为其子窗口演示）；
  * 关闭按钮为通用浮动关闭按钮组件（FloatingCloseButton 经 content 注入标题栏右上角）。
  * @type {BoxBuilder}
  */
@@ -608,7 +608,7 @@ const _floatingComplex = new BoxBuilder('@float/complex')
 
 /**
  * 子窗口演示：child(_floatingWin) 声明 @float/modal 为 @float/win 的子窗口——
- * 恒层叠于父窗口之上（树模型父子关系，见 floating-window-tree-design.md）。
+ * 恒层叠于父窗口之上（树模型父子关系，见 docs/floating-window-tree-design.md）。
  * 遮罩完全由可操作窗口决定：下方 setOperable(_floatingWin) 将 @float/win 设为可操作，
  * 出现单一遮罩，仅放行 @float/win 及其子窗口链（即本窗口），其余窗口与页面被遮住。
  * @type {BoxBuilder}

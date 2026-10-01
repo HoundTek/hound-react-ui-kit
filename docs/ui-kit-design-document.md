@@ -273,7 +273,7 @@ const win = new BoxBuilder('@float/win')
 - `WindowCell`：独立窗口（movable + resizable + 标题栏 `dragHandle` 拖拽点 + closable + title/body 插槽）
 
 配套机制：
-- 浮动窗口层级采用"父子窗口树 + 可操作窗口"模型（见 box/floating-window-tree-design.md）：
+- 浮动窗口层级采用"父子窗口树 + 可操作窗口"模型（见 floating-window-tree-design.md）：
   窗口关系为树状父子结构，遮罩完全由可操作窗口（`setOperable`/`clearOperable`/`operable()`）决定
 - `CellBaseBuilder` 增加浮动视口系列 Box 方法委托（floatingViewport/posX/posY/zIndex/child/setParent/
   operable/movable/resizable/dragHandle/closable），Cell 类型作者可在构造函数声明浮动形态；位置/尺寸/层级由页面作者在实例上链式覆盖

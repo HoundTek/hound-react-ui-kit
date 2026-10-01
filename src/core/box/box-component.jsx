@@ -1216,7 +1216,7 @@ const CornerLayer = ({ builder }) => {
 // ===========================================================================
 
 // 浮动层样式常量：集中定义，不散落硬编码；最终由主题系统接管具体样式定义
-// （设计约束见 ui-kit-design-document.md「样式与主题系统」）
+// （设计约束见 docs/ui-kit-design-document.md「样式与主题系统」）
 const DEFAULT_FLOATING_ZINDEX = 2000;
 // 容器持有高于平铺层拖拽手柄（zIndex 1000~1200）的 z-index，创建独立层叠上下文：
 // 保证浮动层与遮罩整体位于平铺层（含其 Edge/Corner 手柄）之上
@@ -1896,7 +1896,7 @@ function FloatingWindow({ builder, zIndex }) {
 /**
  * 浮动层组件：统一承载渲染所有浮动视口。
  * - 容器 position: fixed 铺满可视区域且 pointer-events: none，不拦截主内容交互
- * - 层级管理（父子窗口树 + 可操作窗口，见 floating-window-tree-design.md）：
+ * - 层级管理（父子窗口树 + 可操作窗口，见 docs/floating-window-tree-design.md）：
  *   浮动窗口树 _floatingTree 按"父在下、子在上、同层后出现/聚焦居上"组织。
  *   渲染序 = 树先序遍历，可操作子树整体提升到末尾（独占最高连续 z 区间），
  *   zIndex 从 2000 + 1 起按渲染序递增分配

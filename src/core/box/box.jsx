@@ -337,7 +337,7 @@ class BoxBuilder extends Reflowable {
 
   /**
    * 声明本浮动窗口为 parent 的子窗口（树模型父子关系）：本窗口恒层叠于父窗口之上，
-   * 遮罩/可操作窗口语义见 floating-window-tree-design.md。可指定另一个浮动窗口作为父，
+   * 遮罩/可操作窗口语义见 docs/floating-window-tree-design.md。可指定另一个浮动窗口作为父，
    * 或传 null 提升为根级窗口（父 = 根 viewport）。未调用本方法时缺省为根级窗口。
    * @param {BoxBuilder|null} parent 父浮动窗口；null 表示根 viewport
    * @returns {BoxBuilder} self（链式调用）

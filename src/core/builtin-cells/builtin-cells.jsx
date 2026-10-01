@@ -367,7 +367,7 @@ class NotificationCell extends CellBaseBuilder {
  * ModalCell：子窗口对话框预设（浮动视口）。默认固定位置/尺寸、不可移动/缩放；
  * header（单插槽，页眉栏）/body（列表插槽，可滚动）两个插槽由页面作者填充，
  * 关闭按钮由页面作者经 fill 嵌入（如 header 内 fill 一个 CloseButtonCell）。
- * 父子窗口树模型下（见 floating-window-tree-design.md）：作者用 setParent(windowCell)
+ * 父子窗口树模型下（见 docs/floating-window-tree-design.md）：作者用 setParent(windowCell)
  * 声明父窗口（须先挂载父 Cell），需要遮罩时用 setOperable(本 Cell 主挂载 Box) 启用。
  * 位置/尺寸由页面作者在实例上配置（posX/posY/fixedWidth/... 链式覆盖）。
  */
