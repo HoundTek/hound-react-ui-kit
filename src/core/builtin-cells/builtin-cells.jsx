@@ -24,21 +24,8 @@ import CellBaseBuilder from '../cell/cell-base';
 import { useCellData } from '../cell/cell-react';
 import { useText } from '../i18n/i18n-react';
 import { FloatingCloseButton } from '../box/box-component';
-import { useTheme } from '../theme/theme-react';
+import { useTheme, useThemeColor } from '../theme/theme-react';
 import { cornerStyle, CAPSULE_RADIUS } from '../theme/shape';
-
-/**
- * 内容组件取主题颜色角色的 Hook：角色未定义时回退缺省色值（普适配置的颜色解析，
- * 见 docs/theme-shape-design.md；Box 级背景由 ContentLayer 自动解析，本 Hook 供
- * 内容组件内部的元素级用色）
- * @param {string} role 颜色角色
- * @param {string} fallback 缺省色值
- * @returns {string} 色值
- */
-function useThemeColor(role, fallback) {
-  const theme = useTheme();
-  return theme?.resolveColor(role) ?? fallback;
-}
 
 // =========================================================================
 //  基础构件
