@@ -35,6 +35,7 @@ import {
   useThemeColor, useCornerType, useShapeRadius, cornerStyle, CAPSULE_RADIUS,
 } from '../core/ui-kit';
 import { openFloatingDemo, closeFloatingDemo } from './box-demo-page';
+import { createPageNav } from './page-nav';
 
 // =========================================================================
 //  内容组件
@@ -830,6 +831,7 @@ function buildCellDemo() {
   // fill 内联实例化：fill 返回 this，可链式嵌套构造整棵树
   // title/text/items 中的 i18n key 由视图组件用 useText 翻译（语言切换时自动更新）
   const page = new PageCell('cell-demo').fill('_default', [
+    createPageNav('workbench'),
     new HeaderCell('header').fill('_default', [
       new LogoCell('logo'),
       new NavCell('nav'),

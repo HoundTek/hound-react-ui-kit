@@ -1,13 +1,17 @@
 /**
- * @file chart.jsx —— ChartCell（图表）预设
+ * @file chart.jsx —— ChartCell（图表）高级 Cell
  *
- * 简单图表：type 为 'bar'（横向排布柱体，柱高 = value/max*100%）或
- * 'line'（SVG polyline 折线，viewBox 100x50 保持比例）；data 为数值数组，
- * labels 为列标注，max 取 data 最大值（0 时按 1）。数据为空时显示 '—'。
+ * 展示族：图表（见 docs/basic-cell-design.md）。
+ * 双实现机制（kind: 'chart'）：组装 fallback（ChartAssembledView）自身即组装
+ * 实现——type 为 'bar' 时横向排布柱体（柱高 = value/max*100%），'line' 时渲染
+ * SVG polyline 折线（viewBox 100x50 保持比例）；数据为空时显示 '—'。主题可经
+ * theme.components.chart 整体重写。
+ *
+ * Schema（数据契约，与旧版一致）：type / data / labels / color。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
@@ -57,11 +61,11 @@ function ChartLineLabelView({ label }) {
 }
 
 /**
- * 图表视图：订阅 type/data/labels/color，按类型渲染柱体或折线。
+ * 图表组装视图（fallback）：订阅 type/data/labels/color，按类型渲染柱体或折线。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function ChartView({ cell }) {
+function ChartAssembledView({ cell }) {
   const type = useCellData(cell, 'type');
   const data = useCellData(cell, 'data') || [];
   const labels = useCellData(cell, 'labels') || [];
@@ -115,9 +119,13 @@ function ChartView({ cell }) {
   );
 }
 
+/** kind 'chart' 的实现分发视图 */
+const ChartDispatcher = createImplDispatcher('chart', ChartAssembledView);
+
 /**
- * ChartCell：图表。type 为 'bar'/'line'；data 为数值数组，labels 为列标注
- * （可存 i18n key 或纯文本）；color 为主色；max 自动取 data 最大值（0 时按 1）。
+ * ChartCell：图表（高级 Cell，展示族）。type 为 'bar'/'line'；data 为数值数组，
+ * labels 为列标注（可存 i18n key 或纯文本）；color 为主色；max 自动取 data
+ * 最大值（0 时按 1）。呈现实现由 kind 'chart' 分发。
  */
 class ChartCell extends CellBaseBuilder {
   /**
@@ -132,8 +140,8 @@ class ChartCell extends CellBaseBuilder {
         labels: { type: 'array', default: [] },
         color: { type: 'string', default: '#4a90d9' },
       })
-      .renderContent(ChartView);
+      .renderContent(ChartDispatcher);
   }
 }
 
-export { ChartCell };
+export { ChartCell, ChartAssembledView };

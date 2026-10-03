@@ -1,13 +1,16 @@
 /**
- * @file process.jsx —— ProcessCell（步骤条）预设
+ * @file process.jsx —— ProcessCell（步骤条）高级 Cell
  *
- * 横向步骤条：steps 为 [{id, title}] 列表，current 为当前步骤下标。
- * 已完成/当前步骤圆点为主色、未完成为灰色；步与步之间连线，
- * 已走过段为主色；当前步骤标题加粗。
+ * 展示族：步骤条（见 docs/basic-cell-design.md）。
+ * 双实现机制（kind: 'process'）：组装 fallback（ProcessAssembledView）横向等分
+ * 渲染各步骤圆点与连线（已完成/当前为主色，未完成为灰色）；主题可经
+ * theme.components.process 整体重写。
+ *
+ * Schema（数据契约，与旧版一致）：steps（[{id, title}]）/ current。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor, useCornerType } from '../core/theme/theme-react';
 import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
@@ -51,23 +54,30 @@ function StepItem({ item, index, total, current }) {
 }
 
 /**
- * 步骤条视图：订阅 steps/current，横向等分渲染各步骤与连线。
+ * 步骤条组装视图（fallback）：订阅 steps/current，横向等分渲染各步骤与连线。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function ProcessView({ cell }) {
+function ProcessAssembledView({ cell }) {
   const steps = useCellData(cell, 'steps') || [];
   const current = useCellData(cell, 'current');
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', padding: '0 12px' }}>
+    <div style={{
+      width: '100%', height: '100%', boxSizing: 'border-box',
+      display: 'flex', alignItems: 'center', padding: '0 12px',
+    }}>
       {steps.map((s, i) => <StepItem key={s.id} item={s} index={i} total={steps.length} current={current} />)}
     </div>
   );
 }
 
+/** kind 'process' 的实现分发视图 */
+const ProcessDispatcher = createImplDispatcher('process', ProcessAssembledView);
+
 /**
- * ProcessCell：步骤条。steps 为 [{id, title}]，current 为当前步骤下标
- * （从 0 开始）；已完成/当前步骤圆点为主色，连线已走过段为主色。
+ * ProcessCell：步骤条（高级 Cell，展示族）。steps 为 [{id, title}]，current 为
+ * 当前步骤下标（从 0 开始）；已完成/当前步骤圆点为主色，连线已走过段为主色。
+ * 呈现实现由 kind 'process' 分发。
  */
 class ProcessCell extends CellBaseBuilder {
   /**
@@ -80,8 +90,8 @@ class ProcessCell extends CellBaseBuilder {
         steps: { type: 'array', default: [] },
         current: { type: 'number', default: 0 },
       })
-      .renderContent(ProcessView);
+      .renderContent(ProcessDispatcher);
   }
 }
 
-export { ProcessCell };
+export { ProcessCell, ProcessAssembledView };

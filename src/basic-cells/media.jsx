@@ -1,5 +1,8 @@
 /**
- * @file media.jsx —— MediaCell（媒体）预设
+ * @file media.jsx —— MediaCell（媒体）基础 Cell
+ *
+ * 基础种：展示原语「非文本内容」（img/video/audio），文本无法表达，
+ * 不依赖任何其他 Cell 的实现（见 docs/basic-cell-design.md）。
  *
  * 展示图片/视频/音频：type 决定渲染元素（image 用 img，video/audio 用
  * 原生 controls），src 为资源地址，caption（i18n key 或纯文本）非空时

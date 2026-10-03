@@ -1,68 +1,59 @@
 /**
- * @file search.jsx —— SearchCell（搜索框）预设
+ * @file search.jsx —— SearchCell（搜索框）高级 Cell
  *
- * 搜索输入框：placeholder 存 i18n key 或纯文本（默认「搜索…」），
- * value 为输入内容；按 Enter 或点击右侧「搜索」按钮触发搜索。
- * 页面作者经 onSearch(handler) 注入回调（返回 this），触发时以
- * 当前输入值调用。
+ * 输入族：搜索框 = 文本输入 + 搜索按钮（见 docs/basic-cell-design.md）。
+ * 组装 fallback（SearchAssembledView）：InputImpl + ButtonImpl「搜索」，
+ * Enter 或点击按钮触发 cell._onSearch(value)。主题可经
+ * theme.components.search 整体重写呈现实现。
+ *
+ * Schema（数据契约，与旧版一致）：placeholder / value。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
-import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
-import { cornerStyle } from '../core/theme/shape';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { useThemeColor } from '../core/theme/theme-react';
+import { InputImpl, ButtonImpl } from '../basic-cells';
 
 /**
- * 搜索视图：订阅 placeholder/value；input 受控写入 value，
- * Enter 或点击「搜索」按钮时调用 cell._onSearch(value)。
+ * 搜索组装视图（fallback）：InputImpl 受控写入 value，Enter（onSubmit）
+ * 或点击「搜索」按钮时调用 cell._onSearch(value)。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function SearchView({ cell }) {
-  const placeholder = useText(useCellData(cell, 'placeholder'));
+function SearchAssembledView({ cell }) {
+  const placeholder = useCellData(cell, 'placeholder');
   const value = useCellData(cell, 'value') || '';
-  const corner = useCornerType();
-  const controlR = useShapeRadius('control', 4);
   const surface = useThemeColor('surface', '#fff');
-  const text = useThemeColor('text', '#333');
-  const primary = useThemeColor('primary', '#4a90d9');
-  const onPrimary = useThemeColor('on-primary', '#fff');
   const doSearch = () => {
     if (cell._onSearch) cell._onSearch(value);
   };
   return (
     <div style={{
       width: '100%', height: '100%', display: 'flex', alignItems: 'center',
-      padding: '0 8px', gap: 8, backgroundColor: surface,
+      padding: '0 8px', gap: 8, backgroundColor: surface, boxSizing: 'border-box',
     }}>
-      <input
-        value={value}
-        placeholder={placeholder}
-        onChange={e => cell.setValue(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') doSearch(); }}
-        style={{
-          flex: 1, minWidth: 0, height: '100%', border: 'none', outline: 'none',
-          fontSize: 13, color: text, backgroundColor: 'transparent',
-        }}
-      />
-      <div
-        onClick={doSearch}
-        style={{
-          flexShrink: 0, padding: '0 12px', height: 28, display: 'flex',
-          alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-          backgroundColor: primary, color: onPrimary, fontSize: 13,
-          ...cornerStyle(corner, controlR), userSelect: 'none',
-        }}
-      >搜索</div>
+      <div style={{ flex: 1, minWidth: 0, height: 28 }}>
+        <InputImpl
+          value={value}
+          placeholder={placeholder}
+          fontSize={13}
+          onChange={v => cell.setValue(v)}
+          onSubmit={doSearch}
+        />
+      </div>
+      <ButtonImpl label="搜索" size="small" onPress={doSearch} />
     </div>
   );
 }
 
+/** kind 'search' 的实现分发视图 */
+const SearchDispatcher = createImplDispatcher('search', SearchAssembledView);
+
 /**
- * SearchCell：搜索框。placeholder 存 i18n key 或纯文本（默认「搜索…」），
- * value 为输入内容；onSearch(handler) 注入回调，Enter 或点击按钮时
- * 以当前输入值触发。固定高 40。
+ * SearchCell：搜索框（高级 Cell，输入族）。placeholder 存 i18n key 或纯文本
+ *（默认「搜索…」），value 为输入内容；onSearch(handler) 注入回调，Enter 或
+ * 点击按钮时以当前输入值触发。固定高 40。
+ * 呈现实现由 kind 'search' 分发（缺省为组装 fallback）。
  */
 class SearchCell extends CellBaseBuilder {
   /**
@@ -75,7 +66,7 @@ class SearchCell extends CellBaseBuilder {
         placeholder: { type: 'string', default: '搜索…' },
         value: { type: 'string', default: '' },
       })
-      .renderContent(SearchView);
+      .renderContent(SearchDispatcher);
   }
 
   /**
@@ -89,4 +80,4 @@ class SearchCell extends CellBaseBuilder {
   }
 }
 
-export { SearchCell };
+export { SearchCell, SearchAssembledView };

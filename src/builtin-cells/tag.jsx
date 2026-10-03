@@ -1,61 +1,50 @@
 /**
- * @file tag.jsx —— TagCell（标签）预设
+ * @file tag.jsx —— TagCell（标签）高级 Cell
  *
- * 展示小标签：text 存 i18n key 或纯文本，color 为主题色（自动派生浅底与边框），
- * size 控制尺寸档位，closable 时右侧渲染 ✕（点击置 visible=false 隐藏）。
+ * 按钮族：标签 = 数据色按钮（见 docs/basic-cell-design.md）。
+ * 组装 fallback：ButtonImpl（size 'small'，color 传数据色覆盖变体配色）；
+ * closable 时追加 ✕ 按钮（点击置 visible=false 隐藏）；visible=false
+ * 时整体不渲染。主题可经 theme.components.tag 整体重写呈现实现。
+ *
+ * Schema（数据契约，与旧版一致）：visible / text / color / size / closable。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
-import { useText } from '../core/i18n/i18n-react';
-import { useCornerType, useShapeRadius } from '../core/theme/theme-react';
-import { cornerStyle } from '../core/theme/shape';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { ButtonImpl } from '../basic-cells';
+import { GlyphClose } from '../basic-cells/glyphs';
 
 /**
- * 标签视图：订阅 text/color/size/closable/visible；closable 时点击 ✕ 隐藏。
+ * 标签组装视图（fallback）：数据色 ButtonImpl + 可选 ✕ 关闭按钮。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element|null} 视图元素
  */
-function TagView({ cell }) {
+function TagAssembledView({ cell }) {
   const visible = useCellData(cell, 'visible');
-  const text = useText(useCellData(cell, 'text'));
+  const text = useCellData(cell, 'text');
   const closable = useCellData(cell, 'closable');
   const color = useCellData(cell, 'color');
-  const size = useCellData(cell, 'size');
-  const corner = useCornerType();
-  const controlR = useShapeRadius('control', 4);
   if (!visible) return null;
-  const sizeMap = {
-    small: { fontSize: 10, height: 18, padding: '0 6px' },
-    default: { fontSize: 12, height: 22, padding: '0 8px' },
-    large: { fontSize: 14, height: 30, padding: '0 12px' },
-  };
-  const s = sizeMap[size] || sizeMap.default;
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4, height: s.height, padding: s.padding,
-        ...cornerStyle(corner, controlR), fontSize: s.fontSize, lineHeight: 1,
-        backgroundColor: `${color}1f`, color, border: `1px solid ${color}55`,
-        userSelect: 'none', whiteSpace: 'nowrap',
-      }}>
-        {text}
-        {closable ? (
-          <span
-            onClick={() => cell.setVisible(false)}
-            style={{ cursor: 'pointer', opacity: 0.7, padding: '0 2px' }}
-          >
-            ✕
-          </span>
-        ) : null}
-      </div>
+    <div style={{
+      width: '100%', height: '100%', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', gap: 4,
+    }}>
+      <ButtonImpl label={text} type="default" size="small" color={color} />
+      {closable ? (
+        <ButtonImpl label="" icon={<GlyphClose size={12} />} type="default" size="small" onPress={() => cell.setVisible(false)} />
+      ) : null}
     </div>
   );
 }
 
+/** kind 'tag' 的实现分发视图 */
+const TagDispatcher = createImplDispatcher('tag', TagAssembledView);
+
 /**
- * TagCell：标签。text 存 i18n key 或纯文本；size 为 small/default/large；
- * closable 开启时显示 ✕，点击隐藏（visible=false）。
+ * TagCell：标签（高级 Cell，按钮族）。text 存 i18n key 或纯文本；color 为
+ * 数据色；closable 开启时显示 ✕，点击隐藏（visible=false）。
+ * 呈现实现由 kind 'tag' 分发（缺省为按钮组装版）。
  */
 class TagCell extends CellBaseBuilder {
   /**
@@ -71,8 +60,8 @@ class TagCell extends CellBaseBuilder {
         size: { type: 'string', default: 'default' },
         closable: { type: 'boolean', default: false },
       })
-      .renderContent(TagView);
+      .renderContent(TagDispatcher);
   }
 }
 
-export { TagCell };
+export { TagCell, TagAssembledView };

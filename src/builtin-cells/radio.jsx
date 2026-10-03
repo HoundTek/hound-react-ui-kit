@@ -1,56 +1,45 @@
 /**
- * @file radio.jsx —— RadioCell（单选）预设
+ * @file radio.jsx —— RadioCell（单选）高级 Cell
  *
- * 单行单选：label 存 i18n key 或纯文本，value 为该项值，checked 为选中状态，
- * group 为所属组名（同组互斥由页面作者处理）。点击整行 setChecked(true)，
- * 选中时圆点以主色填充。
+ * 按钮族：单选 = 按压 + 状态标记（见 docs/basic-cell-design.md）。
+ * 组装 fallback：OptionImpl（按钮族共享实现组件，shape 'radio'，共享
+ * SVG 单选标记），点击整行 setChecked(true)（单选语义：只能置中，同组
+ * 互斥由页面作者处理）。
+ * 主题可经 theme.components.radio 整体重写呈现实现。
+ *
+ * Schema（数据契约，与旧版一致）：label / value / checked / group。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
-import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType } from '../core/theme/theme-react';
-import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { OptionImpl } from './checkbox';
 
 /**
- * 单选视图：订阅 label/checked，点击整行置为选中（数据驱动）。
+ * 单选组装视图（fallback）：OptionImpl（shape 'radio'，SVG 单选标记），
+ * 点击置为选中。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function RadioView({ cell }) {
-  const label = useText(useCellData(cell, 'label'));
+function RadioAssembledView({ cell }) {
+  const label = useCellData(cell, 'label');
   const checked = useCellData(cell, 'checked');
-  const corner = useCornerType();
-  const text = useThemeColor('text', '#333');
-  const primary = useThemeColor('primary', '#4a90d9');
-  const surface = useThemeColor('surface', '#fff');
-  const borderColor = useThemeColor('border', '#ccc');
-  const onPrimary = useThemeColor('on-primary', '#fff');
   return (
-    <div
-      onClick={() => cell.setChecked(true)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px',
-        width: '100%', height: '100%', cursor: 'pointer', userSelect: 'none',
-        fontSize: 13, color: text,
-      }}
-    >
-      <div style={{
-        width: 16, height: 16, ...cornerStyle(corner, CAPSULE_RADIUS), flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        backgroundColor: checked ? primary : surface,
-        border: checked ? `1px solid ${primary}` : `1px solid ${borderColor}`,
-      }}>
-        {checked ? <div style={{ width: 6, height: 6, ...cornerStyle(corner, CAPSULE_RADIUS), backgroundColor: onPrimary }} /> : null}
-      </div>
-      {label}
-    </div>
+    <OptionImpl
+      label={label}
+      checked={checked}
+      shape="radio"
+      onToggle={() => cell.setChecked(true)}
+    />
   );
 }
 
+/** kind 'radio' 的实现分发视图 */
+const RadioDispatcher = createImplDispatcher('radio', RadioAssembledView);
+
 /**
- * RadioCell：单选。value 为该项的值，checked 为选中状态，
- * group 为组名；label 存 i18n key 或纯文本。点击置为选中（主色圆点）。
+ * RadioCell：单选（高级 Cell，按钮族）。value 为该项的值，checked 为选中
+ * 状态，group 为组名；label 存 i18n key 或纯文本。点击置为选中。
+ * 呈现实现由 kind 'radio' 分发（缺省为按钮组装版）。
  */
 class RadioCell extends CellBaseBuilder {
   /**
@@ -65,8 +54,8 @@ class RadioCell extends CellBaseBuilder {
         checked: { type: 'boolean', default: false },
         group: { type: 'string', default: '' },
       })
-      .renderContent(RadioView);
+      .renderContent(RadioDispatcher);
   }
 }
 
-export { RadioCell };
+export { RadioCell, RadioAssembledView };

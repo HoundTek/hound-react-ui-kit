@@ -1,13 +1,16 @@
 /**
- * @file timeline.jsx —— TimelineCell（时间线）预设
+ * @file timeline.jsx —— TimelineCell（时间线）高级 Cell
  *
- * 时间线列表：items 为 [{id, time, title, desc}]（文本字段可存 i18n key 或
- * 纯文本）；每项左侧渲染竖线 + 主色圆点，右侧展示 time/title/desc。
- * 帧内纵向滚动（moveY true）。
+ * 展示族：时间线（见 docs/basic-cell-design.md）。
+ * 双实现机制（kind: 'timeline'）：组装 fallback（TimelineAssembledView）为每项
+ * 渲染左侧竖线 + 主色圆点与右侧 time/title/desc；主题可经
+ * theme.components.timeline 整体重写。
+ *
+ * Schema（数据契约，与旧版一致）：items（[{id, time, title, desc}]）。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor, useCornerType } from '../core/theme/theme-react';
 import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
@@ -41,11 +44,11 @@ function TimelineItemView({ item }) {
 }
 
 /**
- * 时间线视图：订阅 items，渲染时间线列表。
+ * 时间线组装视图（fallback）：订阅 items，渲染时间线列表。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function TimelineView({ cell }) {
+function TimelineAssembledView({ cell }) {
   const items = useCellData(cell, 'items') || [];
   return (
     <div style={{ width: '100%', height: '100%' }}>
@@ -56,9 +59,13 @@ function TimelineView({ cell }) {
   );
 }
 
+/** kind 'timeline' 的实现分发视图 */
+const TimelineDispatcher = createImplDispatcher('timeline', TimelineAssembledView);
+
 /**
- * TimelineCell：时间线。items 为 [{id, time, title, desc}]（time/title/desc 可存
- * i18n key 或纯文本）；每项左侧竖线 + 主色圆点，右侧展示内容。
+ * TimelineCell：时间线（高级 Cell，展示族）。items 为 [{id, time, title, desc}]
+ * （time/title/desc 可存 i18n key 或纯文本）；每项左侧竖线 + 主色圆点，右侧
+ * 展示内容。帧内纵向滚动（moveY true）。呈现实现由 kind 'timeline' 分发。
  */
 class TimelineCell extends CellBaseBuilder {
   /**
@@ -70,8 +77,8 @@ class TimelineCell extends CellBaseBuilder {
       .schema({
         items: { type: 'array', default: [] },
       })
-      .renderContent(TimelineView);
+      .renderContent(TimelineDispatcher);
   }
 }
 
-export { TimelineCell };
+export { TimelineCell, TimelineAssembledView };

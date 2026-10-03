@@ -1,5 +1,8 @@
 /**
- * @file panel.jsx —— PanelCell（面板）预设
+ * @file panel.jsx —— PanelCell（面板）基础 Cell
+ *
+ * 基础种：结构原语「静态容器」（固定结构的 slot 组合），不依赖任何其他
+ * Cell 的实现（见 docs/basic-cell-design.md）。
  *
  * 组合型容器预设：header（单插槽，页眉栏）承标题/操作区，默认插槽承接主体内容。
  * 与 CardCell 的区别：更轻量的视觉（无页眉底色，边框由父容器或主题决定），

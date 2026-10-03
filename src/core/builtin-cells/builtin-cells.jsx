@@ -32,26 +32,61 @@ import { cornerStyle, CAPSULE_RADIUS } from '../theme/shape';
 // =========================================================================
 
 /**
+ * 语义字号档（MD3 type scale 摘选）：size 传字符串档名时映射为
+ * 字号/行高/字重；传数值时行为不变（向后兼容）。
+ * @type {Object<string, {fontSize: number, lineHeight: number, fontWeight: number}>}
+ */
+const TEXT_SCALE = {
+  'title-large': { fontSize: 22, lineHeight: 28, fontWeight: 500 },
+  'title': { fontSize: 16, lineHeight: 24, fontWeight: 500 },
+  'body': { fontSize: 14, lineHeight: 20, fontWeight: 400 },
+  'label': { fontSize: 12, lineHeight: 16, fontWeight: 500 },
+};
+
+/**
+ * 文本实现组件（纯受控，基础 Cell「文本」的组装件，见 docs/basic-cell-design.md）。
+ * text 经 useText 渲染（i18n key 或纯文本）；color 支持颜色角色名——先经主题
+ * resolveColor 解析，未命中按字面色值（向后兼容）；size 除数值字号外接受
+ * 语义档（'title-large' / 'title' / 'body' / 'label'，MD3 type scale 摘选）。
+ * @param {Object} props
+ * @param {string} props.text 文本（i18n key 或纯文本）
+ * @param {number|string} [props.size=14] 字号（px 数值）或语义档名
+ * @param {string} [props.color] 颜色角色名（如 'text-muted'）或字面色值
+ * @param {boolean} [props.bold=false] 是否加粗（语义档自带字重时被档覆盖）
+ * @param {'left'|'center'|'right'} [props.align='left'] 对齐
+ * @returns {JSX.Element} 文本元素
+ */
+function TextImpl({ text, size = 14, color, bold = false, align = 'left' }) {
+  const content = useText(text);
+  const theme = useTheme();
+  const resolvedColor = (color && theme?.resolveColor(color)) || color;
+  const scale = typeof size === 'string' ? TEXT_SCALE[size] : null;
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: { left: 'flex-start', center: 'center', right: 'flex-end' }[align] || 'flex-start',
+      padding: '0 12px', width: '100%', height: '100%', boxSizing: 'border-box',
+      fontSize: scale ? scale.fontSize : size, color: resolvedColor,
+      fontWeight: scale ? scale.fontWeight : (bold ? 'bold' : 'normal'),
+      ...(scale ? { lineHeight: `${scale.lineHeight}px` } : {}),
+      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+    }}>
+      {content}
+    </div>
+  );
+}
+
+/**
  * 文本视图：订阅 text（i18n key 或纯文本）与排版字段（size/color/bold/align）。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
 function TextView({ cell }) {
-  const text = useText(useCellData(cell, 'text'));
+  const text = useCellData(cell, 'text');
   const size = useCellData(cell, 'size');
   const color = useCellData(cell, 'color');
   const bold = useCellData(cell, 'bold');
   const align = useCellData(cell, 'align');
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: { left: 'flex-start', center: 'center', right: 'flex-end' }[align] || 'flex-start',
-      padding: '0 12px', width: '100%', height: '100%',
-      fontSize: size, color, fontWeight: bold ? 'bold' : 'normal',
-      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-    }}>
-      {text}
-    </div>
-  );
+  return <TextImpl text={text} size={size} color={color} bold={bold} align={align} />;
 }
 
 /**
@@ -100,7 +135,7 @@ function ButtonView({ cell }) {
         }}
         style={{
           height: 30, padding: '0 16px', cursor: disabled ? 'not-allowed' : 'pointer',
-          border: `1px solid ${primary}`,
+          boxSizing: 'border-box', border: `1px solid ${primary}`,
           ...cornerStyle(corner, controlR),
           background: disabled ? (theme?.resolveColor('surface-muted') ?? '#f0f0f0') : primary,
           color: disabled ? (theme?.resolveColor('text-muted') ?? '#999') : (theme?.resolveColor('on-primary') ?? '#fff'),
@@ -169,6 +204,7 @@ function InputView({ cell }) {
         onChange={e => cell.setValue(e.target.value)}
         style={{
           padding: '4px 8px', border: `1px solid ${border}`, fontSize: 13,
+          boxSizing: 'border-box', width: '100%',
           ...cornerStyle(corner, controlR),
         }}
       />
@@ -276,12 +312,15 @@ function ListView({ cell }) {
           style={{
             display: 'flex', alignItems: 'center', padding: '0 10px',
             height: 34, fontSize: 13, cursor: 'pointer', userSelect: 'none',
+            boxSizing: 'border-box',
             color: item.id === selected ? (theme?.resolveColor('on-primary') ?? '#fff') : (theme?.resolveColor('text') ?? '#333'),
             backgroundColor: item.id === selected ? active : itemBg,
             borderBottom: `1px solid ${border}`,
           }}
         >
-          {item.title}
+          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+            {item.title}
+          </span>
         </div>
       ))}
     </div>
@@ -412,7 +451,7 @@ class ModalCell extends CellBaseBuilder {
     this.floatingViewport()
       .movable(false).resizable(false)
       .fixedWidth(320).fixedHeight(200)
-      .styleRole('window').color('surface').layout('vertical')
+      .styleRole('window').layout('vertical')
       .defineSlot('header', {
         fixedHeight: 44, color: 'surface-muted',
         layout: 'horizontal', moveX: false, moveY: false,
@@ -437,7 +476,7 @@ class WindowCell extends CellBaseBuilder {
     this.floatingViewport()
       .movable(true).resizable(true)
       .fixedWidth(320).fixedHeight(200)
-      .styleRole('window').color('surface').layout('vertical')
+      .styleRole('window').layout('vertical')
       .defineSlot('title', {
         fixedHeight: 36, color: 'primary', dragHandle: true,
         layout: 'horizontal', moveX: false, moveY: false,
@@ -446,4 +485,4 @@ class WindowCell extends CellBaseBuilder {
   }
 }
 
-export { TextCell, ButtonCell, InputCell, ToggleCell, ListCell, CloseButtonCell, NotificationCell, ModalCell, WindowCell };
+export { TextCell, TextImpl, ButtonCell, InputCell, ToggleCell, ListCell, CloseButtonCell, NotificationCell, ModalCell, WindowCell };

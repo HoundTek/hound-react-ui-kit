@@ -1,23 +1,28 @@
 /**
- * @file builtin-cells 预设 Cell 聚合出口。
- *        将 src/builtin-cells/ 下全部 75 个预设 Cell 统一导出，供 ui-kit.jsx
+ * @file builtin-cells 高级预设 Cell 聚合出口。
+ *        将 src/builtin-cells/ 下的高级预设 Cell 统一导出，供 ui-kit.jsx
  *        与页面作者按需引入。每个预设文件自包含（继承 CellBaseBuilder，
  *        构造函数配置 Box 结构 + Schema + 内容组件），遵循统一风格约定。
+ *
+ *        两级划分（见 docs/basic-cell-design.md）：基础 Cell（文本/媒体/按钮/
+ *        滑块/输入/面板/列表/窗口，8 种）已提升至 src/basic-cells/；本目录为
+ *        高级预设——可由基础/高级 Cell 的实现组件（XxxImpl）组装（组装
+ *        fallback），也可经实现注册表被主题整体重写（组件级重写）。
  *
  * 分类速览：
  * - 展示：AvatarCell / BadgeCell / TagCell / TitleCell / Text(核心) / DividerCell /
  *         StatCell / IconCell / SkeletonCell / EmptyCell / ResultCell
- * - 交互：ButtonCell / CheckboxCell / SwitchCell / SliderCell / RateCell / StepperCell /
- *         RadioCell / InputCell / TextareaCell / SearchCell / SelectCell / PickerCell /
+ * - 交互：CheckboxCell / SwitchCell / MultiSwitchCell / RateCell / StepperCell /
+ *         RadioCell / TextareaCell / SearchCell / SelectCell / PickerCell /
  *         DatePickerCell / ColorPickerCell / PaginationCell / IndexBarCell / JoyConCell
- * - 列表/数据：ListCell / MenuCell / TableCell / TreeCell / TimelineCell / KanbanCell /
+ * - 列表/数据：MenuCell / TableCell / TreeCell / TimelineCell / KanbanCell /
  *         ChartCell / BarCell / CarouselCell / AccordionCell / BreadcrumbCell / CalendarCell
- * - 容器：CardCell / PanelCell / SectionCell / GroupCell / GridCell / TilingCell /
+ * - 容器：CardCell / SectionCell / GroupCell / GridCell / TilingCell /
  *         DashboardCell / FormCell / FieldCell / ControlCell / SettingsCell / PageCell
  * - 导航：NavBarCell / TabBarCell / TabCell / ProcessCell / OrderCell
  * - 浮层：ToastCell / MessageCell / NoticeCell / AlertCell / PopoverCell / TooltipCell /
  *         DialogCell / ConfirmCell / DrawerCell / FloatingPanelCell
- * - 业务：LoginCell / ProfileCell / ChatCell / UploadCell / MediaCell / EditorCell /
+ * - 业务：LoginCell / ProfileCell / ChatCell / UploadCell / EditorCell /
  *         DocumentCell / LoadingCell
  */
 export { AccordionCell } from './accordion';
@@ -26,7 +31,6 @@ export { AvatarCell } from './avatar';
 export { BadgeCell } from './badge';
 export { BarCell } from './bar';
 export { BreadcrumbCell } from './breadcrumb';
-export { ButtonCell } from './button';
 export { CalendarCell } from './calendar';
 export { CardCell } from './card';
 export { CarouselCell } from './carousel';
@@ -51,21 +55,18 @@ export { GridCell } from './grid';
 export { GroupCell } from './group';
 export { IconCell } from './icon';
 export { IndexBarCell } from './index-bar';
-export { InputCell } from './input';
 export { JoyConCell } from './joycon';
 export { KanbanCell } from './kanban';
-export { ListCell } from './list';
 export { LoadingCell } from './loading';
 export { LoginCell } from './login';
-export { MediaCell } from './media';
 export { MenuCell } from './menu';
 export { MessageCell } from './message';
+export { MultiSwitchCell } from './multi-switch';
 export { NavBarCell } from './nav-bar';
 export { NoticeCell } from './notice';
 export { OrderCell } from './order';
 export { PageCell } from './page';
 export { PaginationCell } from './pagination';
-export { PanelCell } from './panel';
 export { PickerCell } from './picker';
 export { PopoverCell } from './popover';
 export { ProcessCell } from './process';
@@ -79,7 +80,6 @@ export { SectionCell } from './section';
 export { SelectCell } from './select';
 export { SettingsCell } from './settings';
 export { SkeletonCell } from './skeleton';
-export { SliderCell } from './slider';
 export { StatCell } from './stat';
 export { StepperCell } from './stepper';
 export { SwitchCell } from './switch';

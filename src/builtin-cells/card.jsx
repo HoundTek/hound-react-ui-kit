@@ -17,7 +17,7 @@ class CardCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.defaultWidth(260).minHeight(120).color('surface').styleRole('card')
+    this.defaultWidth(260).minHeight(120).styleRole('card')
       .moveY(false).moveX(false).layout('vertical')
       .defineSlot('header', {
         fixedHeight: 44, color: 'surface-muted',

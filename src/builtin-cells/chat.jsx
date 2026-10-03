@@ -1,19 +1,25 @@
 /**
- * @file chat.jsx —— ChatCell（聊天）预设
+ * @file chat.jsx —— ChatCell（聊天）高级 Cell
  *
- * 简易聊天：messages 为 [{id, from, text, mine}]，mine 为 true 时右对齐蓝底白字
- * 气泡、否则灰底左对齐（from 小字）；底部输入行发送消息（按钮/Enter），
- * 追加到 messages 并清空输入。帧内纵向滚动（moveY true）。
+ * 输入族：聊天 = 消息气泡列表 + 底部输入行（见 docs/basic-cell-design.md）。
+ * 组装 fallback（ChatAssembledView）：气泡结构保留（mine 右对齐主色气泡），
+ * 色值全部走主题角色；底部 InputImpl + ButtonImpl「发送」（Enter 同效），
+ * 追加到 messages 并清空输入。主题可经 theme.components.chat 整体重写
+ * 呈现实现。帧内纵向滚动（moveY true）。
+ *
+ * Schema（数据契约，与旧版一致）：messages / inputValue。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
+import { InputImpl, ButtonImpl } from '../basic-cells';
 
 /**
- * 消息气泡：订阅项内 from/text（i18n key 或纯文本），mine 决定对齐与配色。
+ * 消息气泡：订阅项内 from/text（i18n key 或纯文本），mine 决定对齐与配色
+ *（全部走主题角色）。
  * @param {{msg: object}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
@@ -24,6 +30,7 @@ function ChatMessageView({ msg }) {
   const corner = useCornerType();
   const overlayR = useShapeRadius('overlay', 8);
   const otherFromColor = useThemeColor('text-muted', '#999');
+  const mineFromColor = useThemeColor('primary-soft', '#a8d0f5');
   const primaryColor = useThemeColor('primary', '#4a90d9');
   const surfaceMutedColor = useThemeColor('surface-muted', '#f0f0f0');
   const onPrimaryColor = useThemeColor('on-primary', '#fff');
@@ -32,10 +39,12 @@ function ChatMessageView({ msg }) {
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start',
       alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '80%', marginBottom: 8,
+      boxSizing: 'border-box',
     }}>
-      <div style={{ fontSize: 10, color: mine ? '#a8d0f5' : otherFromColor, marginBottom: 2, padding: '0 2px' }}>{from}</div>
+      <div style={{ fontSize: 10, color: mine ? mineFromColor : otherFromColor, marginBottom: 2, padding: '0 2px' }}>{from}</div>
       <div style={{
         padding: '6px 10px', ...cornerStyle(corner, overlayR), fontSize: 13, lineHeight: 1.5,
+        boxSizing: 'border-box', maxWidth: '100%',
         backgroundColor: mine ? primaryColor : surfaceMutedColor, color: mine ? onPrimaryColor : textColor,
         whiteSpace: 'pre-wrap', wordBreak: 'break-word',
       }}>
@@ -46,22 +55,16 @@ function ChatMessageView({ msg }) {
 }
 
 /**
- * 聊天视图：订阅 messages/inputValue，渲染消息列表与输入行。
+ * 聊天组装视图（fallback）：订阅 messages/inputValue，渲染气泡列表与
+ * 底部输入行（InputImpl + ButtonImpl「发送」，Enter 同效）。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function ChatView({ cell }) {
+function ChatAssembledView({ cell }) {
   const messages = useCellData(cell, 'messages') || [];
   const inputValue = useCellData(cell, 'inputValue');
-  const placeholder = useText('输入消息…');
-  const sendLabel = useText('发送');
-  const corner = useCornerType();
-  const controlR = useShapeRadius('control', 4);
   const surfaceColor = useThemeColor('surface', '#ffffff');
   const borderColor = useThemeColor('border', '#eeeeee');
-  const inputBorder = useThemeColor('border', '#cccccc');
-  const primaryColor = useThemeColor('primary', '#4a90d9');
-  const onPrimaryColor = useThemeColor('on-primary', '#fff');
   const send = () => {
     if (!inputValue) return;
     cell.setMessages([...messages, { id: Date.now(), from: 'me', text: inputValue, mine: true }]);
@@ -72,31 +75,30 @@ function ChatView({ cell }) {
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column' }}>
         {messages.map(msg => <ChatMessageView key={msg.id} msg={msg} />)}
       </div>
-      <div style={{ display: 'flex', gap: 6, padding: '8px 10px', borderTop: `1px solid ${borderColor}`, flexShrink: 0 }}>
-        <input
-          value={inputValue}
-          placeholder={placeholder}
-          onChange={e => cell.setInputValue(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') send(); }}
-          style={{ flex: 1, minWidth: 0, padding: '6px 8px', border: `1px solid ${inputBorder}`, ...cornerStyle(corner, controlR), fontSize: 13 }}
-        />
-        <button
-          onClick={send}
-          style={{
-            padding: '6px 14px', border: 'none', ...cornerStyle(corner, controlR), flexShrink: 0,
-            backgroundColor: primaryColor, color: onPrimaryColor, fontSize: 13, cursor: 'pointer',
-          }}
-        >
-          {sendLabel}
-        </button>
+      <div style={{ display: 'flex', gap: 6, padding: '8px 10px', borderTop: `1px solid ${borderColor}`, boxSizing: 'border-box', flexShrink: 0, alignItems: 'center' }}>
+        <div style={{ flex: 1, minWidth: 0, height: 32 }}>
+          <InputImpl
+            value={inputValue}
+            placeholder="输入消息…"
+            fontSize={13}
+            onChange={v => cell.setInputValue(v)}
+            onSubmit={send}
+          />
+        </div>
+        <ButtonImpl label="发送" onPress={send} />
       </div>
     </div>
   );
 }
 
+/** kind 'chat' 的实现分发视图 */
+const ChatDispatcher = createImplDispatcher('chat', ChatAssembledView);
+
 /**
- * ChatCell：聊天。messages 为 [{id, from, text, mine}]（from/text 可存 i18n key
- * 或纯文本）；inputValue 为输入框内容；发送按钮/Enter 追加消息并清空输入。
+ * ChatCell：聊天（高级 Cell，输入族）。messages 为 [{id, from, text, mine}]
+ *（from/text 可存 i18n key 或纯文本）；inputValue 为输入框内容；发送按钮
+ * /Enter 追加消息并清空输入。
+ * 呈现实现由 kind 'chat' 分发（缺省为组装 fallback）。
  */
 class ChatCell extends CellBaseBuilder {
   /**
@@ -109,8 +111,8 @@ class ChatCell extends CellBaseBuilder {
         messages: { type: 'array', default: [] },
         inputValue: { type: 'string', default: '' },
       })
-      .renderContent(ChatView);
+      .renderContent(ChatDispatcher);
   }
 }
 
-export { ChatCell };
+export { ChatCell, ChatAssembledView };

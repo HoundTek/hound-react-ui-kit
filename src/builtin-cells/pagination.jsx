@@ -1,42 +1,29 @@
 /**
- * @file pagination.jsx —— PaginationCell（分页）预设
+ * @file pagination.jsx —— PaginationCell（分页）高级 Cell
  *
- * 分页条：total/pageSize 计算总页数 pages，‹ 上一页 / 页码 / 下一页 ›
- * 三个区段；点击页码写入 current 并调用注入的 _onChange(page) 回调
- * （页面作者经 onChange 注入），边界（首/末页）按钮禁用。当前页主色高亮。
+ * 按钮族：分页 = 按钮行（见 docs/basic-cell-design.md）。
+ * 组装 fallback：ButtonImpl 排成一行（左箭头上一页 / 页码 / 右箭头下一页），
+ * 当前页 type 'primary' 其余 'default'，边界（首/末页）按钮禁用；
+ * 点击写入 current 并调用注入的 _onChange(page) 回调（页面作者经
+ * onChange 注入）。主题可经 theme.components.pagination 整体重写。
+ *
+ * Schema（数据契约，与旧版一致）：total / pageSize / current。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
-import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
-import { cornerStyle } from '../core/theme/shape';
-
-const BTN_BASE = {
-  minWidth: 26, height: 26, padding: '0 6px', boxSizing: 'border-box',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  fontSize: 13, cursor: 'pointer', userSelect: 'none',
-};
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { ButtonImpl } from '../basic-cells';
+import { GlyphChevron } from '../basic-cells/glyphs';
 
 /**
- * 分页视图：订阅 total/pageSize/current，点击页码/翻页写入 current 并回调 _onChange。
+ * 分页组装视图（fallback）：ButtonImpl 页码行，点击写入 current 并回调 _onChange。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function PaginationView({ cell }) {
+function PaginationAssembledView({ cell }) {
   const total = useCellData(cell, 'total');
   const pageSize = useCellData(cell, 'pageSize');
   const current = useCellData(cell, 'current');
-  const border = useThemeColor('border', '#d9d9d9');
-  const surface = useThemeColor('surface', '#ffffff');
-  const text = useThemeColor('text', '#333333');
-  const primary = useThemeColor('primary', '#4a90d9');
-  const onPrimary = useThemeColor('on-primary', '#ffffff');
-  const corner = useCornerType();
-  const controlR = useShapeRadius('control', 4);
-  const btnBase = {
-    ...BTN_BASE, border: `1px solid ${border}`, ...cornerStyle(corner, controlR),
-    backgroundColor: surface, color: text,
-  };
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const go = (page) => {
     if (page < 1 || page > pages) return;
@@ -48,50 +35,45 @@ function PaginationView({ cell }) {
   return (
     <div style={{
       width: '100%', height: '100%', display: 'flex', alignItems: 'center',
-      justifyContent: 'center', gap: 6,
+      justifyContent: 'center', gap: 6, overflowX: 'auto', boxSizing: 'border-box',
     }}>
-      <button
-        type="button"
+      <ButtonImpl
+        label=""
+        icon={<GlyphChevron dir="left" size={12} />}
+        type="default"
+        size="small"
         disabled={current <= 1}
-        onClick={() => go(current - 1)}
-        style={{ ...btnBase, ...(current <= 1 ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
-      >
-        ‹
-      </button>
-      {pageNumbers.map((p) => {
-        const active = p === current;
-        return (
-          <button
-            key={p}
-            type="button"
-            onClick={() => go(p)}
-            style={{
-              ...btnBase,
-              ...(active
-                ? { backgroundColor: primary, borderColor: primary, color: onPrimary }
-                : {}),
-            }}
-          >
-            {p}
-          </button>
-        );
-      })}
-      <button
-        type="button"
+        onPress={() => go(current - 1)}
+      />
+      {pageNumbers.map(p => (
+        <ButtonImpl
+          key={p}
+          label={String(p)}
+          type={p === current ? 'primary' : 'default'}
+          size="small"
+          onPress={() => go(p)}
+        />
+      ))}
+      <ButtonImpl
+        label=""
+        icon={<GlyphChevron dir="right" size={12} />}
+        type="default"
+        size="small"
         disabled={current >= pages}
-        onClick={() => go(current + 1)}
-        style={{ ...btnBase, ...(current >= pages ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
-      >
-        ›
-      </button>
+        onPress={() => go(current + 1)}
+      />
     </div>
   );
 }
 
+/** kind 'pagination' 的实现分发视图 */
+const PaginationDispatcher = createImplDispatcher('pagination', PaginationAssembledView);
+
 /**
- * PaginationCell：分页。total 为数据总数，pageSize 为每页条数（默认 10），
- * current 为当前页；页面作者可用 onChange(handler) 注入回调（handler(page)），
- * 边界页按钮自动禁用。
+ * PaginationCell：分页（高级 Cell，按钮族）。total 为数据总数，pageSize 为
+ * 每页条数（默认 10），current 为当前页；页面作者可用 onChange(handler)
+ * 注入回调（handler(page)），边界页按钮自动禁用。
+ * 呈现实现由 kind 'pagination' 分发（缺省为按钮组装版）。
  */
 class PaginationCell extends CellBaseBuilder {
   /**
@@ -105,7 +87,7 @@ class PaginationCell extends CellBaseBuilder {
         pageSize: { type: 'number', default: 10 },
         current: { type: 'number', default: 1 },
       })
-      .renderContent(PaginationView);
+      .renderContent(PaginationDispatcher);
   }
 
   /**
@@ -119,4 +101,4 @@ class PaginationCell extends CellBaseBuilder {
   }
 }
 
-export { PaginationCell };
+export { PaginationCell, PaginationAssembledView };

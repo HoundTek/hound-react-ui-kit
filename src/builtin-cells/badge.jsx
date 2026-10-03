@@ -1,23 +1,25 @@
 /**
- * @file badge.jsx —— BadgeCell（徽标）预设
+ * @file badge.jsx —— BadgeCell（徽标）高级 Cell
  *
- * 展示小徽标：dot 模式仅显示红点；text 非空时显示文字徽标；
- * 否则显示数字徽标（count 超过 max 时显示 `${max}+`）。
- * visible 控制整体显隐。常与其他 Cell 并列填充于容器行中。
+ * 展示族：徽标（见 docs/basic-cell-design.md）。
+ * 双实现机制（kind: 'badge'）：组装 fallback（BadgeAssembledView）按
+ * dot/text/count 三种模式渲染；主题可经 theme.components.badge 整体重写。
+ *
+ * Schema（数据契约，与旧版一致）：visible / dot / text / count / max / color。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor, useCornerType } from '../core/theme/theme-react';
 import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
 /**
- * 徽标视图：按 dot/text/count 三种模式渲染；visible 为 false 时不渲染。
+ * 徽标组装视图（fallback）：按 dot/text/count 三种模式渲染；visible 为 false 时不渲染。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element|null} 视图元素
  */
-function BadgeView({ cell }) {
+function BadgeAssembledView({ cell }) {
   const visible = useCellData(cell, 'visible');
   const dot = useCellData(cell, 'dot');
   const text = useText(useCellData(cell, 'text'));
@@ -47,9 +49,13 @@ function BadgeView({ cell }) {
   );
 }
 
+/** kind 'badge' 的实现分发视图 */
+const BadgeDispatcher = createImplDispatcher('badge', BadgeAssembledView);
+
 /**
- * BadgeCell：徽标。dot 模式显示圆点；text 存 i18n key 或纯文本（非空优先）；
- * 否则 count 显示数字（超过 max 显示 max+）。visible 为显隐开关。
+ * BadgeCell：徽标（高级 Cell，展示族）。dot 模式显示圆点；text 存 i18n key 或
+ * 纯文本（非空优先）；否则 count 显示数字（超过 max 显示 max+）。visible 为
+ * 显隐开关。呈现实现由 kind 'badge' 分发。
  */
 class BadgeCell extends CellBaseBuilder {
   /**
@@ -66,8 +72,8 @@ class BadgeCell extends CellBaseBuilder {
         max: { type: 'number', default: 99 },
         color: { type: 'string', default: '#e05555' },
       })
-      .renderContent(BadgeView);
+      .renderContent(BadgeDispatcher);
   }
 }
 
-export { BadgeCell };
+export { BadgeCell, BadgeAssembledView };

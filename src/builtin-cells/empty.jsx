@@ -1,22 +1,25 @@
 /**
- * @file empty.jsx —— EmptyCell（空状态）预设
+ * @file empty.jsx —— EmptyCell（空状态）高级 Cell
  *
- * 居中空状态提示：glyph 为占位图形（默认 □，32px 灰色），text 为主文案
- * （14px #666），desc 为辅助说明（12px #999），text/desc 存 i18n key 或纯文本。
- * 展示型预设，页面作者实例化后 setData 即可使用。
+ * 展示族：空状态（见 docs/basic-cell-design.md）。
+ * 双实现机制（kind: 'empty'）：组装 fallback（EmptyAssembledView）纵向居中
+ * 渲染 glyph 占位图形、主文案与辅助说明；主题可经 theme.components.empty
+ * 整体重写。
+ *
+ * Schema（数据契约，与旧版一致）：glyph / text / desc。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor } from '../core/theme/theme-react';
 
 /**
- * 空状态视图：订阅 glyph/text/desc，纵向居中渲染。
+ * 空状态组装视图（fallback）：订阅 glyph/text/desc，纵向居中渲染。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function EmptyView({ cell }) {
+function EmptyAssembledView({ cell }) {
   const glyph = useCellData(cell, 'glyph');
   const text = useText(useCellData(cell, 'text'));
   const desc = useText(useCellData(cell, 'desc'));
@@ -37,9 +40,13 @@ function EmptyView({ cell }) {
   );
 }
 
+/** kind 'empty' 的实现分发视图 */
+const EmptyDispatcher = createImplDispatcher('empty', EmptyAssembledView);
+
 /**
- * EmptyCell：空状态。glyph 为占位图形，text 为主文案，desc 为辅助说明，
- * 纵向居中展示。
+ * EmptyCell：空状态（高级 Cell，展示族）。glyph 为占位图形，text 为主文案，
+ * desc 为辅助说明（text/desc 存 i18n key 或纯文本），纵向居中展示。
+ * 呈现实现由 kind 'empty' 分发。
  */
 class EmptyCell extends CellBaseBuilder {
   /**
@@ -53,8 +60,8 @@ class EmptyCell extends CellBaseBuilder {
         text: { type: 'string', default: '' },
         desc: { type: 'string', default: '' },
       })
-      .renderContent(EmptyView);
+      .renderContent(EmptyDispatcher);
   }
 }
 
-export { EmptyCell };
+export { EmptyCell, EmptyAssembledView };

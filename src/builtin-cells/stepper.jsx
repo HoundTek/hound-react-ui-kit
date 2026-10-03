@@ -1,78 +1,70 @@
 /**
- * @file stepper.jsx —— StepperCell（数字步进器）预设
+ * @file stepper.jsx —— StepperCell（数字步进器）高级 Cell
  *
- * 数值步进控件：label 存 i18n key 或纯文本（左侧灰小字），value 为当前值，
- * min/max 为取值范围，step 为步长。−/+ 按钮按步长调整 value 并自动钳制在
- * [min, max] 内；到达边界时按钮半透明禁用（not-allowed）。
+ * 按钮族：步进器 = −/+ 按钮 + 值回显（见 docs/basic-cell-design.md）。
+ * 组装 fallback：两个 ButtonImpl（基础 Cell 按钮的实现组件）+ TextImpl
+ * 显示当前值；点击按 step 调整 value 并自动钳制在 [min, max] 内，
+ * 到达边界时对应按钮禁用。主题可经 theme.components.stepper 整体重写。
+ *
+ * Schema（数据契约，与旧版一致）：label / value / min / max / step。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
-import { cornerStyle } from '../core/theme/shape';
+import { useThemeColor } from '../core/theme/theme-react';
+import { ButtonImpl, TextImpl } from '../basic-cells';
+import { GlyphMinus, GlyphPlus } from '../basic-cells/glyphs';
 
 /**
- * 步进器视图：订阅 label/value/min/max/step，点击 −/+ 写回 value（数据驱动交互）。
+ * 步进器组装视图（fallback）：label + −/+ 按钮 + TextImpl 值回显。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function StepperView({ cell }) {
+function StepperAssembledView({ cell }) {
   const label = useText(useCellData(cell, 'label'));
   const value = useCellData(cell, 'value');
   const min = useCellData(cell, 'min');
   const max = useCellData(cell, 'max');
   const step = useCellData(cell, 'step');
-  const corner = useCornerType();
-  const controlR = useShapeRadius('control', 4);
-  const borderColor = useThemeColor('border', '#ccc');
-  const surface = useThemeColor('surface', '#ffffff');
-  const text = useThemeColor('text', '#333');
   const textMuted = useThemeColor('text-muted', '#888');
-  const btnStyle = (disabled) => ({
-    width: 28, height: 28, flexShrink: 0,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    border: `1px solid ${borderColor}`, ...cornerStyle(corner, controlR), backgroundColor: surface,
-    color: text, fontSize: 16, lineHeight: 1,
-    cursor: disabled ? 'not-allowed' : 'pointer', userSelect: 'none',
-    opacity: disabled ? 0.4 : 1,
-  });
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px',
-      width: '100%', height: '100%',
+      width: '100%', height: '100%', boxSizing: 'border-box',
     }}>
       {label ? <span style={{ flexShrink: 0, fontSize: 12, color: textMuted }}>{label}</span> : null}
       <div style={{ flex: 1 }} />
-      <button
-        type="button"
+      <ButtonImpl
+        label=""
+        icon={<GlyphMinus size={12} />}
+        type="default"
+        size="small"
         disabled={value <= min}
-        onClick={() => cell.setValue(Math.max(min, value - step))}
-        style={btnStyle(value <= min)}
-      >
-        −
-      </button>
-      <span style={{
-        flexShrink: 0, minWidth: 36, textAlign: 'center', fontSize: 13, color: text,
-        fontFamily: 'Consolas, Monaco, monospace',
-      }}>
-        {value}
-      </span>
-      <button
-        type="button"
+        onPress={() => cell.setValue(Math.max(min, value - step))}
+      />
+      <div style={{ flexShrink: 0, width: 44, height: 24 }}>
+        <TextImpl text={String(value)} size={13} align="center" color="text" />
+      </div>
+      <ButtonImpl
+        label=""
+        icon={<GlyphPlus size={12} />}
+        type="default"
+        size="small"
         disabled={value >= max}
-        onClick={() => cell.setValue(Math.min(max, value + step))}
-        style={btnStyle(value >= max)}
-      >
-        +
-      </button>
+        onPress={() => cell.setValue(Math.min(max, value + step))}
+      />
     </div>
   );
 }
 
+/** kind 'stepper' 的实现分发视图 */
+const StepperDispatcher = createImplDispatcher('stepper', StepperAssembledView);
+
 /**
- * StepperCell：数字步进器。value 为当前值（默认 0），min/max 钳制范围
- * （默认 0/10），step 为步长（默认 1）；label 存 i18n key 或纯文本。
+ * StepperCell：数字步进器（高级 Cell，按钮族）。value 为当前值（默认 0），
+ * min/max 钳制范围（默认 0/10），step 为步长（默认 1）；label 存 i18n key
+ * 或纯文本。呈现实现由 kind 'stepper' 分发（缺省为按钮组装版）。
  */
 class StepperCell extends CellBaseBuilder {
   /**
@@ -88,8 +80,8 @@ class StepperCell extends CellBaseBuilder {
         max: { type: 'number', default: 10 },
         step: { type: 'number', default: 1 },
       })
-      .renderContent(StepperView);
+      .renderContent(StepperDispatcher);
   }
 }
 
-export { StepperCell };
+export { StepperCell, StepperAssembledView };

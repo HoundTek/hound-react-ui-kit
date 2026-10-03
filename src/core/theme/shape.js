@@ -1,12 +1,11 @@
 /**
  * @file 形状渲染解析（见 docs/theme-shape-design.md）。把主题的形状描述
- *       （圆角类型 + 包裹层规范）与 Box 的形状声明（rect/capsule/circle、
+ *       （包裹层规范）与 Box 的形状声明（rect/capsule/circle、
  *       颜色角色、材质、不透明度）解析为具体 CSS 样式。
  *
- *       圆角类型分级降级：
- *       1. g2 首选 CSS `corner-shape: squircle`（能力检测）
- *       2.（保留）clip-path: path() 超椭圆回退——依赖盒像素尺寸，首版未启用
- *       3. 降级 g1 `border-radius`（功能不受影响）
+ *       圆角一律 g1 border-radius：g2 曲率平滑依赖 CSS corner-shape
+ *      （仅 Chromium 支持，各系统 webview 未普及），已按跨浏览器一致性
+ *       约定舍弃（见 docs/basic-cell-design.md）。
  *
  *       本模块为纯函数，不依赖 React；渲染层（box-component）与 Cell 内容组件共用。
  */
@@ -17,34 +16,61 @@
  */
 const CAPSULE_RADIUS = '9999px';
 
-/** @type {boolean|null} corner-shape 能力检测结果（惰性缓存） */
-let _cornerShapeSupported = null;
+/**
+ * 阴影档位表（MD3 elevation level0–3 的 umbra/penumbra 近似）。
+ * 供元素级样式表（theme.elements.*.elevation）与实现组件引用。
+ * @type {string[]}
+ */
+const ELEVATIONS = [
+  'none',
+  '0 1px 2px rgba(0,0,0,0.3), 0 1px 3px 1px rgba(0,0,0,0.15)',
+  '0 1px 2px rgba(0,0,0,0.3), 0 2px 6px 2px rgba(0,0,0,0.15)',
+  '0 1px 3px rgba(0,0,0,0.3), 0 4px 8px 3px rgba(0,0,0,0.15)',
+];
 
 /**
- * 检测运行时是否支持 CSS corner-shape（G2 曲率平滑的首选实现）
- * @returns {boolean} 是否支持
+ * 取阴影档样式片段（box-shadow）
+ * @param {number} level 阴影档（0–3，越界钳制）
+ * @returns {Object} 样式片段（{boxShadow}）
  */
-function supportsCornerShape() {
-  if (_cornerShapeSupported === null) {
-    _cornerShapeSupported = typeof CSS !== 'undefined'
-      && typeof CSS.supports === 'function'
-      && CSS.supports('corner-shape: squircle');
-  }
-  return _cornerShapeSupported;
+function elevationStyle(level) {
+  const l = Math.min(ELEVATIONS.length - 1, Math.max(0, level || 0));
+  return { boxShadow: ELEVATIONS[l] };
 }
 
 /**
- * 生成圆角样式：g2 且运行时支持时附加 cornerShape，否则退化为 g1 border-radius
- * @param {'g1'|'g2'} cornerType 圆角类型
+ * 解析元素级圆角声明为具体半径。声明形式：
+ * - number：显式 px
+ * - 'capsule'：全圆角胶囊值
+ * - 其他字符串：形状尺度角色名（'control' 等），走 theme.getBaseRadius
+ * @param {Theme|null} theme 当前主题
+ * @param {number|string|undefined} decl 圆角声明（theme.elements.*.radius）
+ * @param {number|string} fallback 声明缺省时的回退值
+ * @returns {number|string} 圆角半径
+ */
+function resolveElementRadius(theme, decl, fallback) {
+  if (typeof decl === 'number') return decl;
+  if (decl === 'capsule') return CAPSULE_RADIUS;
+  if (typeof decl === 'string') {
+    const r = theme?.getBaseRadius(decl);
+    if (typeof r === 'number') return r;
+  }
+  return fallback;
+}
+
+/** @type {boolean|null} corner-shape 能力检测结果（惰性缓存） */
+
+/**
+ * 生成圆角样式（g1 border-radius）。
+ * 跨浏览器约束：不使用 CSS corner-shape（g2 曲率平滑仅 Chromium 支持，
+ * 各系统 webview 未普及，已按一致性约定舍弃）；cornerType 参数保留仅为
+ * 调用点兼容，不再产生任何差异。
+ * @param {'g1'|'g2'} cornerType 圆角类型（已忽略，恒按 g1 渲染）
  * @param {string|number} radius 圆角半径（px 数值或 CSS 长度）
  * @returns {Object} 圆角样式片段
  */
 function cornerStyle(cornerType, radius) {
-  const style = { borderRadius: typeof radius === 'number' ? `${radius}px` : radius };
-  if (cornerType === 'g2' && supportsCornerShape()) {
-    style.cornerShape = 'squircle';
-  }
-  return style;
+  return { borderRadius: typeof radius === 'number' ? `${radius}px` : radius };
 }
 
 /**
@@ -101,7 +127,9 @@ function resolveShapeLayers(layersSpec, shape) {
  */
 function resolveBoxShape(builder, theme) {
   const corner = theme?.getCornerType() || 'g1';
-  const shape = builder._shape || 'rect';
+  // 普适样式默认值表：Cell 未显式声明形状时取角色样式表的 shape（见 docs/theme-shape-design.md）
+  const roleStyle = builder._styleRole ? theme?.getRoleStyle(builder._styleRole) : null;
+  const shape = builder._shape || roleStyle?.shape || 'rect';
   // 仅声明了组件角色或基础形状的 Box 参与层规范解析：
   // 未声明者不受主题层规范影响（避免 default 角色半径波及全部布局 Box）
   const layersSpec = (builder._styleRole || builder._shape)
@@ -144,6 +172,7 @@ function resolveBoxShape(builder, theme) {
 
 /**
  * 解析 Box 的普适配置（材质 / 颜色角色 / 不透明度）为样式片段。
+ * 取值优先级：builder 显式声明 > 主题角色样式表（styles，按 styleRole 查询）> 内建降级。
  * 背景色优先级：builder._backgroundColor（裸色值，逃生通道）> 颜色角色解析。
  * frosted 材质：backdrop-filter 模糊 + 底色按 baseOpacity 半透明（不支持时回退 solid，
  * 即仅底色不模糊——backdrop-filter 本身被浏览器忽略即天然降级）。
@@ -153,14 +182,18 @@ function resolveBoxShape(builder, theme) {
  */
 function resolveBoxPaint(builder, theme) {
   const style = {};
+  const roleStyle = builder._styleRole ? theme?.getRoleStyle(builder._styleRole) : null;
+  const colorRole = builder._colorRole ?? roleStyle?.color;
+  const material = builder._material ?? roleStyle?.material;
+  const opacity = builder._opacity ?? roleStyle?.opacity;
   let backgroundColor = builder._backgroundColor;
-  if (backgroundColor == null && builder._colorRole) {
-    backgroundColor = theme?.resolveColor(builder._colorRole) ?? undefined;
+  if (backgroundColor == null && colorRole) {
+    backgroundColor = theme?.resolveColor(colorRole) ?? undefined;
   }
 
-  if (builder._material && builder._material !== 'solid') {
-    const spec = theme?.getMaterial(builder._material);
-    if (spec && builder._material === 'frosted') {
+  if (material && material !== 'solid') {
+    const spec = theme?.getMaterial(material);
+    if (spec && material === 'frosted') {
       const blur = spec.blur ?? 20;
       style.backdropFilter = `blur(${blur}px)`;
       style.WebkitBackdropFilter = `blur(${blur}px)`;
@@ -172,8 +205,8 @@ function resolveBoxPaint(builder, theme) {
   }
 
   if (backgroundColor != null) style.backgroundColor = backgroundColor;
-  if (builder._opacity != null) style.opacity = builder._opacity;
+  if (opacity != null) style.opacity = opacity;
   return style;
 }
 
-export { CAPSULE_RADIUS, supportsCornerShape, cornerStyle, hexToRgba, resolveShapeLayers, resolveBoxShape, resolveBoxPaint };
+export { CAPSULE_RADIUS, ELEVATIONS, elevationStyle, resolveElementRadius, cornerStyle, hexToRgba, resolveShapeLayers, resolveBoxShape, resolveBoxPaint };

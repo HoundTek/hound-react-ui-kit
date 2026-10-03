@@ -7,3 +7,15 @@
   scrollbar-width: none;
   box-sizing: border-box;
 }
+
+/* 全局字体栈：统一各浏览器默认字体（Firefox/Safari 默认衬线，
+   Chrome/Edge 默认无衬线），跨浏览器一致取无衬线系统字体 */
+html, body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+}
+
+/* 表单控件默认不继承字体（各浏览器 UA 样式自带字体），强制继承保持一致 */
+button, input, textarea, select {
+  font-family: inherit;
+}

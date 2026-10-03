@@ -1,23 +1,25 @@
 /**
- * @file avatar.jsx —— AvatarCell（头像）预设
+ * @file avatar.jsx —— AvatarCell（头像）高级 Cell
  *
- * 展示用户头像：src 非空时渲染图片，否则显示 name 首字符；
- * size 控制头像直径，shape 为圆形/方形，color 为无图片时的文字底色。
- * 展示型预设的典型实现：仅依赖 schema 字段，无插槽、无外部依赖，
- * 页面作者实例化后 setData 即可使用。
+ * 展示族：头像（见 docs/basic-cell-design.md）。
+ * 双实现机制（kind: 'avatar'）：组装 fallback（AvatarAssembledView）在 src
+ * 非空时渲染图片，否则渲染 name 首字符（主题色 div，紧凑场景不套 TextImpl）；
+ * 主题可经 theme.components.avatar 整体重写呈现实现。
+ *
+ * Schema（数据契约，与旧版一致）：name / src / size / shape / color。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
 /**
- * 头像视图：订阅 name/src/size/shape/color，渲染图片或首字符头像。
+ * 头像组装视图（fallback）：订阅 name/src/size/shape/color，渲染图片或首字符头像。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function AvatarView({ cell }) {
+function AvatarAssembledView({ cell }) {
   const name = useCellData(cell, 'name') || '';
   const src = useCellData(cell, 'src');
   const size = useCellData(cell, 'size');
@@ -48,9 +50,13 @@ function AvatarView({ cell }) {
   );
 }
 
+/** kind 'avatar' 的实现分发视图 */
+const AvatarDispatcher = createImplDispatcher('avatar', AvatarAssembledView);
+
 /**
- * AvatarCell：头像。name 为用户名（取首字符），src 为图片地址（非空时优先渲染），
- * size/shape/color 控制外观。默认固定 48px 帧，内部头像可经 size 调整。
+ * AvatarCell：头像（高级 Cell，展示族）。name 为用户名（取首字符），src 为图片
+ * 地址（非空时优先渲染），size/shape/color 控制外观。默认固定 48px 帧，内部
+ * 头像可经 size 调整。呈现实现由 kind 'avatar' 分发。
  */
 class AvatarCell extends CellBaseBuilder {
   /**
@@ -66,8 +72,8 @@ class AvatarCell extends CellBaseBuilder {
         shape: { type: 'string', default: 'circle' },
         color: { type: 'string', default: '#4a90d9' },
       })
-      .renderContent(AvatarView);
+      .renderContent(AvatarDispatcher);
   }
 }
 
-export { AvatarCell };
+export { AvatarCell, AvatarAssembledView };

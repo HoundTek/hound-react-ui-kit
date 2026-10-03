@@ -65,4 +65,17 @@ function useShapeRadius(role, fallback) {
   return theme?.getBaseRadius(role) ?? fallback;
 }
 
-export { ThemeProvider, ThemeContext, useTheme, useThemeColor, useCornerType, useShapeRadius };
+/**
+ * 取元素角色的元素级样式默认值（普适性配置的元素级扩展，见
+ * docs/theme-shape-design.md）。基础实现组件（XxxImpl）用它解析
+ * variant / radius / elevation 的主题默认：props 显式 > 本表 > 内建默认。
+ * @param {string} role 元素角色（如 'button'、'input'、'slider'、'list'）
+ * @returns {{variant?: string, radius?: number|string, elevation?: number}|null}
+ *   元素样式；无主题或未声明返回 null
+ */
+function useElementStyle(role) {
+  const theme = useTheme();
+  return theme?.getElementStyle(role) ?? null;
+}
+
+export { ThemeProvider, ThemeContext, useTheme, useThemeColor, useCornerType, useShapeRadius, useElementStyle };

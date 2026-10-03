@@ -1,13 +1,17 @@
 /**
- * @file table.jsx —— TableCell（表格）预设
+ * @file table.jsx —— TableCell（表格）高级 Cell
  *
- * 数据表格：columns 为 [{key, title, width?}]（title 存 i18n key 或纯文本），
- * rows 为业务数据行（[{id, ...}]），点击行写入 selectedRow（选中行浅蓝底高亮）。
+ * 菜单/列表族：数据表格（见 docs/basic-cell-design.md）。columns 为
+ * [{key, title, width?}]（title 存 i18n key 或纯文本），rows 为业务数据行
+ *（[{id, ...}]），点击行写入 selectedRow（选中行主色浅底高亮）。
  * 列宽取 column.width 或 flex:1 均分；帧内纵向滚动（moveY true）。
+ * 主题可经 theme.components.table 整体重写呈现实现。
+ *
+ * Schema（数据契约，与旧版一致）：columns / rows / selectedRow。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor } from '../core/theme/theme-react';
 
@@ -21,7 +25,7 @@ function TableHeadCellView({ column }) {
   return (
     <div style={{
       flex: column.width ? 'none' : 1, width: column.width || undefined, minWidth: 0,
-      padding: '0 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      padding: '0 8px', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
     }}>
       {title}
     </div>
@@ -39,7 +43,7 @@ function TableCellView({ column, row }) {
   return (
     <div style={{
       flex: column.width ? 'none' : 1, width: column.width || undefined, minWidth: 0,
-      padding: '0 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      padding: '0 8px', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
     }}>
       {value}
     </div>
@@ -60,7 +64,7 @@ function TableRowView({ cell, row, columns, selected }) {
       onClick={() => cell.setSelectedRow(row.id)}
       style={{
         display: 'flex', alignItems: 'center', height: 32, fontSize: 12,
-        cursor: 'pointer', userSelect: 'none',
+        cursor: 'pointer', userSelect: 'none', boxSizing: 'border-box',
         backgroundColor: selected ? primarySoft : surface,
         borderBottom: `1px solid ${border}`,
       }}
@@ -73,11 +77,11 @@ function TableRowView({ cell, row, columns, selected }) {
 }
 
 /**
- * 表格视图：订阅 columns/rows/selectedRow，渲染表头与数据行。
+ * 表格组装视图（fallback）：订阅 columns/rows/selectedRow，渲染表头与数据行。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function TableView({ cell }) {
+function TableAssembledView({ cell }) {
   const columns = useCellData(cell, 'columns') || [];
   const rows = useCellData(cell, 'rows') || [];
   const selectedRow = useCellData(cell, 'selectedRow');
@@ -89,6 +93,7 @@ function TableView({ cell }) {
       <div style={{
         display: 'flex', alignItems: 'center', height: 32, fontSize: 12,
         fontWeight: 'bold', color: text, backgroundColor: surfaceMuted,
+        boxSizing: 'border-box',
         borderBottom: `1px solid ${border}`,
       }}>
         {columns.map(col => (
@@ -102,10 +107,14 @@ function TableView({ cell }) {
   );
 }
 
+/** kind 'table' 的实现分发视图 */
+const TableDispatcher = createImplDispatcher('table', TableAssembledView);
+
 /**
  * TableCell：表格。columns 为 [{key, title, width?}]（title 可存 i18n key 或
  * 纯文本），rows 为业务数据行（[{id, ...}]，其余字段按 column.key 取值），
- * selectedRow 为当前选中行 id（点击行切换，浅蓝底高亮）。
+ * selectedRow 为当前选中行 id（点击行切换，主色浅底高亮）。
+ * 呈现实现由 kind 'table' 分发（缺省为组装版）。
  */
 class TableCell extends CellBaseBuilder {
   /**
@@ -119,8 +128,8 @@ class TableCell extends CellBaseBuilder {
         rows: { type: 'array', default: [] },
         selectedRow: { type: 'string', default: '' },
       })
-      .renderContent(TableView);
+      .renderContent(TableDispatcher);
   }
 }
 
-export { TableCell };
+export { TableCell, TableAssembledView };

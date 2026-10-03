@@ -1,67 +1,61 @@
 /**
- * @file tab-bar.jsx —— TabBarCell（标签栏）预设
+ * @file tab-bar.jsx —— TabBarCell（页标签栏）高级 Cell
  *
- * 底部标签栏：items 为 [{id, title, icon?}]，activeId 为当前激活项 id；
- * 点击项写入 activeId 并调用注入的 _onChange(id) 回调（页面作者经 onChange 注入）。
- * 各项横向均分（flex:1），激活项主色字 + 顶部 2px 主色条。
+ * 按钮族（多级依赖）：页标签栏 = 横向菜单（按钮 → 菜单 → 页标签栏，
+ * 见 docs/basic-cell-design.md）。
+ * 组装 fallback：TabBarImpl —— MenuImpl 横向变体（依赖 menu 的组装实现，
+ * 二级依赖）。主题可经 theme.components['tab-bar'] 整体重写呈现实现。
+ *
+ * Schema（数据契约，与旧版一致）：items（[{id, title, icon?}]）/ activeId。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
-import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor } from '../core/theme/theme-react';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { MenuImpl } from './menu';
 
 /**
- * 标签栏单项：接收普通 props（不在 map 内调 hooks），title 经 useText 渲染。
- * @param {{item: object, active: boolean, onClick: Function}} props 组件属性
- * @returns {JSX.Element} 视图元素
+ * 页标签栏实现组件（组装自 MenuImpl 横向变体）：均分标签项，激活项
+ * primary 变体高亮，点击回调切换。
+ * @param {Object} props
+ * @param {Array<{id: string, title: string, icon?: string}>} props.items 标签项
+ * @param {string} props.activeId 当前激活项 id
+ * @param {(id: string) => void} props.onChange 切换回调
+ * @returns {JSX.Element} 标签栏元素
  */
-function TabBarItemView({ item, active, onClick }) {
-  const title = useText(item.title);
-  const primary = useThemeColor('primary', '#4a90d9');
-  const textMuted = useThemeColor('text-muted', '#888');
+function TabBarImpl({ items, activeId, onChange }) {
   return (
-    <div
-      onClick={onClick}
-      style={{
-        flex: 1, minWidth: 0, height: '100%',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-        cursor: 'pointer', userSelect: 'none', fontSize: 12,
-        color: active ? primary : textMuted,
-        borderTop: active ? `2px solid ${primary}` : '2px solid transparent',
-      }}
-    >
-      {item.icon ? <span style={{ lineHeight: 1, flexShrink: 0 }}>{item.icon}</span> : null}
-      <span style={{ maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</span>
-    </div>
+    <MenuImpl items={items} activeId={activeId} direction="horizontal" onSelect={onChange} />
   );
 }
 
 /**
- * 标签栏视图：订阅 items/activeId，点击项写回 activeId 并回调 _onChange。
+ * 页标签栏组装视图（fallback）：TabBarImpl，点击写回 activeId 并回调 _onChange。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function TabBarView({ cell }) {
+function TabBarAssembledView({ cell }) {
   const items = useCellData(cell, 'items') || [];
   const activeId = useCellData(cell, 'activeId');
-  const select = (id) => {
-    cell.setActiveId(id);
-    if (cell._onChange) cell._onChange(id);
-  };
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex' }}>
-      {items.map(item => (
-        <TabBarItemView key={item.id} item={item} active={item.id === activeId} onClick={() => select(item.id)} />
-      ))}
-    </div>
+    <TabBarImpl
+      items={items}
+      activeId={activeId}
+      onChange={(id) => {
+        cell.setActiveId(id);
+        if (cell._onChange) cell._onChange(id);
+      }}
+    />
   );
 }
 
+/** kind 'tab-bar' 的实现分发视图 */
+const TabBarDispatcher = createImplDispatcher('tab-bar', TabBarAssembledView);
+
 /**
- * TabBarCell：标签栏。items 为 [{id, title, icon?}]（title 可存 i18n key 或
- * 纯文本），activeId 为当前激活项 id；页面作者可用 onChange(handler) 注入
- * 回调（handler(id)）。
+ * TabBarCell：页标签栏（高级 Cell，按钮族）。items 为 [{id, title, icon?}]
+ * （title 可存 i18n key 或纯文本），activeId 为当前激活项 id；页面作者可用
+ * onChange(handler) 注入回调（handler(id)）。
+ * 呈现实现由 kind 'tab-bar' 分发（缺省为横向菜单组装版）。
  */
 class TabBarCell extends CellBaseBuilder {
   /**
@@ -74,7 +68,7 @@ class TabBarCell extends CellBaseBuilder {
         items: { type: 'array', default: [] },
         activeId: { type: 'string', default: '' },
       })
-      .renderContent(TabBarView);
+      .renderContent(TabBarDispatcher);
   }
 
   /**
@@ -88,4 +82,4 @@ class TabBarCell extends CellBaseBuilder {
   }
 }
 
-export { TabBarCell };
+export { TabBarCell, TabBarImpl, TabBarAssembledView };

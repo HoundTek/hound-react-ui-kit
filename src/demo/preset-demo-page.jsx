@@ -15,6 +15,7 @@
  *   4) 文本一律传纯中文（useText 对未注册文本原样返回，无需注册 i18n key）
  */
 import React from 'react';
+import { createPageNav } from './page-nav';
 import {
   CellBaseBuilder, DataDag, TextCell, ToggleCell, ButtonCell,
   AccordionCell, AlertCell, AvatarCell, BadgeCell, BarCell, BreadcrumbCell,
@@ -114,7 +115,7 @@ class DemoHeroCell extends CellBaseBuilder {
  * @returns {DemoUnit} 展示单元
  */
 const U = (id, name, cell) => new DemoUnit(id)
-  .fill('label', new TextCell(`${id}_lb`).setText(name).setSize(11).setColor('#7a8ba3'))
+  .fill('label', new TextCell(`${id}_lb`).setText(name).setSize(11).setColor('text-muted'))
   .fill('content', cell);
 
 /**
@@ -135,7 +136,7 @@ const R = (id, height, cells) => new DemoRow(id).fixedHeight(height).fill('_defa
  * @returns {DemoSection} 分区
  */
 const S = (id, title, height, rows) => new DemoSection(id).fixedHeight(height)
-  .fill('title', new TextCell(`${id}_t`).setText(title).setSize(13).setBold(true).setColor('#333'))
+  .fill('title', new TextCell(`${id}_t`).setText(title).setSize(13).setBold(true).setColor('text'))
   .fill('_default', rows);
 
 // =========================================================================
@@ -166,9 +167,9 @@ function buildPresetDemo() {
     .posX(260).posY(260)
     .onOk(() => toastCell.open());
   const dialogCell = new DialogCell('dialog')
-    .fill('header', new TextCell('dlgTitle').setText('操作确认').setSize(13).setBold(true).setColor('#333'))
+    .fill('header', new TextCell('dlgTitle').setText('操作确认').setSize(13).setBold(true).setColor('text'))
     .fill('body', [
-      new TextCell('dlgBody').setText('对话框容器：header 单插槽 + body 列表插槽。').setSize(12).setColor('#555'),
+      new TextCell('dlgBody').setText('对话框容器：header 单插槽 + body 列表插槽。').setSize(12).setColor('text-secondary'),
       new ButtonCell('dlgOk').setLabel('知道了').onPress(() => dialogCell.close()),
     ]);
   const drawerCell = new DrawerCell('drawer')
@@ -176,7 +177,7 @@ function buildPresetDemo() {
     .posX(760).posY(0);
   const floatPanelCell = new FloatingPanelCell('floatPanel')
     .posX(380).posY(120)
-    .fill('header', new TextCell('fpTitle').setText('浮动面板（可拖拽缩放）').setSize(12).setBold(true).setColor('#ffffff'))
+    .fill('header', new TextCell('fpTitle').setText('浮动面板（可拖拽缩放）').setSize(12).setBold(true).setColor('on-primary'))
     .fill('body', [
       new ListCell('fpList').setItems([
         { id: 'f1', title: '浮动面板示例项一' },
@@ -188,7 +189,7 @@ function buildPresetDemo() {
 
   // ---------- 页首 ----------
   const hero = new DemoHeroCell('hero').fill('_default', [
-    new TextCell('heroTitle').setText('Hound UI-Kit 预设 Cell 展示台').setSize(20).setBold(true).setColor('#ffffff'),
+    new TextCell('heroTitle').setText('Hound UI-Kit 预设 Cell 展示台').setSize(20).setBold(true).setColor('on-primary'),
     new TextCell('heroDesc').setText('75 个扩展预设 Cell 分类速览：展示 · 指标 · 表单 · 交互 · 列表 · 导航 · 反馈 · 浮层 · 业务 · 容器')
       .setSize(12).setColor('rgba(255,255,255,0.85)'),
   ]);
@@ -203,7 +204,7 @@ function buildPresetDemo() {
     ]),
     R('d-row2', 70, [
       U('d-avatar', 'AvatarCell', new AvatarCell('d_avatar').setName('张').setSize(40).setColor('#e07a3a')),
-      U('d-icon', 'IconCell', new IconCell('d_icon').setGlyph('★').setSize(24).setColor('#f0a020')),
+      U('d-icon', 'IconCell', new IconCell('d_icon').setGlyph('star').setSize(24).setColor('#f0a020')),
       U('d-divider', 'DividerCell', new DividerCell('d_divider').setText('分隔说明').setOrientation('horizontal')),
     ]),
   ]);
@@ -437,33 +438,33 @@ function buildPresetDemo() {
     R('c-row1', 130, [
       new CardCell('c_card').fill('header', new TextCell('c_card_t').setText('卡片标题').setSize(13).setBold(true))
         .fill('body', [
-          new TextCell('c_card_b').setText('卡片内容：header 单插槽 + body 滚动插槽。').setSize(12).setColor('#555'),
+          new TextCell('c_card_b').setText('卡片内容：header 单插槽 + body 滚动插槽。').setSize(12).setColor('text-secondary'),
           new ButtonCell('c_card_btn').setLabel('查看详情').onPress(() => console.log('[preset-demo] card btn')),
         ]),
       new PanelCell('c_panel').fill('header', new TextCell('c_panel_t').setText('面板标题').setSize(13).setBold(true))
         .fill('_default', [
-          new TextCell('c_panel_b').setText('面板内容：header 插槽 + 默认插槽。').setSize(12).setColor('#555'),
+          new TextCell('c_panel_b').setText('面板内容：header 插槽 + 默认插槽。').setSize(12).setColor('text-secondary'),
         ]),
     ]),
     R('c-row2', 70, [
       U('c-field', 'FieldCell', new FieldCell('c_field')
-        .fill('label', new TextCell('c_field_lb').setText('用户名').setSize(13).setColor('#333'))
+        .fill('label', new TextCell('c_field_lb').setText('用户名').setSize(13).setColor('text'))
         .fill('control', new InputCell('c_field_in').setPlaceholder('请输入用户名'))),
       U('c-control', 'ControlCell', new ControlCell('c_control')
-        .fill('label', new TextCell('c_control_lb').setText('消息通知').setSize(13).setColor('#333'))
+        .fill('label', new TextCell('c_control_lb').setText('消息通知').setSize(13).setColor('text'))
         .fill('control', new SwitchCell('c_control_sw').setEnabled(false))),
     ]),
     R('c-row3', 130, [
       new FormCell('c_form').fill('_default', [
-        new FieldCell('c_form_f1').fill('label', new TextCell('c_form_lb1').setText('邮箱').setSize(13).setColor('#333'))
+        new FieldCell('c_form_f1').fill('label', new TextCell('c_form_lb1').setText('邮箱').setSize(13).setColor('text'))
           .fill('control', new InputCell('c_form_in1').setPlaceholder('name@example.com')),
-        new FieldCell('c_form_f2').fill('label', new TextCell('c_form_lb2').setText('密码').setSize(13).setColor('#333'))
+        new FieldCell('c_form_f2').fill('label', new TextCell('c_form_lb2').setText('密码').setSize(13).setColor('text'))
           .fill('control', new InputCell('c_form_in2').setPlaceholder('请输入密码')),
         new ButtonCell('c_form_sub').setLabel('提交').setType('primary').onPress(() => console.log('[preset-demo] form submit')),
       ]),
       new GroupCell('c_group').fill('_default', [
         new TextCell('c_group_t').setText('分组标题').setSize(13).setBold(true),
-        new TextCell('c_group_b').setText('分组内容：纵向容器，showChildOverlays 已关闭。').setSize(12).setColor('#555'),
+        new TextCell('c_group_b').setText('分组内容：纵向容器，showChildOverlays 已关闭。').setSize(12).setColor('text-secondary'),
       ]),
     ]),
     R('c-row4', 130, [
@@ -487,13 +488,14 @@ function buildPresetDemo() {
         new TagCell('c_tiling_t4').setText('平铺 4').setColor('#a05ad9'),
       ]),
       new SectionCell('c_sec').setTitle('内嵌分区').fill('_default', [
-        new TextCell('c_sec_b').setText('分区容器可在任意位置内嵌使用。').setSize(12).setColor('#555'),
+        new TextCell('c_sec_b').setText('分区容器可在任意位置内嵌使用。').setSize(12).setColor('text-secondary'),
       ]),
     ]),
   ]);
 
   // ---------- 根装配 ----------
   const page = new PageCell('preset-demo').fill('_default', [
+    createPageNav('presets'),
     hero,
     secDisplay,
     secStat,

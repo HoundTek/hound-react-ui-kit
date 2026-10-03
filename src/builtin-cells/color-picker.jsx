@@ -6,7 +6,7 @@
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
@@ -17,7 +17,7 @@ const DEFAULT_SWATCHES = ['#4a90d9', '#1a8a4a', '#c03a2a', '#c07a1a', '#8a6fd9',
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function ColorPickerView({ cell }) {
+function ColorPickerAssembledView({ cell }) {
   const swatches = useCellData(cell, 'swatches') || [];
   const color = useCellData(cell, 'color');
   const surface = useThemeColor('surface', '#ffffff');
@@ -38,7 +38,7 @@ function ColorPickerView({ cell }) {
             style={{
               width: 20, height: 20, ...cornerStyle(corner, controlR), backgroundColor: sw,
               cursor: 'pointer', flexShrink: 0, boxSizing: 'border-box',
-              border: sw === color ? `2px solid ${text}` : '1px solid rgba(0,0,0,0.15)',
+              border: `2px solid ${sw === color ? text : 'transparent'}`,
             }}
           />
         ))}
@@ -52,6 +52,12 @@ function ColorPickerView({ cell }) {
     </div>
   );
 }
+
+/**
+ * 组装视图分发器：theme.getComponent('color-picker') 命中注册实现则整体替换，
+ * 否则渲染 ColorPickerAssembledView（组装 fallback）。
+ */
+const ColorPickerDispatcher = createImplDispatcher('color-picker', ColorPickerAssembledView);
 
 /**
  * ColorPickerCell：颜色选择器。swatches 为色板数组（默认 8 个常用色），
@@ -68,8 +74,8 @@ class ColorPickerCell extends CellBaseBuilder {
         swatches: { type: 'array', default: DEFAULT_SWATCHES },
         color: { type: 'string', default: '#4a90d9' },
       })
-      .renderContent(ColorPickerView);
+      .renderContent(ColorPickerDispatcher);
   }
 }
 
-export { ColorPickerCell };
+export { ColorPickerCell, ColorPickerAssembledView };

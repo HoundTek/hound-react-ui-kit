@@ -1,23 +1,25 @@
 /**
- * @file popover.jsx —— PopoverCell（气泡提示）预设
+ * @file popover.jsx —— PopoverCell（气泡提示）高级 Cell
  *
- * 浮动视口类型的气泡提示：白底圆角卡片，title 加粗 + text 常规。
+ * 浮层族：气泡提示 = 白底圆角卡片，title 加粗 + text 常规。
  * title/text 存 i18n key 或纯文本；位置由页面作者用 posX/posY 指定，
- * 不可移动、不可缩放。
+ * 不可移动、不可缩放。主题可经 theme.components.popover 整体重写呈现实现。
+ *
+ * Schema（数据契约，与旧版一致）：title / text。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 
 /**
- * 气泡视图：订阅 title/text，title 为空时不渲染标题行。
+ * 气泡组装视图（fallback）：订阅 title/text，title 为空时不渲染标题行。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function PopoverView({ cell }) {
+function PopoverAssembledView({ cell }) {
   const title = useText(useCellData(cell, 'title'));
   const text = useText(useCellData(cell, 'text'));
   const surface = useThemeColor('surface', '#ffffff');
@@ -37,9 +39,14 @@ function PopoverView({ cell }) {
   );
 }
 
+/** kind 'popover' 的实现分发视图 */
+const PopoverDispatcher = createImplDispatcher('popover', PopoverAssembledView);
+
 /**
- * PopoverCell：气泡提示（浮动视口）。白底圆角、投影；title 加粗、text 常规。
- * 默认 180px 宽、64px 高，不可移动/缩放；位置由页面作者用 posX/posY 指定。
+ * PopoverCell：气泡提示（高级 Cell，浮层族，浮动视口）。白底圆角、投影；
+ * title 加粗、text 常规。默认 180px 宽、64px 高，不可移动/缩放；
+ * 位置由页面作者用 posX/posY 指定。
+ * 呈现实现由 kind 'popover' 分发（缺省为组装版）。
  */
 class PopoverCell extends CellBaseBuilder {
   /**
@@ -55,8 +62,8 @@ class PopoverCell extends CellBaseBuilder {
         title: { type: 'string', default: '' },
         text: { type: 'string', default: '' },
       })
-      .renderContent(PopoverView);
+      .renderContent(PopoverDispatcher);
   }
 }
 
-export { PopoverCell };
+export { PopoverCell, PopoverAssembledView };

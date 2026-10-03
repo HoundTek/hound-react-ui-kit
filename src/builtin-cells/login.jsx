@@ -1,78 +1,70 @@
 /**
- * @file login.jsx —— LoginCell（登录表单）预设
+ * @file login.jsx —— LoginCell（登录表单）高级 Cell
  *
- * 紧凑登录表单：用户名 + 密码输入与提交按钮，submitText 存 i18n key 或纯文本；
- * 点击提交写入 submitted(true) 并调用注入的 _onSubmit({username, password})
- * 回调（页面作者经 onSubmit 注入）。纯数据驱动，无内部状态。
+ * 输入族：紧凑登录表单 = 文本输入 ×2（密码框 type='password'）+ 提交按钮
+ *（见 docs/basic-cell-design.md）。组装 fallback（LoginAssembledView）：
+ * InputImpl ×2 + ButtonImpl 提交，点击写入 submitted(true) 并回调
+ * cell._onSubmit({username, password})。主题可经 theme.components.login
+ * 整体重写呈现实现。
+ *
+ * Schema（数据契约，与旧版一致）：username / password / submitText / submitted。
  */
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
-import { useCellData } from '../core/cell/cell-react';
-import { useText } from '../core/i18n/i18n-react';
-import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
-import { cornerStyle } from '../core/theme/shape';
+import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { InputImpl, ButtonImpl } from '../basic-cells';
 
 /**
- * 登录表单视图：订阅 username/password/submitText/submitted，
+ * 登录表单组装视图（fallback）：订阅 username/password/submitText/submitted，
  * 提交时经 setSubmitted 写回并回调 _onSubmit。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
-function LoginView({ cell }) {
+function LoginAssembledView({ cell }) {
   const username = useCellData(cell, 'username');
   const password = useCellData(cell, 'password');
-  const submitText = useText(useCellData(cell, 'submitText'));
-  const corner = useCornerType();
-  const controlR = useShapeRadius('control', 4);
-  const inputBorder = useThemeColor('border', '#ccc');
-  const inputBackground = useThemeColor('surface', '#ffffff');
-  const inputText = useThemeColor('text', '#333333');
-  const primaryColor = useThemeColor('primary', '#4a90d9');
-  const onPrimaryColor = useThemeColor('on-primary', '#ffffff');
-  const inputStyle = {
-    width: '100%', height: 30, padding: '0 8px', boxSizing: 'border-box',
-    border: `1px solid ${inputBorder}`, ...cornerStyle(corner, controlR), fontSize: 13,
-    outline: 'none', backgroundColor: inputBackground, color: inputText,
+  const submitText = useCellData(cell, 'submitText');
+  const submit = () => {
+    cell.setSubmitted(true);
+    if (cell._onSubmit) cell._onSubmit({ username, password });
   };
   return (
     <div style={{
       width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
       justifyContent: 'center', gap: 8, padding: '0 16px', boxSizing: 'border-box',
     }}>
-      <input
-        value={username}
-        placeholder="用户名"
-        onChange={(e) => cell.setUsername(e.target.value)}
-        style={inputStyle}
-      />
-      <input
-        type="password"
-        value={password}
-        placeholder="密码"
-        onChange={(e) => cell.setPassword(e.target.value)}
-        style={inputStyle}
-      />
-      <button
-        type="button"
-        onClick={() => {
-          cell.setSubmitted(true);
-          if (cell._onSubmit) cell._onSubmit({ username, password });
-        }}
-        style={{
-          width: '100%', height: 32, border: 'none', ...cornerStyle(corner, controlR), cursor: 'pointer',
-          backgroundColor: primaryColor, color: onPrimaryColor, fontSize: 13, fontWeight: 'bold',
-        }}
-      >
-        {submitText}
-      </button>
+      <div style={{ height: 30, flexShrink: 0 }}>
+        <InputImpl
+          value={username}
+          placeholder="用户名"
+          fontSize={13}
+          onChange={v => cell.setUsername(v)}
+        />
+      </div>
+      <div style={{ height: 30, flexShrink: 0 }}>
+        <InputImpl
+          type="password"
+          value={password}
+          placeholder="密码"
+          fontSize={13}
+          onChange={v => cell.setPassword(v)}
+          onSubmit={submit}
+        />
+      </div>
+      <ButtonImpl label={submitText} block onPress={submit} />
     </div>
   );
 }
 
+/** kind 'login' 的实现分发视图 */
+const LoginDispatcher = createImplDispatcher('login', LoginAssembledView);
+
 /**
- * LoginCell：登录表单。username/password 为输入值，submitText 为提交按钮文案
- * （i18n key 或纯文本）；点击提交写入 submitted(true)，页面作者可用
- * onSubmit(handler) 注入回调（handler({username, password})）。
+ * LoginCell：登录表单（高级 Cell，输入族）。username/password 为输入值，
+ * submitText 为提交按钮文案（i18n key 或纯文本）；点击提交写入
+ * submitted(true)，页面作者可用 onSubmit(handler) 注入回调
+ *（handler({username, password})）。
+ * 呈现实现由 kind 'login' 分发（缺省为组装 fallback）。
  */
 class LoginCell extends CellBaseBuilder {
   /**
@@ -87,7 +79,7 @@ class LoginCell extends CellBaseBuilder {
         submitText: { type: 'string', default: '登录' },
         submitted: { type: 'boolean', default: false },
       })
-      .renderContent(LoginView);
+      .renderContent(LoginDispatcher);
   }
 
   /**
@@ -101,4 +93,4 @@ class LoginCell extends CellBaseBuilder {
   }
 }
 
-export { LoginCell };
+export { LoginCell, LoginAssembledView };

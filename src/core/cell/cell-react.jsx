@@ -7,6 +7,8 @@
  */
 import React, { useState, useEffect } from 'react';
 import { ResizeEffectViewport } from '../theme/resize-effects';
+import { useTheme } from '../theme/theme-react';
+import { getCellImpl } from './implementations';
 
 /**
  * Cell 根渲染组件。把指定挂载点的 Box 三层（ContentLayer / EdgeLayer / CornerLayer）
@@ -97,4 +99,23 @@ function useNodeData(node, key) {
   return value;
 }
 
-export { CellRoot, useCellData, useNodeData };
+/**
+ * 创建高级 Cell 的实现分发视图（见 docs/basic-cell-design.md 双实现机制）。
+ * 渲染时读取当前主题对 kind 声明的重写实现名（theme.components），经实现
+ * 注册表解析：命中则渲染主题自定义实现（组件级重写）；未声明/未识别则
+ * 降级渲染 AssembledView（由基础/高级 Cell 的 XxxImpl 组装的 fallback）。
+ * 同 kind 的各实现共用同一 Schema（数据契约），均以 { cell } 为 props。
+ * @param {string} kind Cell 种类（如 'switch'）
+ * @param {React.ComponentType<{cell: object}>} AssembledView 组装 fallback 视图
+ * @returns {React.ComponentType<{cell: object}>} 分发视图（供 renderContent 使用）
+ */
+function createImplDispatcher(kind, AssembledView) {
+  return function ImplDispatcher({ cell }) {
+    const theme = useTheme();
+    const implName = theme?.getComponent(kind);
+    const Impl = implName ? getCellImpl(kind, implName) : null;
+    return Impl ? <Impl cell={cell} /> : <AssembledView cell={cell} />;
+  };
+}
+
+export { CellRoot, useCellData, useNodeData, createImplDispatcher };
