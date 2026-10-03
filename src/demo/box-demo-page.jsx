@@ -485,8 +485,13 @@ const _floatingComplex = new BoxBuilder('@float/complex')
   .floatingViewport()
   .posX(560)
   .posY(240)
-  .fixedWidth(560)
-  .fixedHeight(380)
+  // 默认尺寸 560×380；min 约束保证内部固定子项（标题 36 + 工具栏 32 + 状态栏 24
+  // + 统计行 56 + 网格 130 = 278 高；侧栏 min 100 宽）始终放得下，缩放不会把
+  // 窗口压入布局非法（红色错误占位、三层结构卸载）状态
+  .defaultWidth(560)
+  .defaultHeight(380)
+  .minWidth(320)
+  .minHeight(300)
   .movable(true)
   .resizable(true)
   .backgroundColor('#ffffff')

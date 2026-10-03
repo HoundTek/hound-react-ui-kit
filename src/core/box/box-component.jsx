@@ -326,6 +326,13 @@ function computeBuilderLayout(builder) {
     cumulative += isHorizontal ? safeNum(child._layoutWidth) : safeNum(child._layoutHeight);
   });
 
+  // 覆盖层滚动范围（主轴内容总尺寸）：覆盖层 inner 以此显式尺寸撑开滚动范围，
+  // 不依赖"绝对定位子项撑大可滚动溢出区域"——各引擎对绝对定位后代是否计入
+  // scrollable overflow 的实现不一致（内容层滚动范围由 in-flow 子项撑开，跨引擎
+  // 一致），范围不一致时三层滚动位置相互钳制、分界线随滚动与内容错位。
+  // Grid 的 inner 尺寸已在上方显式设置（cols*cellW / rows*cellH），无需此项
+  const mainContentSize = !isGrid && builder._children.length > 0 ? cumulative : 0;
+
   // Grid 子节点的二维位置（供覆盖层递归定位）
   const positions = builder._children.map(() => null);
   if (isGrid && builder._gridMetrics) {
@@ -348,6 +355,7 @@ function computeBuilderLayout(builder) {
     containerClassName,
     innerClassName,
     innerStyle,
+    mainContentSize,
     computedWidth,
     computedHeight,
   };
@@ -450,6 +458,22 @@ function getOverlayStyle(style) {
     backgroundColor: 'transparent',
     pointerEvents: 'none',
   };
+}
+
+/**
+ * 覆盖层 inner 样式：主轴尺寸显式设为内容总尺寸，使覆盖层滚动范围与内容层
+ * 结构一致（见 computeBuilderLayout 中 mainContentSize 注释）；交叉轴保持
+ * 100%（与内容层口径相同）。尚未布局（0）时回退原 inner 样式
+ * @param {Object} innerStyle 原 inner 样式
+ * @param {number} mainContentSize 主轴内容总尺寸（px）
+ * @param {boolean} isHorizontal 是否水平排列
+ * @returns {Object} 覆盖层 inner 样式
+ */
+function getOverlayInnerStyle(innerStyle, mainContentSize, isHorizontal) {
+  if (!mainContentSize) return innerStyle;
+  return isHorizontal
+    ? { ...innerStyle, width: mainContentSize }
+    : { ...innerStyle, height: mainContentSize };
 }
 
 /**
@@ -816,7 +840,7 @@ const EdgeLayer = ({ builder }) => {
   const edgeRef = useRef(null);
   const { hoveredEdges, addHoveredEdge, removeHoveredEdge, addHoveredEdges, removeHoveredEdges } = useHoveredEdges();
   const layout = computeBuilderLayout(builder);
-  const { style, isHorizontal, isGrid, offsets, positions, getChildStyle, containerClassName, innerClassName, innerStyle } = layout;
+  const { style, isHorizontal, isGrid, offsets, positions, getChildStyle, containerClassName, innerClassName, innerStyle, mainContentSize } = layout;
 
   useBoxOverlayScroll(edgeRef, builder);
   // 登记到三层容器注册表（浮动缩放直接写 DOM）
@@ -958,7 +982,7 @@ const EdgeLayer = ({ builder }) => {
       containerClassName={containerClassName}
       containerStyle={overlayStyle}
       innerClassName={innerClassName}
-      innerStyle={innerStyle}
+      innerStyle={getOverlayInnerStyle(innerStyle, mainContentSize, isHorizontal)}
     >
       {edgeHandles}
       {/* 递归：子节点的 EdgeLayer 定位到对应偏移处（Grid 为二维坐标） */}
@@ -990,7 +1014,7 @@ const CornerLayer = ({ builder }) => {
   const cornerRef = useRef(null);
   const { hoveredEdges, addHoveredEdges, removeHoveredEdges } = useHoveredEdges();
   const layout = computeBuilderLayout(builder);
-  const { style, isHorizontal, isGrid, offsets, positions, getChildStyle, containerClassName, innerClassName, innerStyle } = layout;
+  const { style, isHorizontal, isGrid, offsets, positions, getChildStyle, containerClassName, innerClassName, innerStyle, mainContentSize } = layout;
 
   useBoxOverlayScroll(cornerRef, builder);
   // 登记到三层容器注册表（浮动缩放直接写 DOM）
@@ -1204,7 +1228,7 @@ const CornerLayer = ({ builder }) => {
       containerClassName={containerClassName}
       containerStyle={overlayStyle}
       innerClassName={innerClassName}
-      innerStyle={innerStyle}
+      innerStyle={getOverlayInnerStyle(innerStyle, mainContentSize, isHorizontal)}
     >
       {cornerHandles}
       {/* 递归：子节点的 CornerLayer 定位到对应偏移处（Grid 为二维坐标） */}

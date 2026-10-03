@@ -157,6 +157,11 @@ theme.elements 元素级样式表 > 内建默认**（见 docs/theme-shape-design
   颜色，size 定尺寸）。★/☆/▲/▼/◉/○/☑/☐/✕/✓/▾/▸/‹›/ℹ 等字形随浏览器
   回退字体渲染，尺寸与粗细不一致。数据文本（字母、分隔符等）不是图标，
   按文字规则处理
+- **滚动范围**：不靠绝对定位子项撑大可滚动溢出区域。各引擎对绝对定位
+  后代是否计入 scrollable overflow 的实现不一致——Box 三层体系中内容层
+  滚动范围由 in-flow 子项撑开（跨引擎一致），Edge/Corner 覆盖层 inner 则以
+  主轴内容总尺寸显式撑开（box-component.jsx 的 mainContentSize /
+  getOverlayInnerStyle），保证三层滚动范围结构性一致、滚动同步不错位
 
 ## 解耦边界
 
