@@ -35,34 +35,25 @@ function useScrollTracking(containerRef, isVertical) {
     const el = containerRef.current;
     if (!el) return;
 
-    if (isVertical) {
-      const { scrollTop, scrollHeight, clientHeight } = el;
-      const canScroll = scrollHeight > clientHeight;
-      setHasScroll(canScroll);
-      if (canScroll) {
-        const trackSize = clientHeight - 2 * INSET;
-        const newThumbSize = Math.max(MIN_THUMB, (clientHeight / scrollHeight) * trackSize);
-        const trackSpace = trackSize - newThumbSize;
-        const maxScroll = scrollHeight - clientHeight;
-        const newThumbPos = (scrollTop / maxScroll) * trackSpace;
-        thumbSizeRef.current = newThumbSize;
-        setThumbSize(newThumbSize);
-        setThumbPos(newThumbPos);
-      }
-    } else {
-      const { scrollLeft, scrollWidth, clientWidth } = el;
-      const canScroll = scrollWidth > clientWidth;
-      setHasScroll(canScroll);
-      if (canScroll) {
-        const trackSize = clientWidth - 2 * INSET;
-        const newThumbSize = Math.max(MIN_THUMB, (clientWidth / scrollWidth) * trackSize);
-        const trackSpace = trackSize - newThumbSize;
-        const maxScroll = scrollWidth - clientWidth;
-        const newThumbPos = (scrollLeft / maxScroll) * trackSpace;
-        thumbSizeRef.current = newThumbSize;
-        setThumbSize(newThumbSize);
-        setThumbPos(newThumbPos);
-      }
+    const mainSize = isVertical ? el.clientHeight : el.clientWidth;
+    const scrollSize = isVertical ? el.scrollHeight : el.scrollWidth;
+    const trackSize = mainSize - 2 * INSET;
+    // 轨道容不下滑块（容器过矮/过窄）时视为不可滚动：不渲染滚动条——否则
+    // 过约束的轨道/滑块几何会溢出容器，撑大祖先滚动框的可滚动区域
+    //（如 logs 盒变矮时滑块撑大 workspace/content 的 scrollHeight，
+    //  内容层可滚而覆盖层不可滚，三层错位）
+    const canScroll = scrollSize > mainSize && trackSize > 0;
+    setHasScroll(canScroll);
+    if (canScroll) {
+      const pos = isVertical ? el.scrollTop : el.scrollLeft;
+      // 滑块尺寸不超过轨道：轨道短于 MIN_THUMB 时滑块填满轨道（thumbPos 恒 0）
+      const newThumbSize = Math.min(trackSize, Math.max(MIN_THUMB, (mainSize / scrollSize) * trackSize));
+      const trackSpace = trackSize - newThumbSize;
+      const maxScroll = scrollSize - mainSize;
+      const newThumbPos = (pos / maxScroll) * trackSpace;
+      thumbSizeRef.current = newThumbSize;
+      setThumbSize(newThumbSize);
+      setThumbPos(newThumbPos);
     }
   }, [containerRef, isVertical]);
 
@@ -150,9 +141,12 @@ const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
       const trackSize = isVertical
         ? el.clientHeight - 2 * INSET
         : el.clientWidth - 2 * INSET;
+      // 滑块填满轨道时无可拖行程（ratio 分母为 0），不移动
+      const trackSpace = trackSize - thumbSizeRef.current;
+      if (trackSpace <= 0) return;
       const ratio = isVertical
-        ? (el.scrollHeight - el.clientHeight) / (trackSize - thumbSizeRef.current)
-        : (el.scrollWidth - el.clientWidth) / (trackSize - thumbSizeRef.current);
+        ? (el.scrollHeight - el.clientHeight) / trackSpace
+        : (el.scrollWidth - el.clientWidth) / trackSpace;
 
       if (isVertical) {
         el.scrollTop = dragStart.current.scroll + delta * ratio;
@@ -210,9 +204,12 @@ const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
       const trackSize = isVertical
         ? el.clientHeight - 2 * INSET
         : el.clientWidth - 2 * INSET;
+      // 滑块填满轨道时无可拖行程（ratio 分母为 0），不移动
+      const trackSpace = trackSize - thumbSizeRef.current;
+      if (trackSpace <= 0) return;
       const ratio = isVertical
-        ? (el.scrollHeight - el.clientHeight) / (trackSize - thumbSizeRef.current)
-        : (el.scrollWidth - el.clientWidth) / (trackSize - thumbSizeRef.current);
+        ? (el.scrollHeight - el.clientHeight) / trackSpace
+        : (el.scrollWidth - el.clientWidth) / trackSpace;
 
       if (isVertical) {
         el.scrollTop = dragStart.current.scroll + delta * ratio;
@@ -232,6 +229,11 @@ const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   }, [containerRef, isVertical, hasScroll, thumbSizeRef]);
+
+  // 不可滚动（含容器过矮/过窄容不下轨道与滑块）时不渲染——见
+  // useScrollTracking：过约束几何即使不可见也会溢出容器，
+  // 撑大祖先滚动框的可滚动区域，导致三层滚动范围不一致
+  if (!hasScroll) return null;
 
   const barStyle = {
     position: 'absolute',
