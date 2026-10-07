@@ -445,7 +445,11 @@ function getFloatingPositionEl(path) {
 // === 工具函数（无 hook，纯计算）===
 
 /**
- * 由内容层样式派生覆盖层样式：绝对定位、透明背景、不接收指针事件
+ * 由内容层样式派生覆盖层样式：绝对定位、透明背景、不接收指针事件。
+ * 覆盖层不可滚动（overflow hidden）：内容层是唯一滚动源，覆盖层经 transform
+ * 镜像跟随（见 useBoxOverlayScroll），不做 scrollTop 镜像——各引擎 scroll
+ * 事件时序不一（Firefox APZ 事件落后于画面、WebKit 事件不与渲染帧对齐），
+ * 且程序化滚动大面积覆盖层在 WebKit 走主线程重绘，成本高
  * @param {Object} style 内容层样式
  * @returns {Object} 覆盖层样式
  */
@@ -457,6 +461,8 @@ function getOverlayStyle(style) {
     left: 0,
     backgroundColor: 'transparent',
     pointerEvents: 'none',
+    overflowX: 'hidden',
+    overflowY: 'hidden',
   };
 }
 
@@ -631,8 +637,15 @@ function useBoxContent(builder) {
 
 /**
  * useBoxOverlayScroll — EdgeLayer / CornerLayer 共用 hook
- * 双向同步覆盖层与内容层的滚动位置，
- * 并在内容容器尺寸变化时强制重新渲染（保持尺寸同步）
+ * 覆盖层（overflow: hidden，不滚动）经 transform 反向平移镜像内容层的滚动位置：
+ * 内容层是唯一滚动源，scroll 事件经 rAF 合并后直写覆盖层 inner 的 transform。
+ * 不做 scrollTop 镜像——各引擎 scroll 事件时序不一（Firefox APZ 事件落后于画面、
+ * WebKit 事件不与渲染帧对齐），且程序化滚动大面积覆盖层在 WebKit 走主线程重绘；
+ * transform 写入走合成器，四端成本与时序一致。镜像同时覆盖横纵两轴
+ * （Corner 层交叉轴不再有错位问题）。
+ * 覆盖层不滚动的代价是悬停分界线 handle 时滚轮不再命中滚动容器，
+ * 由 wheel 转发补偿（可滚则消费并转发给内容层，不可滚方向放行保持滚动链）。
+ * 另在内容容器尺寸变化时强制重新渲染（保持尺寸同步）
  */
 function useBoxOverlayScroll(layerRef, builder) {
   // 订阅 reflow 完成：content 容器尺寸不变但内部偏移变化时，覆盖层同样重渲染，
@@ -640,39 +653,56 @@ function useBoxOverlayScroll(layerRef, builder) {
   useReflowSubscribe(builder);
   const [, forceUpdate] = useState(0);
 
-  // 双向滚动同步
+  // transform 镜像（rAF 合并：一帧多个 scroll 事件只写一次）
   useEffect(() => {
     const contentRefObj = getContentRef(builder._path);
     if (!contentRefObj?.current || !layerRef.current) return;
     const contentEl = contentRefObj.current;
     const layerEl = layerRef.current;
 
-    let syncing = false;
-
-    const syncToLayer = () => {
-      if (syncing) return;
-      syncing = true;
-      layerEl.scrollTop = contentEl.scrollTop;
-      layerEl.scrollLeft = contentEl.scrollLeft;
-      syncing = false;
+    let raf = null;
+    const mirror = () => {
+      raf = null;
+      const inner = layerEl.firstElementChild;
+      if (!inner) return;
+      inner.style.transform = `translate(${-contentEl.scrollLeft}px, ${-contentEl.scrollTop}px)`;
     };
+    const schedule = () => { if (raf === null) raf = requestAnimationFrame(mirror); };
 
-    const syncToContent = () => {
-      if (syncing) return;
-      syncing = true;
-      contentEl.scrollTop = layerEl.scrollTop;
-      contentEl.scrollLeft = layerEl.scrollLeft;
-      syncing = false;
-    };
-
-    contentEl.addEventListener('scroll', syncToLayer, { passive: true });
-    layerEl.addEventListener('scroll', syncToContent, { passive: true });
-    syncToLayer();
+    contentEl.addEventListener('scroll', schedule, { passive: true });
+    mirror();
 
     return () => {
-      contentEl.removeEventListener('scroll', syncToLayer);
-      layerEl.removeEventListener('scroll', syncToContent);
+      contentEl.removeEventListener('scroll', schedule);
+      if (raf !== null) cancelAnimationFrame(raf);
     };
+  }, [builder._path, layerRef]);
+
+  // wheel 转发：覆盖层不可滚，悬停 handle（pointer-events:auto）时滚轮转发给
+  // 内容层；内容层实际移动才 preventDefault（已到尽头/该方向不可滚则放行，
+  // 保持向祖先的滚动链）。deltaMode 归一：Firefox 可能按行（1）/按页（2）给增量
+  useEffect(() => {
+    const contentRefObj = getContentRef(builder._path);
+    if (!contentRefObj?.current || !layerRef.current) return;
+    const contentEl = contentRefObj.current;
+    const layerEl = layerRef.current;
+
+    const onWheel = (e) => {
+      if (e.ctrlKey) return; // 触控板捏合缩放等手势放行
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? contentEl.clientHeight : 1;
+      const beforeTop = contentEl.scrollTop;
+      const beforeLeft = contentEl.scrollLeft;
+      contentEl.scrollTop += e.deltaY * unit;
+      contentEl.scrollLeft += e.deltaX * unit;
+      if (contentEl.scrollTop !== beforeTop || contentEl.scrollLeft !== beforeLeft) {
+        // 已消费：阻断默认行为与冒泡（事件冒泡会穿过外层覆盖层，
+        // 不阻断则嵌套可滚盒被外层重复转发——滚动链只认最内层）
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    layerEl.addEventListener('wheel', onWheel, { passive: false });
+    return () => layerEl.removeEventListener('wheel', onWheel);
   }, [builder._path, layerRef]);
 
   // 尺寸同步：观察内容容器尺寸变化时强制刷新

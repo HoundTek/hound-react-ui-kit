@@ -27,6 +27,7 @@ function useScrollTracking(containerRef, isVertical) {
   const [isScrolling, setIsScrolling] = useState(false);
   const thumbSizeRef = useRef(MIN_THUMB);
   const scrollTimerRef = useRef(null);
+  const rafRef = useRef(null);
 
   /**
    * 依据容器当前 scroll 位置与内容/视口尺寸刷新滑块位置/大小与 hasScroll
@@ -58,13 +59,20 @@ function useScrollTracking(containerRef, isVertical) {
   }, [containerRef, isVertical]);
 
   /**
-   * 滚动事件处理：置为滚动中，刷新滑块；停止滚动 1s 后复位
+   * 滚动事件处理：置为滚动中，刷新滑块；停止滚动 1s 后复位。
+   * update 经 rAF 合并（一帧多个 scroll 事件至多一次 setState/重渲染）——
+   * 触控板滚动事件可达 60–120Hz，逐事件更新在 WebKit 主线程上叠加成卡顿
    */
   const handleScroll = useCallback(() => {
     setIsScrolling(true);
     if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
     scrollTimerRef.current = setTimeout(() => setIsScrolling(false), 1000);
-    update();
+    if (rafRef.current === null) {
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        update();
+      });
+    }
   }, [update]);
 
   useEffect(() => {
@@ -78,6 +86,7 @@ function useScrollTracking(containerRef, isVertical) {
       el.removeEventListener('scroll', handleScroll);
       ro.disconnect();
       if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
   }, [containerRef, handleScroll, update]);
 
