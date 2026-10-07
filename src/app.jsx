@@ -109,7 +109,9 @@ const i18n = new I18n(messages, 'zh-CN');
  * - 组件级重写（两级样式体系第二级，见 docs/basic-cell-design.md）：
  *   components 声明 switch 走 'md3-switch' 实现（实现注册表解析），
  *   未声明的 Cell 种类一律走组装 fallback
- * - 动态属性：尺寸变化特效 stretch（投影四角对齐 + 实时追赶）
+ * - 动态属性：无尺寸变化特效——实测投影+追赶的过渡呈现不如静态更新稳定
+ *   （拖拽缩放直接同步 reflow 上屏，接近 Safari 的表现），故不声明
+ *   effects.resize；特效系统保留，主题可按需声明（见 theme-i18n-design.md）
  * @type {Theme}
  */
 const theme = new Theme({
@@ -174,14 +176,13 @@ const theme = new Theme({
     list: { variant: 'md3' },
   },
   components: { switch: 'md3-switch' },
-  effects: { resize: { type: 'stretch' } },
 });
 
 /**
  * 应用根组件。I18nProvider 与 ThemeProvider 并列包裹演示页：
  * - 语言切换经 I18nProvider 注入，Cell 内容组件用 useText 订阅
- * - 主题（拉伸特效）经 ThemeProvider 注入，Box 视口根（页面/浮动窗口）在尺寸
- *   变化时以拉伸特效呈现（投影四角对齐 + 实时追赶）
+ * - 主题经 ThemeProvider 注入；本主题不声明尺寸变化特效，Box 视口根
+ *   （页面/浮动窗口）尺寸变化走静态更新（同步 reflow 直接上屏）
  * - DemoPageFloating 在页面上层叠加渲染浮动视口演示（独立窗口 + 模态遮罩，
  *   层级由系统管理：后聚焦/出现居上 + 模态序排列）
  * - 页面入口二选一（默认预设展示台）：PresetDemoPage 为 75 个预设 Cell 的分类
