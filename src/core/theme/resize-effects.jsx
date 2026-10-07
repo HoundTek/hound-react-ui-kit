@@ -18,8 +18,9 @@
  * 计算，完成后把屏上的拉伸原子替换为新布局（scale 还原 1），无中间帧。
  *
  * 各特效的呈现差异（仅"何时追赶真实布局"不同）：
- * - stretch 拉伸：不冻结——真实布局实时计算，reflow 就绪（下一帧）立即交接，
- *   无 settleDelay 防抖；复杂布局实时上屏，resize 期间始终保持拉伸贴合窗口
+ * - stretch 拉伸：不冻结——真实布局实时计算，以 chaseInterval 节流追赶
+ *   （时间阈值节流 + 尾随兜底，与浏览器事件交付节奏解耦，四端表现一致）；
+ *   复杂布局实时上屏，resize 期间始终保持拉伸贴合窗口
  * - blur 模糊：拉伸 + 模糊。追赶时机同 stretch，尺寸变化期间三层整体模糊
  *   （CSS filter 遮盖布局重排细节），尺寸稳定 settleDelay 后平滑恢复清晰
  * - freezeZoom 冻结缩放：布局冻结在最近一次真实尺寸（_frozenViewportSize 锁定
@@ -36,6 +37,15 @@ import { applyFloatingSizeToDom, registerLayerRef, unregisterLayerRef } from '..
 
 /** 结算延迟（ms）：模糊特效在尺寸停止变化后多久恢复清晰 */
 const DEFAULT_SETTLE_DELAY = 250;
+
+/**
+ * 追赶间隔（ms）：stretch/blur 特效两次布局追赶的最小间隔。追赶节奏与引擎的
+ * 输入/rAF 交付节奏解耦——逐输入事件追赶会让布局刷新粒度随浏览器事件管线漂移
+ * （Chrome 每帧追赶、内容持续跳动；WebKit 事件合并 + 重负载自我节流则长期不追，
+ * 画面稳定但布局滞后），统一为时间阈值节流 + 尾随兜底后四端表现一致：
+ * 拖动期以投影为主、至多每 chaseInterval 追赶一次，停止后必有最终追赶精确交接
+ */
+const DEFAULT_CHASE_INTERVAL = 120;
 
 /** 把任意值安全转为有限数，非有限数返回 0 */
 const safeNum = (v) => (typeof v === 'number' && !isNaN(v) && isFinite(v)) ? v : 0;
@@ -128,8 +138,8 @@ function useViewportRealSize(builder) {
  * 呈现与 freezeZoom 相同的"拉伸缩放四角对齐"方式：尺寸变化瞬间，当前屏上内容
  * 立即以 transform scale 整体投影到新尺寸（GPU 合成、零 reflow），四角实时对齐
  * 窗口。与 freezeZoom 的区别是**移除冻结**：不把布局冻结等待 settleDelay 防抖，
- * 而是让真实布局实时计算——尺寸变化后下一帧（rAF）即用最新真实尺寸同步 reflow，
- * 并把拉伸的**基准原子推进到新布局**（见追赶）。
+ * 而是让真实布局实时计算——按 chaseInterval 时间阈值节流追赶（默认 120ms），
+ * 用最新真实尺寸同步 reflow，并把拉伸的**基准原子推进到新布局**（见追赶）。
  *
  * 追赶的"一段连续拉伸"：追赶只推进基准（frozenRef）、**保持投影不解除**——若
  * 追赶把 scale 清除回 1（解除投影），拖拽中画面每步跳变回真实布局，一段连续
@@ -145,8 +155,9 @@ function useViewportRealSize(builder) {
  * unchanged，不再空转一轮投影。
  *
  * 与 freezeZoom 的实现差异仅在追赶时机与投影结束方式：freezeZoom 用
- * setTimeout(settleDelay) 防抖追赶一次并解除投影；本 hook 用 rAF 无防抖追赶
- * （每次尺寸变化排一次，进行中不重复），且追赶保持投影（仅推进基准）。
+ * setTimeout(settleDelay) 防抖追赶一次并解除投影；本 hook 用时间阈值节流
+ * 追赶（chaseInterval，进行中不重复排队，尾随定时器兜底最终追赶），且追赶
+ * 保持投影（仅推进基准）。
  *
  * 注意：进入投影的冻结 reflow 用冻结尺寸（frozenRef 基准）同步执行，与
  * freezeZoom 一致——保证三层布局 = 冻结基准，投影 scale 后正好 = 当前尺寸。
@@ -155,9 +166,11 @@ function useViewportRealSize(builder) {
  *
  * @param {BoxBuilder} builder 视口 builder
  * @param {{width: number, height: number}} realSize 视口真实尺寸
+ * @param {Object} [spec] 特效参数（chaseInterval：追赶最小间隔 ms，默认 120）
  * @returns {{projecting: boolean, scale: {sx: number, sy: number}}} 投影状态与缩放比例
  */
-function useStretchProjection(builder, realSize) {
+function useStretchProjection(builder, realSize, spec) {
+  const chaseInterval = spec?.chaseInterval ?? DEFAULT_CHASE_INTERVAL;
   const [proj, setProj] = useState({ scale: { sx: 1, sy: 1 }, projecting: false });
   // 布局当前物理尺寸（权威基准，同步更新）：初始为初始真实尺寸（初始布局尺寸）。
   // 追赶 reflow 完成时同步更新——布局物理尺寸变了基准就必须立即跟着变，
@@ -166,10 +179,13 @@ function useStretchProjection(builder, realSize) {
   const prevRef = useRef({ w: realSize.width, h: realSize.height });
   const projectingRef = useRef(false);
   const rafRef = useRef(null);
+  const lastChaseAtRef = useRef(0);
+  const trailingTimerRef = useRef(null);
 
   // 卸载清理：取消挂起追赶、恢复视口布局（防泄漏导致布局永久锁定）
   useEffect(() => () => {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    if (trailingTimerRef.current !== null) clearTimeout(trailingTimerRef.current);
     if (builder._frozenViewportSize) builder._frozenViewportSize = null;
   }, [builder]);
 
@@ -213,58 +229,74 @@ function useStretchProjection(builder, realSize) {
       projecting: true,
     });
 
-    // 实时追赶（无防抖）：下一帧以最新真实尺寸同步 reflow 并**原子推进基准**。
-    // 每次尺寸变化只排一次（追赶进行中不再重复排队）；追赶执行时直读最新尺寸
+    // 节流追赶（chaseInterval，默认 120ms）：追赶节奏与引擎的输入/rAF 交付节奏
+    // 解耦（见 DEFAULT_CHASE_INTERVAL 注释）。追赶执行时直读最新尺寸
     //（viewport = window 实时值，floating = _viewWidth/_viewHeight），避免用
-    // 排队时捕获的旧尺寸追赶导致滞后一帧
-    if (rafRef.current === null) {
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = null;
-        // 直读最新真实尺寸并统一为 {w, h} 字段（computeFloatingRealSize 返回
-        // {width, height}——字段名不匹配会把基准推进为 undefined，scale 计算
-        // 变 NaN 被浏览器忽略，投影冻结在首帧）
-        const readLatest = () => {
-          const r = builder._isViewport
-            ? { width: window.innerWidth, height: window.innerHeight }
-            : computeFloatingRealSize(builder);
-          return { w: r.width, h: r.height };
-        };
-        const latest = readLatest();
-        // 追赶：解除锁定 → 以最新真实尺寸同步 reflow（真实布局就绪）→ 基准推进
-        // 到最新尺寸 → 重新锁定三层到新基准（DOM 直写保证当前帧三层即新基准，
-        // 不被"旧基准布局 + 新 scale"双重缩放）。**保持投影不解除**——把 scale
-        // 清除回 1 会让拖拽中画面每步跳变回真实布局，一段连续拉伸被切成很多段
-        // 脉冲；保持投影则画面始终是"最新布局的拉伸"，内容无缝切换、鼠标继续
-        // 移动时 scale 从新基准连续增长（一段连续拉伸 + 布局实时刷新）
-        builder._frozenViewportSize = null;
-        builder._containerSize = { width: latest.w, height: latest.h };
-        builder._requestReflow();
-        builder._performReflow();
-        frozenRef.current = { width: latest.w, height: latest.h };
-        builder._frozenViewportSize = { width: latest.w, height: latest.h };
-        builder._containerSize = { width: latest.w, height: latest.h };
-        applyFloatingSizeToDom(builder, latest.w, latest.h);
-        prevRef.current = latest;
-        // 保持投影：scale 以新基准计算（此刻 ≈ 1，画面即新布局本身；鼠标继续
-        // 移动则从新基准连续增长）
-        const latestReal = readLatest();
-        // flushSync 强制同步渲染：追赶帧内三层容器与子元素布局一次更新到位。
-        // 若用异步 setProj，追赶帧会先显示"新容器尺寸（直写） + 旧子元素布局"
-        //（子元素要等下一帧 React 渲染才更新），随后子元素跳变到新布局——
-        // 内容右/底边缘每步 ±8px 抖动（freezeZoom 投影期布局冻结不 reflow，
-        // 故丝滑；stretch 实时追赶必须让布局切换与渲染同帧原子完成）
-        flushSync(() => {
-          setProj({
-            scale: {
-              sx: latestReal.w / latest.w,
-              sy: latestReal.h / latest.h,
-            },
-            projecting: true,
-          });
+    // 排队时捕获的旧尺寸追赶导致滞后
+    const chase = () => {
+      // 直读最新真实尺寸并统一为 {w, h} 字段（computeFloatingRealSize 返回
+      // {width, height}——字段名不匹配会把基准推进为 undefined，scale 计算
+      // 变 NaN 被浏览器忽略，投影冻结在首帧）
+      const readLatest = () => {
+        const r = builder._isViewport
+          ? { width: window.innerWidth, height: window.innerHeight }
+          : computeFloatingRealSize(builder);
+        return { w: r.width, h: r.height };
+      };
+      const latest = readLatest();
+      // 追赶：解除锁定 → 以最新真实尺寸同步 reflow（真实布局就绪）→ 基准推进
+      // 到最新尺寸 → 重新锁定三层到新基准（DOM 直写保证当前帧三层即新基准，
+      // 不被"旧基准布局 + 新 scale"双重缩放）。**保持投影不解除**——把 scale
+      // 清除回 1 会让拖拽中画面每步跳变回真实布局，一段连续拉伸被切成很多段
+      // 脉冲；保持投影则画面始终是"最新布局的拉伸"，内容无缝切换、鼠标继续
+      // 移动时 scale 从新基准连续增长（一段连续拉伸 + 布局刷新）
+      builder._frozenViewportSize = null;
+      builder._containerSize = { width: latest.w, height: latest.h };
+      builder._requestReflow();
+      builder._performReflow();
+      frozenRef.current = { width: latest.w, height: latest.h };
+      builder._frozenViewportSize = { width: latest.w, height: latest.h };
+      builder._containerSize = { width: latest.w, height: latest.h };
+      applyFloatingSizeToDom(builder, latest.w, latest.h);
+      prevRef.current = latest;
+      // 保持投影：scale 以新基准计算（此刻 ≈ 1，画面即新布局本身；鼠标继续
+      // 移动则从新基准连续增长）
+      const latestReal = readLatest();
+      // flushSync 强制同步渲染：追赶帧内三层容器与子元素布局一次更新到位。
+      // 若用异步 setProj，追赶帧会先显示"新容器尺寸（直写） + 旧子元素布局"
+      //（子元素要等下一帧 React 渲染才更新），随后子元素跳变到新布局
+      flushSync(() => {
+        setProj({
+          scale: {
+            sx: latestReal.w / latest.w,
+            sy: latestReal.h / latest.h,
+          },
+          projecting: true,
         });
       });
+    };
+
+    // 调度：距上次追赶不足 chaseInterval 时挂尾随定时器（兜底保证尺寸停止变化
+    // 后必有最终追赶——基准推进到真实尺寸、scale 回 1）；已有 rAF/定时器在
+    // 排队时不重复排队（追赶直读最新尺寸，重复排队无意义）
+    if (rafRef.current === null && trailingTimerRef.current === null) {
+      const runChase = () => {
+        rafRef.current = null;
+        lastChaseAtRef.current = performance.now();
+        chase();
+      };
+      const elapsed = performance.now() - lastChaseAtRef.current;
+      if (elapsed >= chaseInterval) {
+        rafRef.current = requestAnimationFrame(runChase);
+      } else {
+        trailingTimerRef.current = setTimeout(() => {
+          trailingTimerRef.current = null;
+          if (rafRef.current !== null) return;
+          rafRef.current = requestAnimationFrame(runChase);
+        }, chaseInterval - elapsed);
+      }
     }
-  }, [realSize.width, realSize.height, builder]);
+  }, [realSize.width, realSize.height, builder, chaseInterval]);
 
   return { projecting: proj.projecting, scale: proj.scale };
 }
@@ -297,19 +329,20 @@ function makeProjectionStyle(proj, realSize) {
 }
 
 /**
- * 拉伸特效：投影 + 实时追赶（见 useStretchProjection）。
+ * 拉伸特效：投影 + 节流追赶（见 useStretchProjection）。
  * 与 freezeZoom 相同的"拉伸缩放四角对齐"呈现方式，但移除冻结——真实布局实时
- * 计算，reflow 就绪（下一帧）立即把当前屏上的拉伸替换为新布局（无 settleDelay
- * 防抖）。复杂布局实时上屏，resize 期间内容始终保持拉伸贴合窗口、不撕裂。
+ * 计算，按 chaseInterval 时间阈值节流把当前屏上的拉伸替换为新布局（时间阈值
+ * 节流 + 尾随兜底，无 settleDelay 防抖）。复杂布局实时上屏，resize 期间内容
+ * 始终保持拉伸贴合窗口、不撕裂。
  * @param {Object} props 组件属性
  * @param {BoxBuilder} props.builder 视口 builder
- * @param {Object} props.spec 特效参数（当前无参数）
+ * @param {Object} props.spec 特效参数（chaseInterval：追赶最小间隔 ms，默认 120）
  * @param {React.ReactNode} props.children 视口三层渲染
  * @returns {JSX.Element} 特效包装元素
  */
 function StretchResizeEffect({ builder, spec, children }) {
   const realSize = useViewportRealSize(builder);
-  const proj = useStretchProjection(builder, realSize);
+  const proj = useStretchProjection(builder, realSize, spec);
   const effectRef = useEffectLayerRef(builder);
   return (
     <div ref={effectRef} className="resize-effect-layer" style={makeProjectionStyle(proj, realSize)}>
@@ -319,7 +352,7 @@ function StretchResizeEffect({ builder, spec, children }) {
 }
 
 /**
- * 模糊特效（拉伸 + 模糊）：呈现同 stretch（投影四角对齐 + 实时追赶），尺寸变化
+ * 模糊特效（拉伸 + 模糊）：呈现同 stretch（投影四角对齐 + 节流追赶），尺寸变化
  * 期间三层整体模糊（CSS filter 遮盖布局重排细节），尺寸稳定 settleDelay 后平滑
  * 恢复清晰。filter 走合成器（will-change），不阻塞主线程。
  * @param {Object} props 组件属性
@@ -330,7 +363,7 @@ function StretchResizeEffect({ builder, spec, children }) {
  */
 function BlurResizeEffect({ builder, spec, children }) {
   const realSize = useViewportRealSize(builder);
-  const proj = useStretchProjection(builder, realSize);
+  const proj = useStretchProjection(builder, realSize, spec);
   const effectRef = useEffectLayerRef(builder);
   const [blurred, setBlurred] = useState(false);
   const timerRef = useRef(null);
@@ -390,8 +423,9 @@ function BlurResizeEffect({ builder, spec, children }) {
  *   自动让位于投影（见其 onMove 的 _frozenViewportSize 分支），实时性由投影承担；
  *   非投影期保持原有"同步 reflow + DOM 直写"实时路径
  *
- * 与 stretch/blur 的区别：stretch/blur 依赖逐帧 reflow 追赶，reflow 超过帧预算
- * 时会掉帧；freezeZoom 在 reflow 慢时仍保证实时（GPU 缩放不阻塞主线程）。
+ * 与 stretch/blur 的区别：stretch/blur 依赖节流 reflow 追赶（chaseInterval 内
+ * 至多一次），reflow 超过帧预算时会掉帧；freezeZoom 在 reflow 慢时仍保证实时
+ *（GPU 缩放不阻塞主线程）。
  * @param {Object} props 组件属性
  * @param {BoxBuilder} props.builder 视口 builder
  * @param {Object} props.spec 特效参数（settleDelay：尺寸稳定后多久追赶精确布局）

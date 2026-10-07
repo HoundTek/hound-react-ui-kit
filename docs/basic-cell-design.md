@@ -162,6 +162,14 @@ theme.elements 元素级样式表 > 内建默认**（见 docs/theme-shape-design
   滚动范围由 in-flow 子项撑开（跨引擎一致），Edge/Corner 覆盖层 inner 则以
   主轴内容总尺寸显式撑开（box-component.jsx 的 mainContentSize /
   getOverlayInnerStyle），保证三层滚动范围结构性一致、滚动同步不错位
+- **滚动同步**：内容层是唯一滚动源。覆盖层（Edge/Corner）不滚动
+  （overflow hidden），其滚动位置由内容层 scroll 事件经 rAF 合并后直写
+  覆盖层 inner 的 transform 反向平移镜像（useBoxOverlayScroll）。不做
+  scrollTop 镜像——各引擎 scroll 事件时序不一（Firefox APZ 事件落后于
+  画面、WebKit 事件不与渲染帧对齐），且程序化滚动大面积覆盖层在 WebKit
+  走主线程重绘；transform 写入走合成器，四端成本与时序一致。悬停覆盖层
+  手柄时的滚轮操作由非 passive wheel 监听转发给内容层（deltaMode 归一，
+  实际移动才 preventDefault，到尽头放行保持滚动链）
 
 ## 解耦边界
 
