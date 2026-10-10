@@ -22,5 +22,5 @@ export { PanelCell } from './panel';
 export { ListCell, ListImpl } from './list';
 export {
   GlyphChevron, GlyphClose, GlyphCheck, GlyphTriangle, GlyphRadio, GlyphCheckbox,
-  GlyphMinus, GlyphPlus, GlyphInfo, GlyphWarning,
+  GlyphMinus, GlyphPlus, GlyphMaximize, GlyphRestore, GlyphInfo, GlyphWarning,
 } from './glyphs';

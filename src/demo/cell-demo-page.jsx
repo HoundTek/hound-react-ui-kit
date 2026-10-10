@@ -3,10 +3,12 @@
  *       并展示完整框架功能。
  *
  *        使用模式：
- *        1) 类型作者继承 CellBaseBuilder，构造函数中配置 Box、Schema、Slot、内容组件
- *        2) 页面作者用 fill 内联实例化 Cell（fill 返回 this，可链式嵌套）
- *        3) 根 Cell 调用 mount(dag._root) 自动级联挂载全树，再 react() 渲染
- *        4) 跨 Cell 引用用 cell.find(path) 按路径访问（如 @userProfile 锚点）
+ *        1) 页面骨架用预设页面结构容器（AppBarCell 顶栏 / SplitCell 分栏 /
+ *          FooterCell 页脚 / RowCell 横向行），不手写盒配方
+ *        2) 类型作者继承 CellBaseBuilder，构造函数中配置 Box、Schema、Slot、内容组件
+ *        3) 页面作者用 fill 内联实例化 Cell（fill 返回 this，可链式嵌套）
+ *        4) 根 Cell 调用 mount(dag._root) 自动级联挂载全树，再 react() 渲染
+ *        5) 跨 Cell 引用用 cell.find(path) 按路径访问（如 @userProfile 锚点）
  *
  *        交互演示点（Cell 数据驱动交互）：
  *        - 导航选中：NavCell 点击导航项高亮（activeIndex）
@@ -25,16 +27,19 @@
  *        - 引用节点：RefDemoCell createRefChild 指向 @userProfile
  *        - 实例引用：InstanceRefCell 用 cell.find('@userProfile') 按路径访问
  *        - 多 Slot：MainPanelCell defineSlot('header', {single:true}) + defineSlot('body')
- *        - 多挂载：profile 变量 fill 到 header（mount 0）+ sidebar（mount 1）
- *        - showChildOverlays：body 插槽隐藏子项拖拽手柄
+ *        - 多挂载：profile 变量 fill 到顶栏（mount 0）+ 分栏 side 插槽（mount 1）
+ *        - 覆盖层：Edge/Corner 拖拽手柄默认隐藏；SplitCell 预设显式开启
+ *          showEdges（侧栏分界线悬停显示主题指示条、可拖拽调宽）
  */
 import React, { useEffect } from 'react';
 import {
   CellBaseBuilder, DataDag, useCellData, useNodeData, useText, useI18n,
-  ButtonCell, WindowCell, TextCell, ListCell, CloseButtonCell,
-  useThemeColor, useCornerType, useShapeRadius, cornerStyle, CAPSULE_RADIUS,
+  ButtonCell, WindowCell, ListCell,
+  ButtonImpl, InputImpl, SliderTrackImpl,
+  AppBarCell, SplitCell, FooterCell, RowCell, BoardCell,
+  useThemeColor, useCornerType, cornerStyle, CAPSULE_RADIUS,
 } from '../core/ui-kit';
-import { openFloatingDemo, closeFloatingDemo } from './box-demo-page';
+import { openFloatingDemo, closeFloatingDemo } from './floating-window-demo';
 import { createPageNav } from './page-nav';
 
 // =========================================================================
@@ -123,25 +128,26 @@ function ProfileView({ cell }) {
   const switchLabel = useText('profile.switch');
   const names = ['访客', 'Alice', 'Bob', 'Charlie'];
   const roles = ['guest', 'admin', 'editor', 'viewer'];
-  const onPrimary = useThemeColor('on-primary', '#fff');
+  const onPrimary = useThemeColor('on-primary', '#FFFFFF');
+  const primaryDark = useThemeColor('primary-dark', '#4F378B');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       alignItems: 'center', width: '100%', height: '100%',
-      color: onPrimary, fontSize: 12, gap: 2,
+      color: onPrimary, fontSize: 12, gap: 4,
     }}>
       <div style={{ fontWeight: 'bold' }}>{name}</div>
       <div style={{ fontSize: 10, opacity: 0.7 }}>{role}</div>
-      <button
-        onClick={() => {
+      <ButtonImpl
+        label={switchLabel}
+        size="small"
+        color={primaryDark}
+        onPress={() => {
           const idx = (names.indexOf(name) + 1) % names.length;
           cell.setName(names[idx]);
           cell.setRole(roles[idx]);
         }}
-        style={{ marginTop: 2, padding: '2px 6px', fontSize: 10, cursor: 'pointer', border: 'none', borderRadius: 3 }}
-      >
-        {switchLabel}
-      </button>
+      />
     </div>
   );
 }
@@ -155,25 +161,19 @@ function ProfileView({ cell }) {
 function LangSwitchView({ cell }) {
   const inst = useI18n();
   const label = useText('lang.switchTo');
-  const corner = useCornerType();
-  const controlR = useShapeRadius('control', 4);
-  const onPrimary = useThemeColor('on-primary', '#fff');
+  const primaryDark = useThemeColor('primary-dark', '#4F378B');
   if (!inst) return null;
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       width: '100%', height: '100%',
     }}>
-      <button
-        onClick={() => inst.setLocale(inst.locale === 'zh-CN' ? 'en' : 'zh-CN')}
-        style={{
-          padding: '4px 12px', height: 30, cursor: 'pointer',
-          border: '1px solid rgba(255,255,255,0.6)', ...cornerStyle(corner, controlR),
-          background: 'rgba(255,255,255,0.18)', color: onPrimary, fontSize: 12,
-        }}
-      >
-        {label}
-      </button>
+      <ButtonImpl
+        label={label}
+        size="small"
+        color={primaryDark}
+        onPress={() => inst.setLocale(inst.locale === 'zh-CN' ? 'en' : 'zh-CN')}
+      />
     </div>
   );
 }
@@ -188,21 +188,30 @@ function MenuView({ cell }) {
   const titleKey = useCellData(cell, 'title');
   const active = useCellData(cell, 'active');
   const title = useText(titleKey);
-  const onPrimary = useThemeColor('on-primary', '#fff');
-  const text = useThemeColor('text', '#333');
-  const primaryDark = useThemeColor('primary-dark', '#357abd');
+  const corner = useCornerType();
+  const text = useThemeColor('text', '#1D1B20');
+  const primaryContainer = useThemeColor('primary-container', '#EADDFF');
+  const onPrimaryContainer = useThemeColor('on-primary-container', '#21005D');
+  // MD3 导航项：选中态为 primary-container 胶囊（横向内缩 12px）
   return (
     <div
       onClick={() => cell.setActive(!active)}
       style={{
-        display: 'flex', alignItems: 'center', padding: '0 16px',
-        width: '100%', height: '100%',
-        color: active ? onPrimary : text,
-        backgroundColor: active ? primaryDark : 'transparent',
+        display: 'flex', alignItems: 'center',
+        width: '100%', height: '100%', padding: '4px 12px', boxSizing: 'border-box',
         cursor: 'pointer', userSelect: 'none',
       }}
     >
-      {title}
+      <div style={{
+        flex: 1, display: 'flex', alignItems: 'center',
+        height: '100%', padding: '0 16px', boxSizing: 'border-box',
+        fontSize: 14, fontWeight: active ? 600 : 400,
+        color: active ? onPrimaryContainer : text,
+        backgroundColor: active ? primaryContainer : 'transparent',
+        ...cornerStyle(corner, CAPSULE_RADIUS),
+      }}>
+        {title}
+      </div>
     </div>
   );
 }
@@ -215,10 +224,11 @@ function MenuView({ cell }) {
 function TitleView({ cell }) {
   const textKey = useCellData(cell, 'text');
   const text = useText(textKey);
+  const onPrimaryContainer = useThemeColor('on-primary-container', '#21005D');
   return (
     <div style={{
       display: 'flex', alignItems: 'center', padding: '0 16px',
-      width: '100%', height: '100%', color: '#7a5a3a', fontSize: 16, fontWeight: 'bold',
+      width: '100%', height: '100%', color: onPrimaryContainer, fontSize: 16, fontWeight: 'bold',
     }}>
       {text}
     </div>
@@ -236,25 +246,19 @@ function StatCardView({ cell }) {
   const title = useText(titleKey);
   const clickLabel = useText('stat.clickCount');
   const incLabel = useText('stat.increment');
-  const corner = useCornerType();
-  const controlR = useShapeRadius('control', 4);
-  const surface = useThemeColor('surface', '#fff');
-  const textMuted = useThemeColor('text-muted', '#999');
+  const text = useThemeColor('text', '#1D1B20');
+  const primary = useThemeColor('primary', '#6750A4');
+  const textMuted = useThemeColor('text-muted', '#79747E');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       alignItems: 'flex-start', padding: 12, width: '100%', height: '100%',
-      color: '#5a3a1a', backgroundColor: '#fffdf5',
+      boxSizing: 'border-box', color: text,
     }}>
-      <div style={{ fontWeight: 'bold', marginBottom: 6 }}>{title}</div>
-      <div style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 4 }}>{count}</div>
-      <button
-        onClick={() => cell.setCount(count + 1)}
-        style={{ marginTop: 4, padding: '4px 10px', cursor: 'pointer', border: '1px solid #d8b88a', ...cornerStyle(corner, controlR), background: surface }}
-      >
-        {incLabel}
-      </button>
-      <div style={{ fontSize: 11, color: textMuted, marginTop: 4 }}>{clickLabel}{count}</div>
+      <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 4 }}>{title}</div>
+      <div style={{ fontSize: 22, fontWeight: 600, color: primary, marginBottom: 6 }}>{count}</div>
+      <ButtonImpl label={incLabel} size="small" variant="tonal" onPress={() => cell.setCount(count + 1)} />
+      <div style={{ fontSize: 11, color: textMuted, marginTop: 6 }}>{clickLabel}{count}</div>
     </div>
   );
 }
@@ -268,11 +272,11 @@ function StatCardView({ cell }) {
 function TaskListView({ cell }) {
   const items = useCellData(cell, 'items') || [];
   const selected = useCellData(cell, 'selected');
-  const onPrimary = useThemeColor('on-primary', '#fff');
-  const text = useThemeColor('text', '#333');
-  const primaryDark = useThemeColor('primary-dark', '#357abd');
-  const surfaceMuted = useThemeColor('surface-muted', '#f7f7f7');
-  const border = useThemeColor('border', '#e8e8e8');
+  const text = useThemeColor('text', '#1D1B20');
+  const primaryContainer = useThemeColor('primary-container', '#EADDFF');
+  const onPrimaryContainer = useThemeColor('on-primary-container', '#21005D');
+  const surfaceMuted = useThemeColor('surface-muted', '#F3EDF7');
+  const border = useThemeColor('border', '#CAC4D0');
   return (
     <div style={{ width: '100%', height: '100%' }}>
       {items.map(item => (
@@ -280,10 +284,12 @@ function TaskListView({ cell }) {
           key={item.id}
           onClick={() => cell.setSelected(item.id)}
           style={{
-            display: 'flex', alignItems: 'center', padding: '0 10px',
+            display: 'flex', alignItems: 'center', padding: '0 12px',
             height: 34, fontSize: 13, cursor: 'pointer', userSelect: 'none',
-            color: item.id === selected ? onPrimary : text,
-            backgroundColor: item.id === selected ? primaryDark : surfaceMuted,
+            boxSizing: 'border-box',
+            fontWeight: item.id === selected ? 600 : 400,
+            color: item.id === selected ? onPrimaryContainer : text,
+            backgroundColor: item.id === selected ? primaryContainer : surfaceMuted,
             borderBottom: `1px solid ${border}`,
           }}
         >
@@ -303,11 +309,11 @@ function TaskListView({ cell }) {
 function TaskDetailView({ cell }) {
   const selectedId = useCellData(cell, 'detail');
   const emptyLabel = useText('task.empty');
-  const textMuted = useThemeColor('text-muted', '#bbb');
-  const text = useThemeColor('text', '#333');
-  const textSecondary = useThemeColor('text-secondary', '#666');
-  const success = useThemeColor('success', '#1a8a4a');
-  const warning = useThemeColor('warning', '#c07a1a');
+  const textMuted = useThemeColor('text-muted', '#79747E');
+  const text = useThemeColor('text', '#1D1B20');
+  const textSecondary = useThemeColor('text-secondary', '#49454F');
+  const success = useThemeColor('success', '#2f9e63');
+  const warning = useThemeColor('warning', '#d9870d');
   const listCell = cell.find('@taskList');
   const items = listCell ? listCell.getData('items') || [] : [];
   const item = items.find(t => t.id === selectedId);
@@ -344,23 +350,18 @@ function InputView({ cell }) {
   const value = useCellData(cell, 'value');
   const label = useText('input.label');
   const current = useText('input.current', { value: value || '—' });
-  const corner = useCornerType();
-  const controlR = useShapeRadius('control', 4);
-  const textMuted = useThemeColor('text-muted', '#888');
-  const border = useThemeColor('border', '#ccc');
-  const primaryDark = useThemeColor('primary-dark', '#357abd');
+  const textMuted = useThemeColor('text-muted', '#79747E');
+  const primary = useThemeColor('primary', '#6750A4');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
-      padding: '0 16px', width: '100%', height: '100%', gap: 6,
+      padding: '0 16px', width: '100%', height: '100%', gap: 6, boxSizing: 'border-box',
     }}>
       <div style={{ fontSize: 12, color: textMuted }}>{label}</div>
-      <input
-        value={value}
-        onChange={e => cell.setValue(e.target.value)}
-        style={{ padding: '4px 8px', border: `1px solid ${border}`, ...cornerStyle(corner, controlR), fontSize: 13 }}
-      />
-      <div style={{ fontSize: 12, color: primaryDark }}>{current}</div>
+      <div style={{ height: 36 }}>
+        <InputImpl value={value} fontSize={13} onChange={v => cell.setValue(v)} />
+      </div>
+      <div style={{ fontSize: 12, color: primary }}>{current}</div>
     </div>
   );
 }
@@ -374,36 +375,26 @@ function ToggleView({ cell }) {
   const enabled = useCellData(cell, 'enabled');
   const label = useText('toggle.label');
   const stateText = useText(enabled ? 'toggle.on' : 'toggle.off');
-  const corner = useCornerType();
-  const text = useThemeColor('text', '#333');
-  const success = useThemeColor('success', '#1a8a4a');
-  const warning = useThemeColor('warning', '#c07a1a');
-  const primary = useThemeColor('primary', '#4a90d9');
-  const trackOff = useThemeColor('border', '#ccc');
-  const knob = useThemeColor('on-primary', '#fff');
+  const text = useThemeColor('text', '#1D1B20');
+  const success = useThemeColor('success', '#2f9e63');
+  const warning = useThemeColor('warning', '#d9870d');
+  // 开关本体复用基础实现 SliderTrackImpl（两档滑块，md3 变体），取代自绘轨道
   return (
     <div
-      onClick={() => cell.setEnabled(!enabled)}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 16px', width: '100%', height: '100%',
-        cursor: 'pointer', userSelect: 'none', fontSize: 13, color: text,
+        padding: '0 16px', width: '100%', height: '100%', boxSizing: 'border-box',
+        fontSize: 13, color: text,
       }}
     >
       <span>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ color: enabled ? success : warning, fontWeight: 'bold' }}>{stateText}</span>
-        <div style={{
-          width: 36, height: 20, position: 'relative',
-          ...cornerStyle(corner, CAPSULE_RADIUS),
-          backgroundColor: enabled ? primary : trackOff, transition: 'background-color .15s',
-        }}>
-          <div style={{
-            position: 'absolute', top: 2, width: 16, height: 16,
-            ...cornerStyle(corner, CAPSULE_RADIUS),
-            backgroundColor: knob, transition: 'left .15s',
-            left: enabled ? 18 : 2,
-          }} />
+        <div style={{ width: 48 }}>
+          <SliderTrackImpl
+            min={0} max={1} step={1} value={enabled ? 1 : 0}
+            onChange={v => cell.setEnabled(v >= 1)}
+          />
         </div>
       </div>
     </div>
@@ -418,11 +409,13 @@ function ToggleView({ cell }) {
 function BoundTitleView({ cell }) {
   const text = useCellData(cell, 'text');
   const prefix = useText('demo.boundPrefix');
+  const primaryContainer = useThemeColor('primary-container', '#EADDFF');
+  const onPrimaryContainer = useThemeColor('on-primary-container', '#21005D');
   return (
     <div style={{
       display: 'flex', alignItems: 'center', padding: '0 12px',
-      width: '100%', height: '100%',
-      color: '#1a5a3a', fontSize: 12, fontWeight: 'bold', backgroundColor: '#e8f5e8',
+      width: '100%', height: '100%', boxSizing: 'border-box',
+      color: onPrimaryContainer, fontSize: 12, fontWeight: 'bold', backgroundColor: primaryContainer,
     }}>
       {prefix}{text}
     </div>
@@ -438,11 +431,13 @@ function RefDemoView({ cell }) {
   const refNode = cell.data.getChild('profileRef');
   const name = useNodeData(refNode, 'name');
   const prefix = useText('demo.refPrefix');
+  const surfaceVariant = useThemeColor('surface-variant', '#E7E0EC');
+  const onSurfaceVariant = useThemeColor('on-surface-variant', '#49454F');
   return (
     <div style={{
       display: 'flex', alignItems: 'center', padding: '0 12px',
-      width: '100%', height: '100%',
-      color: '#4a2a6a', fontSize: 12, backgroundColor: '#f0e8f5',
+      width: '100%', height: '100%', boxSizing: 'border-box',
+      color: onSurfaceVariant, fontSize: 12, backgroundColor: surfaceVariant,
     }}>
       {prefix}{name}
     </div>
@@ -459,11 +454,13 @@ function InstanceRefView({ cell }) {
   const profileCell = cell.find('@userProfile');
   const role = useNodeData(profileCell ? profileCell.data : null, 'role');
   const prefix = useText('demo.instanceRefPrefix');
+  const inverseSurface = useThemeColor('inverse-surface', '#322F35');
+  const inverseOnSurface = useThemeColor('inverse-on-surface', '#F5EFF7');
   return (
     <div style={{
       display: 'flex', alignItems: 'center', padding: '0 12px',
-      width: '100%', height: '100%',
-      color: '#2a4a6a', fontSize: 12, fontWeight: 'bold', backgroundColor: '#e8f0f5',
+      width: '100%', height: '100%', boxSizing: 'border-box',
+      color: inverseOnSurface, fontSize: 12, fontWeight: 'bold', backgroundColor: inverseSurface,
     }}>
       {prefix}{role}
     </div>
@@ -478,10 +475,11 @@ function InstanceRefView({ cell }) {
 function FooterView({ cell }) {
   // 演示变量插值：{year} 由 useText 的 vars 提供
   const text = useText('footer.copyright', { year: 2026 });
+  const inverseOnSurface = useThemeColor('inverse-on-surface', '#F5EFF7');
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      width: '100%', height: '100%', color: '#aaa', fontSize: 12,
+      width: '100%', height: '100%', color: inverseOnSurface, fontSize: 12, opacity: 0.75,
     }}>
       {text}
     </div>
@@ -492,7 +490,7 @@ function FooterView({ cell }) {
 //  Cell 类型
 // =========================================================================
 
-/** 页面根 Cell：视口布局，纵向排列，锁定双轴滚动 */
+/** 页面根 Cell：视口布局，纵向排列，锁定双轴滚动（viewport 特性演示） */
 class PageCell extends CellBaseBuilder {
   /**
    * @param {string} id Cell 标识
@@ -503,43 +501,8 @@ class PageCell extends CellBaseBuilder {
   }
 }
 
-/** 顶栏 Cell：固定高度 60，水平排列，承载 Logo/导航/用户区/语言切换 */
-class HeaderCell extends CellBaseBuilder {
-  /**
-   * @param {string} id Cell 标识
-   */
-  constructor(id) {
-    super(id);
-    this.fixedHeight(60).color('primary')
-      .moveY(false).moveX(false).layout('horizontal');
-  }
-}
-
-/** 侧栏 Cell：固定宽度 200，纵向滚动，承载菜单与数据联动演示区 */
-class SidebarCell extends CellBaseBuilder {
-  /**
-   * @param {string} id Cell 标识
-   */
-  constructor(id) {
-    super(id);
-    this.fixedWidth(200).color('surface-muted')
-      .moveY(true).layout('vertical');
-  }
-}
-
-/** 内容区 Cell：水平排列，承载侧栏与主面板 */
-class ContentAreaCell extends CellBaseBuilder {
-  /**
-   * @param {string} id Cell 标识
-   */
-  constructor(id) {
-    super(id);
-    this.minHeight(200).color('surface-muted')
-      .moveY(false).moveX(false).layout('horizontal');
-  }
-}
-
-/** 主面板 Cell：多 Slot 演示，header（单插槽）+ body（列表插槽，隐藏子项拖拽手柄） */
+/** 主面板 Cell：多 Slot 演示，header（单插槽）+ body（列表插槽，纵向滚动；
+ *  body 以 gap/padding 承担板块与板块、板块与面板边缘的间距） */
 class MainPanelCell extends CellBaseBuilder {
   /**
    * @param {string} id Cell 标识
@@ -548,20 +511,11 @@ class MainPanelCell extends CellBaseBuilder {
     super(id);
     this.layout('vertical').minWidth(320).color('surface')
       .moveY(false).moveX(false)
-      .defineSlot('header', { fixedHeight: 44, backgroundColor: '#ffe8cc', single: true })
-      .defineSlot('body', { minHeight: 100, moveY: true, layout: 'vertical', color: 'surface', showChildOverlays: false });
-  }
-}
-
-/** 页脚 Cell：固定高度 60，渲染 FooterView 展示版权文案 */
-class FooterCell extends CellBaseBuilder {
-  /**
-   * @param {string} id Cell 标识
-   */
-  constructor(id) {
-    super(id);
-    this.fixedHeight(60).backgroundColor('#333333')
-      .renderContent(FooterView);
+      .defineSlot('header', { fixedHeight: 44, color: 'primary-container', single: true })
+      .defineSlot('body', {
+        minHeight: 100, moveY: true, layout: 'vertical',
+        color: 'surface-muted', gap: 12, padding: 12,
+      });
   }
 }
 
@@ -585,7 +539,7 @@ class NavCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.minWidth(200).defaultWidth(400).backgroundColor('#5aa0e9')
+    this.minWidth(200).defaultWidth(400).color('primary')
       .schema({
         items: { type: 'array', default: ['nav.home', 'nav.docs', 'nav.demo', 'nav.about'] },
         activeIndex: { type: 'number', default: 0 },
@@ -634,35 +588,9 @@ class TitleCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(40).backgroundColor('#ffe8cc')
+    this.fixedHeight(40).color('primary-container')
       .schema({ text: { type: 'string', default: 'title.default' } })
       .renderContent(TitleView);
-  }
-}
-
-/** 统计卡片行 Cell：水平排列、等高卡片，隐藏子项拖拽手柄 */
-class StatRowCell extends CellBaseBuilder {
-  /**
-   * @param {string} id Cell 标识
-   */
-  constructor(id) {
-    super(id);
-    this.fixedHeight(120).color('surface')
-      .moveY(false).moveX(false).layout('horizontal')
-      .showChildOverlays(false);
-  }
-}
-
-/** 任务联动区 Cell：水平排列，左侧任务列表 + 右侧详情，隐藏子项拖拽手柄 */
-class TaskSectionCell extends CellBaseBuilder {
-  /**
-   * @param {string} id Cell 标识
-   */
-  constructor(id) {
-    super(id);
-    this.fixedHeight(150).color('surface')
-      .moveY(false).moveX(false).layout('horizontal')
-      .showChildOverlays(false);
   }
 }
 
@@ -673,7 +601,7 @@ class StatCardCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.minWidth(140).defaultWidth(180).maxWidth(260).backgroundColor('#fffdf5')
+    this.minWidth(140).defaultWidth(180).maxWidth(260).color('surface')
       .moveY(false).moveX(false)
       .schema({
         title: { type: 'string', default: 'card.default' },
@@ -715,7 +643,7 @@ class TaskDetailCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveY(false).backgroundColor('#fbfbfb')
+    this.moveY(false).color('surface')
       .schema({ detail: { type: 'string', bind: '@taskList#selected' } })
       .renderContent(TaskDetailView);
   }
@@ -728,7 +656,7 @@ class InputCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(96).backgroundColor('#fafafa')
+    this.fixedHeight(96).color('surface')
       .schema({ value: { type: 'string', default: '' } })
       .renderContent(InputView);
   }
@@ -741,7 +669,7 @@ class ToggleCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(56).backgroundColor('#fafafa')
+    this.fixedHeight(56).color('surface')
       .schema({ enabled: { type: 'boolean', default: true } })
       .renderContent(ToggleView);
   }
@@ -813,15 +741,12 @@ function buildCellDemo() {
   const profile = new ProfileCell('profile');
 
   // 独立窗口（内置预设 WindowCell）：标题栏为拖拽点，可移动/缩放；
-  // 关闭按钮经 Cell API 嵌入——title 插槽横向排列"标题文本 + CloseButtonCell"，
-  // 点击关闭宿主窗口；作为浮动视口与页面并列挂载（FloatingLayer 渲染），
+  // 标题栏内建窗口控件结构（chrome：标题文本 setTitle + 最小化/最大化/关闭控件），
+  // 无需手动 fill 标题栏；作为浮动视口与页面并列挂载（FloatingLayer 渲染），
   // 由主面板"打开窗口"按钮唤起（打开即聚焦置顶）
   const windowCell = new WindowCell('demoWin')
     .posX(480).posY(150)
-    .fill('title', [
-      new TextCell('winTitle').setText('window.title').setColor('#ffffff').setBold(true),
-      new CloseButtonCell('winClose'),
-    ])
+    .setTitle('window.title')
     .fill('body', new ListCell('winList').setItems([
       { id: 'p1', title: '图表页' },
       { id: 'p2', title: '列表页' },
@@ -829,17 +754,19 @@ function buildCellDemo() {
     ]));
 
   // fill 内联实例化：fill 返回 this，可链式嵌套构造整棵树
+  // 页面骨架用预设页面结构容器：AppBarCell 顶栏 / SplitCell 分栏（side 插槽为侧栏）/
+  // RowCell 横向行 / FooterCell 页脚
   // title/text/items 中的 i18n key 由视图组件用 useText 翻译（语言切换时自动更新）
   const page = new PageCell('cell-demo').fill('_default', [
     createPageNav('workbench'),
-    new HeaderCell('header').fill('_default', [
+    new AppBarCell('header').fill('_default', [
       new LogoCell('logo'),
       new NavCell('nav'),
       profile,  // mount 0
       new LanguageSwitchCell('langSwitch'),
     ]),
-    new ContentAreaCell('content').fill('_default', [
-      new SidebarCell('sidebar').fill('_default', [
+    new SplitCell('content')
+      .fill('side', [
         new MenuItemCell('menu1').setTitle('menu.dashboard'),
         new MenuItemCell('menu2').setTitle('menu.projects'),
         new MenuItemCell('menu3').setTitle('menu.settings'),
@@ -847,29 +774,36 @@ function buildCellDemo() {
         new BoundTitleCell('boundTitle'),
         new RefDemoCell('refDemo'),
         new InstanceRefCell('instanceRef'),
-      ]),
-      new MainPanelCell('main')
+      ])
+      .fill('_default', new MainPanelCell('main')
         .fill('header', new TitleCell('title').setText('panel.workspace'))
+        // 主体区：BoardCell 布局板块（给其他 cell 套壳：板块自带 card 形状 +
+        // outlined 描边 + surface 底色，内部 padding/gap 保持内容间距；
+        // 板块之间的间距由 body 插槽的 gap/padding 承担）
         .fill('body', [
-          // 统计卡片区：横向一行三卡，点击 +1 计数（数据驱动交互）
-          new StatRowCell('stats').fill('_default', [
-            new StatCardCell('stat1').setTitle('stat.todo'),
-            new StatCardCell('stat2').setTitle('stat.messages'),
-            new StatCardCell('stat3').setTitle('stat.storage'),
+          // 统计板块：横向一行三卡，点击 +1 计数（数据驱动交互）
+          new BoardCell('boardStats').fixedHeight(144).fill('_default',
+            new RowCell('stats').fixedHeight(120).fill('_default', [
+              new StatCardCell('stat1').setTitle('stat.todo'),
+              new StatCardCell('stat2').setTitle('stat.messages'),
+              new StatCardCell('stat3').setTitle('stat.storage'),
+            ])),
+          // 任务板块：选择任务 → 详情经 @taskList 锚点自动绑定同步
+          new BoardCell('boardTasks').fixedHeight(174).fill('_default',
+            new RowCell('tasks').fixedHeight(150).fill('_default', [
+              new TaskListCell('taskList'),
+              new TaskDetailCell('taskDetail'),
+            ])),
+          // 控件板块：输入与开关（实时数据写入与状态切换）+ 浮层交互按钮
+          //（点击打开独立窗口：预设 WindowCell，可移动/缩放/关闭）；
+          // 高度 = 子项 96+56+32 + gap 12×2 + padding 12×2 = 232
+          new BoardCell('boardControls').fixedHeight(232).fill('_default', [
+            new InputCell('input'),
+            new ToggleCell('toggle'),
+            new ButtonCell('openWin').setLabel('demo.openWindow').onPress(() => windowCell.open()),
           ]),
-          // 任务联动区：选择任务 → 详情经 @taskList 锚点自动绑定同步
-          new TaskSectionCell('tasks').fill('_default', [
-            new TaskListCell('taskList'),
-            new TaskDetailCell('taskDetail'),
-          ]),
-          // 输入与开关：实时数据写入与状态切换
-          new InputCell('input'),
-          new ToggleCell('toggle'),
-          // 浮层交互：点击打开独立窗口（预设 WindowCell，可移动/缩放/关闭）
-          new ButtonCell('openWin').setLabel('demo.openWindow').onPress(() => windowCell.open()),
-        ]),
-    ]),
-    new FooterCell('footer'),
+        ])),
+    new FooterCell('footer').renderContent(FooterView),
   ]);
 
   // 一次性挂载全树（根据 slot 关系自动级联）
@@ -890,7 +824,7 @@ const _demoElement = buildCellDemo();
 
 /**
  * Cell 演示页组件。直接返回模块级构建好的元素（惰性渲染，避免重复挂载）。
- * 挂载时打开 box-demo 的浮动窗口演示（初始隐藏），卸载时关闭，避免悬浮遮挡
+ * 挂载时打开浮动窗口演示（floating-window-demo，初始隐藏），卸载时关闭，避免悬浮遮挡
  * 其他页面（预设展示台）。
  * @returns {JSX.Element} 页面根元素
  */

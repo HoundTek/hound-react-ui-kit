@@ -27,8 +27,15 @@ class Theme {
    * @param {Object} [options.materials={}] 普适样式配置取值表
    * @param {Object<string, string>} [options.materials.colors] 颜色角色 → 色值
    * @param {Object<string, Object>} [options.materials.material] 材质标识 → 材质参数
-   *   （如 frosted: { blur, baseOpacity }）
+   *   （如 frosted: { blur, baseOpacity }；outlined: { color, width }）
    * @param {{color?: string, opacity?: number}} [options.materials.mask] 可操作窗口遮罩
+   * @param {{color?: string, width?: number, opacity?: number, inset?: number}}
+   *   [options.materials.edgeIndicator] Edge 覆盖层悬停/拖拽指示条规范
+   *   （color 为颜色角色或裸色值，width 条宽 px，inset 两端内缩 px）
+   * @param {{borderColor?: string, borderWidth?: number, elevation?: number,
+   *   focusedBorderColor?: string, focusedElevation?: number}}
+   *   [options.materials.windowFrame] 浮动窗口框架（边框 + 阴影档 0–3，
+   *   focused* 为焦点窗口取值，区分焦点/非焦点窗口）
    * @param {Object<string, {shape?: 'rect'|'capsule'|'circle', color?: string, material?: string, opacity?: number}>}
    *   [options.styles={}] 普适样式默认值表（按组件角色声明；default 为缺省角色）。
    *   字段与 Cell 的普适配置声明一一对应：shape 基础形状、color 颜色角色、
@@ -118,6 +125,28 @@ class Theme {
    */
   getMask() {
     return this._materials.mask ?? null;
+  }
+
+  /**
+   * 取 Edge 覆盖层悬停/拖拽指示条规范（materials.edgeIndicator）。
+   * 分界线命中区始终透明，悬停/拖拽时按本规范渲染居中指示条：
+   * color 为主题颜色角色或裸色值，width 为条宽（px），inset 为两端内缩（px）。
+   * @returns {{color?: string, width?: number, opacity?: number, inset?: number}|null}
+   *   指示条规范；未声明返回 null（悬停无视觉反馈）
+   */
+  getEdgeIndicator() {
+    return this._materials.edgeIndicator ?? null;
+  }
+
+  /**
+   * 取浮动窗口框架规范（materials.windowFrame）：边框 + 阴影档，
+   * focused* 字段为焦点窗口取值（区分焦点/非焦点窗口）。
+   * @returns {{borderColor?: string, borderWidth?: number, elevation?: number,
+   *   focusedBorderColor?: string, focusedElevation?: number}|null}
+   *   框架规范；未声明返回 null（渲染层用内建缺省值）
+   */
+  getWindowFrame() {
+    return this._materials.windowFrame ?? null;
   }
 
   /**

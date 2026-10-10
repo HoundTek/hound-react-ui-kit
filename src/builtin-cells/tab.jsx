@@ -15,6 +15,7 @@ import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor } from '../core/theme/theme-react';
 import { TabBarImpl } from './tab-bar';
+import { ViewScrollArea } from '../core/box/floating-scrollbar';
 
 /**
  * 标签页组装视图（fallback）：TabBarImpl 渲染标签头（tabs → items 映射），
@@ -48,13 +49,18 @@ function TabAssembledView({ cell }) {
           />
         )}
       </div>
-      <div style={{
-        flex: 1, minHeight: 0, padding: 12, fontSize: 13, color: text,
-        whiteSpace: 'pre-wrap', lineHeight: 1.7, overflowWrap: 'break-word',
-        boxSizing: 'border-box', overflowY: 'auto',
-      }}>
+      {/* 内容区为有意设计的内部滚动子区域（标签头固定），经 ViewScrollArea
+          获得与 Box 层一致的浮动滚动条与滚轮阻尼 */}
+      <ViewScrollArea
+        style={{ flex: 1, minHeight: 0 }}
+        scrollStyle={{
+          padding: 12, fontSize: 13, color: text,
+          whiteSpace: 'pre-wrap', lineHeight: 1.7, overflowWrap: 'break-word',
+          boxSizing: 'border-box',
+        }}
+      >
         {content}
-      </div>
+      </ViewScrollArea>
     </div>
   );
 }

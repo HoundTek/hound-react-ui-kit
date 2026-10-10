@@ -7,9 +7,8 @@
 import React, { useEffect, useState } from 'react';
 import CellDemoPage from './demo/cell-demo-page';
 import PresetDemoPage from './demo/preset-demo-page';
-import { DemoPageFloating } from './demo/box-demo-page';
 import { onPageNavSelect, syncPageNav } from './demo/page-nav';
-import { I18n, I18nProvider, Theme, ThemeProvider } from './core/ui-kit';
+import { I18n, I18nProvider, Theme, ThemeProvider, FloatingLayer } from './core/ui-kit';
 
 /**
  * 语言包：按语言组织的文本资源（key → 文本）。Cell 内容组件通过 useText 引用 key。
@@ -101,10 +100,12 @@ const i18n = new I18n(messages, 'zh-CN');
  *   支持，Firefox/Safari 自动降级回 g1），为保证四浏览器呈现一致，本主题
  *   直接声明 g1；包裹层规范按组件角色给出基准圆角尺度，对齐 MD3 形状尺度——
  *   control 8（small）/ default 12（medium）/ overlay 8（small）/
- *   card 12（medium）/ window 28（extraLarge）/ nav 0（通栏），
+ *   card 12（medium）/ window 12（medium，窗口取与卡片一致的适中圆角）/ nav 0（通栏），
  *   元素级圆角经 useShapeRadius 对齐同一尺度
  * - 普适配置：颜色角色表（MD3 规范角色 + 兼容别名同值双写）、材质表
- *   （frosted 毛玻璃）、遮罩（mask 颜色 + 不透明度）；styles 角色样式表
+ *   （frosted 毛玻璃 / outlined 描边）、遮罩（mask 颜色 + 不透明度）、
+ *   Edge 悬停指示条（edgeIndicator）、浮动窗口框架（windowFrame：
+ *   边框 + 阴影档，区分焦点/非焦点窗口）；styles 角色样式表
  *   （普适性配置级：Cell 只声明 styleRole，底色等默认值由主题集中给出）
  * - 组件级重写（两级样式体系第二级，见 docs/basic-cell-design.md）：
  *   components 声明 switch 走 'md3-switch' 实现（实现注册表解析），
@@ -123,7 +124,7 @@ const theme = new Theme({
       control: [{ inset: 0, radius: 8 }],
       overlay: [{ inset: 0, radius: 8 }],
       card: [{ inset: 0, radius: 12 }],
-      window: [{ inset: 0, radius: 28 }],
+      window: [{ inset: 0, radius: 12 }],
       nav: [{ inset: 0, radius: 0 }],
     },
   },
@@ -159,8 +160,17 @@ const theme = new Theme({
     },
     material: {
       frosted: { blur: 20, baseOpacity: 0.6 },
+      outlined: { color: 'outline-variant', width: 1 },
     },
     mask: { color: '#101418', opacity: 0.45 },
+    // Edge 覆盖层悬停/拖拽指示条（MD3 drag handle 风格）：居中细条 + 两端内缩
+    edgeIndicator: { color: 'primary', width: 3, opacity: 0.9, inset: 4 },
+    // 浮动窗口框架：边框 + elevation 阴影档，区分焦点（深描边 + 高档阴影）
+    // 与非焦点（浅描边 + 低档阴影）窗口
+    windowFrame: {
+      borderColor: 'outline-variant', borderWidth: 1, elevation: 1,
+      focusedBorderColor: 'outline', focusedElevation: 3,
+    },
   },
   styles: {
     window: { color: 'surface' },
@@ -183,9 +193,10 @@ const theme = new Theme({
  * - 语言切换经 I18nProvider 注入，Cell 内容组件用 useText 订阅
  * - 主题经 ThemeProvider 注入；本主题不声明尺寸变化特效，Box 视口根
  *   （页面/浮动窗口）尺寸变化走静态更新（同步 reflow 直接上屏）
- * - DemoPageFloating 在页面上层叠加渲染浮动视口演示（独立窗口 + 模态遮罩，
+ * - FloatingLayer 在页面上层统一渲染全部浮动视口 Cell（浮动窗口演示见
+ *   demo/floating-window-demo.jsx，独立窗口 + 子窗口 + 模态遮罩；
  *   层级由系统管理：后聚焦/出现居上 + 模态序排列）
- * - 页面入口二选一（默认预设展示台）：PresetDemoPage 为 75 个预设 Cell 的分类
+ * - 页面入口二选一（默认预设展示台）：PresetDemoPage 为 80 个预设 Cell 的分类
  *   速览，CellDemoPage 为数据驱动工作台；页面切换由 UI Kit 体系内的页面导航
  *   （page-nav，NavBarCell）驱动，无体系外控件
  * @returns {JSX.Element} 应用根节点
@@ -198,7 +209,7 @@ const App = () => {
     <I18nProvider i18n={i18n}>
       <ThemeProvider theme={theme}>
         {page === 'presets' ? <PresetDemoPage /> : <CellDemoPage />}
-        <DemoPageFloating />
+        <FloatingLayer />
       </ThemeProvider>
     </I18nProvider>
   );

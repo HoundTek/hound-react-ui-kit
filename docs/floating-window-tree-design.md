@@ -82,6 +82,7 @@ zIndex  = 2001 起按渲染序步进 2 分配（2001, 2003, ...）。
 
 - 关闭级联保证树恒为合法结构，不产生孤儿节点。
 - 有效可操作窗口被关闭（不可见）后自动退化为集合中下一个最深的可见窗口；若没有，回退为根 viewport（遮罩消失）。
+- 焦点窗口 = 渲染序最顶的窗口（后聚焦/出现居上 + 可操作子树提升的终点）。焦点态仅影响视觉：窗口框架（边框 + 阴影，主题 `materials.windowFrame`：`{borderColor, borderWidth, elevation, focusedBorderColor, focusedElevation}`）对焦点窗口取 `focused*` 值，与非焦点窗口区分；框架画在窗口定位容器上（border-box，不占三层内容布局尺寸），圆角与包壳形状规范对齐。
 
 ## 6. API 一览
 
@@ -102,8 +103,31 @@ win.operable();                        // 等价 setOperable(win)，链式便捷
 
 ```js
 const modal = new ModalCell('modal');
-modal.setParent(windowCell);           // 声明父 Cell（解析为其主挂载 Box）
-// 遮罩：setOperable(modal._mounts[0].box) 由页面作者按需启用
+modal.setParent(windowCell);           // 声明父 Cell（解析为其主挂载 Box，父 Cell 须先挂载）
+windowCell.operable();                  // 加入可操作集合（等价 Box 层 setOperable(win)），遮罩按需启用
+```
+
+用户可见的 API 面只有 Cell：主窗口（页面根 Cell）与伪窗口（浮动视口 Cell）
+一致经 Cell 层 API 构建，Box 层 API 由 Cell 基类委托、不直接暴露
+（演示见 src/demo/floating-window-demo.jsx）。
+
+### 窗口控件结构（chrome）与样式控制
+
+WindowCell/ModalCell 的标题栏插槽内建窗口控件结构（chrome）：标题文本 +
+最小化/最大化/关闭控件（ModalCell 仅关闭）。窗口状态走 schema 数据驱动，
+chrome 控件点击写入 schema，视图 effect 对齐 Box 层窗口状态：
+
+```js
+new WindowCell('win')
+  .setTitle('窗口')            // chrome 标题（schema title，i18n key 或纯文本）
+  .windowControls({ minimize: true, maximize: true, close: true })  // 控件显隐
+  .titleBarColor('primary')    // 标题栏底色（颜色角色名或字面色值）
+  .titleBarHeight(36)          // 标题栏高度（兼作最小化卷起保留高度）
+  .titleColor('on-primary');   // 标题与控件颜色（默认 theme.elements.window.titleColor）
+win.setMaximized(true);        // 最大化铺满可视区域 / 还原（数据驱动，chrome 联动）
+win.setMinimized(true);        // 最小化（卷起为标题栏）/ 还原
+win.fill('title', [...]);      // 单插槽覆盖：整体替换默认 chrome（自绘标题栏，
+                               // 关闭按钮可经 CloseButtonCell 自行嵌入）
 ```
 
 ## 7. 与旧模型的对照

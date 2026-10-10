@@ -25,7 +25,7 @@ class CardCell extends CellBaseBuilder {
       })
       .defineSlot('body', {
         minHeight: 60, moveY: true, layout: 'vertical',
-        color: 'surface', showChildOverlays: false,
+        color: 'surface',
       });
   }
 }

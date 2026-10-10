@@ -3,6 +3,7 @@
  *        自定义滚动条，支持垂直/水平两个方向，按需显示（悬停/滚动中）。
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { attachScrollDamping } from './scroll-damping';
 
 /** 滑块粗细（px） */
 const BAR_SIZE = 6;
@@ -327,4 +328,46 @@ const FloatingScrollbar = ({ containerRef, orientation = 'vertical' }) => {
   );
 };
 
+/**
+ * 视图内滚动区域：为 Cell 视图的内部滚动子区域（聊天消息区、标签页内容区、
+ * 抽屉正文、下拉列表等——设计上须独立于 Box 层滚动的区域）提供与 Box 内容层
+ * 一致的滚动体验：浮动滚动条（悬停/滚动中显示）+ 滚轮阻尼。
+ * 结构：wrapper（position:relative，尺寸由 style 决定）→ 滚动容器（承载
+ * 内容与滚动）+ 浮动滚动条（锚定 wrapper）。
+ * @param {Object} props 组件属性
+ * @param {Object} [props.style] wrapper 样式（须给出尺寸约束，如 flex:1 + minHeight:0；
+ *   内容自适应高度场景可不传，滚动容器经 scrollStyle 的 maxHeight 限高）
+ * @param {Object} [props.scrollStyle] 滚动容器附加样式（padding、maxHeight 等）
+ * @param {'vertical'|'horizontal'} [props.orientation='vertical'] 滚动方向
+ * @param {React.ReactNode} props.children 滚动内容
+ * @returns {JSX.Element} 滚动区域元素
+ */
+const ViewScrollArea = ({ style, scrollStyle, orientation = 'vertical', children }) => {
+  const scrollRef = useRef(null);
+  const isVertical = orientation === 'vertical';
+  // 滚轮阻尼：与 Box 内容层同一阻尼机制（见 scroll-damping.js）
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const damping = attachScrollDamping(scrollRef.current);
+    return () => damping.dispose();
+  }, []);
+  return (
+    <div style={{ position: 'relative', ...style }}>
+      <div
+        ref={scrollRef}
+        style={{
+          ...(style ? { position: 'absolute', inset: 0 } : null),
+          overflowY: isVertical ? 'auto' : 'hidden',
+          overflowX: isVertical ? 'hidden' : 'auto',
+          ...scrollStyle,
+        }}
+      >
+        {children}
+      </div>
+      <FloatingScrollbar containerRef={scrollRef} orientation={orientation} />
+    </div>
+  );
+};
+
+export { ViewScrollArea };
 export default FloatingScrollbar;

@@ -248,7 +248,7 @@ MD3 规范角色与既有别名同值双写：既有 Cell 引用别名零改动�
 | `default` | 12 | medium |
 | `overlay` | 8 | small |
 | `card` | 12 | medium |
-| `window` | 28 | extraLarge |
+| `window` | 12 | medium（窗口取与卡片一致的适中圆角，extraLarge 28 在浮动窗口上观感过大） |
 | `nav` | 0 | none（通栏不取圆角） |
 
 MD3 的状态层（hover/press 透明度叠加）、elevation 投影与排版尺度尚未纳入普适配置项，

@@ -28,7 +28,7 @@ class DialogCell extends CellBaseBuilder {
       })
       .defineSlot('body', {
         minHeight: 120, moveY: true, layout: 'vertical',
-        color: 'surface', showChildOverlays: false,
+        color: 'surface',
       });
   }
 }

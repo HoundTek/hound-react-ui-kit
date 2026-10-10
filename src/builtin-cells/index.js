@@ -19,6 +19,7 @@
  *         ChartCell / BarCell / CarouselCell / AccordionCell / BreadcrumbCell / CalendarCell
  * - 容器：CardCell / SectionCell / GroupCell / GridCell / TilingCell /
  *         DashboardCell / FormCell / FieldCell / ControlCell / SettingsCell / PageCell
+ * - 页面结构：AppBarCell / SplitCell / FooterCell / RowCell / BoardCell（纯盒配方容器）
  * - 导航：NavBarCell / TabBarCell / TabCell / ProcessCell / OrderCell
  * - 浮层：ToastCell / MessageCell / NoticeCell / AlertCell / PopoverCell / TooltipCell /
  *         DialogCell / ConfirmCell / DrawerCell / FloatingPanelCell
@@ -27,9 +28,11 @@
  */
 export { AccordionCell } from './accordion';
 export { AlertCell } from './alert';
+export { AppBarCell } from './app-bar';
 export { AvatarCell } from './avatar';
 export { BadgeCell } from './badge';
 export { BarCell } from './bar';
+export { BoardCell } from './board';
 export { BreadcrumbCell } from './breadcrumb';
 export { CalendarCell } from './calendar';
 export { CardCell } from './card';
@@ -50,6 +53,7 @@ export { EditorCell } from './editor';
 export { EmptyCell } from './empty';
 export { FieldCell } from './field';
 export { FloatingPanelCell } from './floating-panel';
+export { FooterCell } from './footer';
 export { FormCell } from './form';
 export { GridCell } from './grid';
 export { GroupCell } from './group';
@@ -75,11 +79,13 @@ export { ProgressCell } from './progress';
 export { RadioCell } from './radio';
 export { RateCell } from './rate';
 export { ResultCell } from './result';
+export { RowCell } from './row';
 export { SearchCell } from './search';
 export { SectionCell } from './section';
 export { SelectCell } from './select';
 export { SettingsCell } from './settings';
 export { SkeletonCell } from './skeleton';
+export { SplitCell } from './split';
 export { StatCell } from './stat';
 export { StepperCell } from './stepper';
 export { SwitchCell } from './switch';

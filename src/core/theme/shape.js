@@ -201,6 +201,12 @@ function resolveBoxPaint(builder, theme) {
         backgroundColor = hexToRgba(backgroundColor, spec.baseOpacity) || backgroundColor;
       }
     }
+    if (spec && material === 'outlined') {
+      // 描边材质：细边框勾勒边界（MD3 outlined 风格），全局 border-box 下
+      // 边框不额外占用布局尺寸；颜色经主题颜色角色解析，未解析到时按裸色值使用
+      const borderColor = theme?.resolveColor(spec.color) ?? spec.color ?? theme?.resolveColor('outline');
+      if (borderColor) style.border = `${spec.width ?? 1}px solid ${borderColor}`;
+    }
     // 主题未声明该材质：降级 solid（仅底色，无附加效果）
   }
 

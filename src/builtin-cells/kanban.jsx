@@ -14,6 +14,7 @@ import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
+import { ViewScrollArea } from '../core/box/floating-scrollbar';
 
 /**
  * 看板组装视图（fallback）：订阅 columns/selectedItem，横向排列各列，
@@ -32,8 +33,11 @@ function KanbanAssembledView({ cell }) {
   const surfaceMuted = useThemeColor('surface-muted', '#f5f5f5');
   const text = useThemeColor('text', '#333333');
   const primary = useThemeColor('primary', '#4a90d9');
+  // 横向滚动由 Box 内容层承担（KanbanCell moveX(true)），视图根不再开内部
+  // 横向滚动（否则 Box 层浮动滚动条测不到可滚动量而不显示）；列内纵向
+  // 滚动为有意设计的子区域滚动（列头固定），予以保留
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', overflowX: 'auto', overflowY: 'hidden' }}>
+    <div style={{ width: '100%', height: '100%', display: 'flex' }}>
       {columns.map((col, colIdx) => (
         <div
           key={col.id}
@@ -52,7 +56,9 @@ function KanbanAssembledView({ cell }) {
           }}>
             {col.title}
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: 4, minHeight: 0 }}>
+          {/* 列内纵向滚动为有意设计的子区域滚动（列头固定），
+              经 ViewScrollArea 获得浮动滚动条与滚轮阻尼 */}
+          <ViewScrollArea style={{ flex: 1, minHeight: 0 }} scrollStyle={{ padding: 4 }}>
             {(col.items || []).map((item) => (
               <div
                 key={item.id}
@@ -69,7 +75,7 @@ function KanbanAssembledView({ cell }) {
                 {item.title}
               </div>
             ))}
-          </div>
+          </ViewScrollArea>
         </div>
       ))}
     </div>

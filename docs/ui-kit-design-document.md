@@ -43,6 +43,10 @@ Cell 通过内部持有的 Box 实例获得布局能力。Cell 类型在定义�
 
 Cell 前端复用 Box 的三层渲染体系：内容层、边界层、节点层。Cell 类型可以自定义内容层的渲染逻辑。
 
+边界层（Edge）与节点层（Corner）的拖拽手柄**默认隐藏**，经 `showEdges()` 显式开启（Box 与 Cell 层 API 同名，Slot 配置支持 `showEdges` 键；Corner 跟随 Edge 的显示开关，无独立 showCorners API）。就近继承语义：未设置时沿父链取最近的显式设置，全链未设置视为隐藏；本 Box 的设置覆盖祖先并作用于整个子树（子树内可再覆盖）。只有实际可移动的分界线（容器主轴锁定且两侧存在可伸缩子项）才渲染手柄；角点仅在其关联的两条边都存在且均可拖拽时存在。手柄命中区始终透明：Edge 悬停/拖拽时渲染主题定义的居中指示条（`materials.edgeIndicator`：`{color, width, opacity, inset}`，颜色支持颜色角色），Corner 自身永不绘制，悬停角点时联动高亮两条关联边。
+
+容器间距与内边距经 `gap(px)` / `padding(px)` 声明（Box 与 Cell 层 API 同名，Slot 配置支持 `gap`/`padding` 键）：reflow 分配尺寸时已扣除，三层（内容/边/角）口径一致。间距是父容器的属性——板块与同级元素的间距由父容器 gap/padding 承担；搭配 `outlined` 描边材质（`materials.material.outlined: {color, width}`）与形状角色，BoardCell 预设即是这种"给其他 Cell 套壳"的布局板块（板块自带样式，内部 padding/gap 保持内容间距）。
+
 ### 事件绑定
 
 Cell 前端可以绑定事件。事件源于用户交互（点击、输入等），通过事件系统在 Cell 间传递。
@@ -250,7 +254,7 @@ const win = new BoxBuilder('@float/win')
 
 | 形态 | 说明 | 当前实现 |
 |------|------|-----------|
-| 独立窗口 | 可移动、可缩放、可关闭 | Box 层：移动（dragHandle 拖拽点）、缩放（边缘/角手柄）、关闭（closable + close/open）；Cell 层：`WindowCell` 预设（标题栏拖拽点插槽） |
+| 独立窗口 | 可移动、可缩放、可最大化/最小化、可关闭 | Box 层：移动（dragHandle 拖拽点）、缩放（边缘/角手柄）、最大化/最小化（toggleMaximize/toggleMinimize）、关闭（close/open）；Cell 层：`WindowCell` 预设（标题栏拖拽点插槽 + 内建窗口控件结构 chrome） |
 | 通知 | 屏幕角落短暂出现后自动消失 | `NotificationCell` 预设：浮动视口 + duration 定时自动关闭 |
 | 弹出菜单 | 点击触发、点外部关闭 | Box 层提供浮动视口与显隐（open/close）；点外部关闭由 Cell 层封装 |
 | 模态对话框 | 遮罩 + 阻塞下层 | `ModalCell` 预设：子窗口对话框（`setParent(父窗口)` 声明父子关系）+ header/body 插槽；遮罩由 `setOperable` 启用 |
@@ -269,8 +273,8 @@ const win = new BoxBuilder('@float/win')
 
 **浮层构件**（Cell × 浮动视口，展示 Cell 与 Box 浮动能力的结合）：
 - `NotificationCell`：通知条（浮动视口，可关闭；`duration` 非空时定时 `close()` 自动消失）
-- `ModalCell`：子窗口对话框（`setParent(父 Cell)` 声明父子关系 + header/body 插槽，默认不可移动/缩放；遮罩由 `setOperable` 启用）
-- `WindowCell`：独立窗口（movable + resizable + 标题栏 `dragHandle` 拖拽点 + closable + title/body 插槽）
+- `ModalCell`：子窗口对话框（`setParent(父 Cell)` 声明父子关系 + header/body 插槽，默认不可移动/缩放；遮罩由父窗口 `operable()` 启用；header 内建 chrome：标题 + 关闭控件）
+- `WindowCell`：独立窗口（movable + resizable + 标题栏 `dragHandle` 拖拽点 + title/body 插槽；title 内建窗口控件结构 chrome——schema `title` 标题文本 + 最小化/最大化/关闭控件，窗口状态 `maximized`/`minimized` 数据驱动；样式控制经 `windowControls`/`titleBarColor`/`titleBarHeight`/`titleColor` 链式配置，主题级默认走 `theme.elements.window`；`fill('title', ...)` 可整体替换默认 chrome）
 
 配套机制：
 - 浮动窗口层级采用"父子窗口树 + 可操作窗口"模型（见 floating-window-tree-design.md）：

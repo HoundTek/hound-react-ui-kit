@@ -47,8 +47,11 @@ function OrderAssembledView({ cell }) {
   const dirIcon = (field) => (sortField === field
     ? <GlyphTriangle dir={sortDir === 'desc' ? 'down' : 'up'} size={10} />
     : null);
+  // 滚动由 Box 内容层承担（OrderCell moveY(true)），视图不再开内部滚动
+  //（否则 Box 层浮动滚动条测不到可滚动量而不显示）；sticky 表头相对
+  // Box 内容层滚动框粘性定位，语义不变
   return (
-    <div style={{ width: '100%', height: '100%', overflowY: 'auto' }}>
+    <div style={{ width: '100%' }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 4, padding: '3px 4px',
         backgroundColor: surfaceMuted, position: 'sticky', top: 0,

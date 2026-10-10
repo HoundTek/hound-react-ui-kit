@@ -120,7 +120,7 @@ theme.elements 元素级样式表 > 内建默认**（见 docs/theme-shape-design
 - **菜单/列表族**（ButtonImpl/ListImpl，多级）：menu✓ → tab-bar✓ / select✓ / picker✓ → tab✓ / table✓ / tree✓ / kanban✓ / order✓ / date-picker✓ / calendar✓
 - **输入族**（InputImpl/TextareaImpl）：textarea✓、editor✓、search✓、chat✓、color-picker✓、login✓
 - **展示族**（TextImpl/主题色容器）：avatar✓、badge✓、title✓、divider✓、stat✓、icon✓、skeleton✓、empty✓、result✓、loading✓、timeline✓、process✓、chart✓、bar✓、document✓、profile✓
-- **容器族**：section✓、settings✓、card◆、group◆、grid◆、tiling◆、dashboard◆、form◆、field◆、control◆、page◆（纯 slot 容器，经 Box 配方与 styleRole 走普适性配置，无需内容分发器）
+- **容器族**：section✓、settings✓、card◆、group◆、grid◆、tiling◆、dashboard◆、form◆、field◆、control◆、page◆、app-bar◆、split◆、footer◆、row◆、board◆（纯 slot 容器，经 Box 配方与 styleRole 走普适性配置，无需内容分发器；后五种为页面结构容器——顶栏/分栏/页脚/横向行/布局板块）
 - **浮层族**（NoticeImpl + 主题色容器）：toast✓、message✓、notice✓、alert✓、popover✓、tooltip✓、confirm✓、drawer✓、dialog◆、floating-panel◆
 
 迁移一个高级 Cell 的步骤：① 确认其组装来源（族）与 Schema 契约不变；② 将实现拆为 `XxxImpl` 纯组件（若族内尚无）；③ renderContent 换为 `createImplDispatcher(kind, AssembledView)`；④ 在预设归类中标注已落地。
@@ -170,6 +170,12 @@ theme.elements 元素级样式表 > 内建默认**（见 docs/theme-shape-design
   走主线程重绘；transform 写入走合成器，四端成本与时序一致。悬停覆盖层
   手柄时的滚轮操作由非 passive wheel 监听转发给内容层（deltaMode 归一，
   实际移动才 preventDefault，到尽头放行保持滚动链）
+- **滚动阻尼**：内容层的滚轮滚动带阻尼（scroll-damping.js）：wheel 增量
+  拦截后累积为滚动目标位置，经 rAF 指数衰减平滑逼近，覆盖层经 scroll
+  镜像天然跟随，无需额外同步。滚动链语义不变——目标位置到边界后该方向
+  增量不消费、放行冒泡到外层可滚容器；外部滚动源（浮动滚动条拖拽、
+  键盘、程序化写入）经 scroll 事件检测后动画目标立即对齐实际位置，
+  不与外部写入拉扯
 
 ## 解耦边界
 

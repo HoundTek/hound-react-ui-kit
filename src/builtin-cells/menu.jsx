@@ -58,6 +58,8 @@ function MenuImpl({ items, activeId, direction = 'vertical', onSelect }) {
 
 /**
  * 菜单组装视图（fallback）：纵向 MenuImpl，点击写入 selected。
+ * 滚动由 Box 内容层承担（MenuCell moveY(true)），本视图不再开内部滚动——
+ * 否则滚动发生在视图层，Box 层浮动滚动条测不到可滚动量而不显示。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
@@ -65,7 +67,7 @@ function MenuAssembledView({ cell }) {
   const items = useCellData(cell, 'items') || [];
   const selected = useCellData(cell, 'selected');
   return (
-    <div style={{ width: '100%', height: '100%', overflowY: 'auto' }}>
+    <div style={{ width: '100%' }}>
       <MenuImpl items={items} activeId={selected} direction="vertical" onSelect={id => cell.setSelected(id)} />
     </div>
   );

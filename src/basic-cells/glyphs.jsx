@@ -151,6 +151,34 @@ function GlyphPlus({ size = 14 }) {
 }
 
 /**
+ * 最大化标记（窗口控件）：单个描边方框。
+ * @param {{size?: number}} props 组件属性
+ * @returns {JSX.Element} 最大化标记元素
+ */
+function GlyphMaximize({ size = 14 }) {
+  return (
+    <svg {...svgProps(size)}>
+      <rect x="5" y="5" width="14" height="14" rx="2" {...STROKE} />
+    </svg>
+  );
+}
+
+/**
+ * 还原标记（窗口控件，取消最大化）：前后交叠双方框——后方框只画露出部分
+ *（上边 + 右边），前方框完整描边覆盖，避免交叠处双重描边。
+ * @param {{size?: number}} props 组件属性
+ * @returns {JSX.Element} 还原标记元素
+ */
+function GlyphRestore({ size = 14 }) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M8 9V7a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2" {...STROKE} />
+      <rect x="5" y="9" width="10" height="10" rx="2" {...STROKE} />
+    </svg>
+  );
+}
+
+/**
  * 信息标记（notice/result 的 info 态）。
  * @param {{size?: number}} props 组件属性
  * @returns {JSX.Element} 信息标记元素
@@ -180,4 +208,4 @@ function GlyphWarning({ size = 14 }) {
   );
 }
 
-export { GlyphChevron, GlyphClose, GlyphCheck, GlyphTriangle, GlyphRadio, GlyphCheckbox, GlyphMinus, GlyphPlus, GlyphInfo, GlyphWarning };
+export { GlyphChevron, GlyphClose, GlyphCheck, GlyphTriangle, GlyphRadio, GlyphCheckbox, GlyphMinus, GlyphPlus, GlyphMaximize, GlyphRestore, GlyphInfo, GlyphWarning };

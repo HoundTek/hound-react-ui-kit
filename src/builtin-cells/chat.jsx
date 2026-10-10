@@ -16,6 +16,7 @@ import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
 import { InputImpl, ButtonImpl } from '../basic-cells';
+import { ViewScrollArea } from '../core/box/floating-scrollbar';
 
 /**
  * 消息气泡：订阅项内 from/text（i18n key 或纯文本），mine 决定对齐与配色
@@ -72,9 +73,14 @@ function ChatAssembledView({ cell }) {
   };
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', backgroundColor: surfaceColor }}>
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column' }}>
+      {/* 消息区为有意设计的内部滚动子区域（输入行固定），经 ViewScrollArea
+          获得与 Box 层一致的浮动滚动条与滚轮阻尼 */}
+      <ViewScrollArea
+        style={{ flex: 1, minHeight: 0 }}
+        scrollStyle={{ padding: 10, display: 'flex', flexDirection: 'column' }}
+      >
         {messages.map(msg => <ChatMessageView key={msg.id} msg={msg} />)}
-      </div>
+      </ViewScrollArea>
       <div style={{ display: 'flex', gap: 6, padding: '8px 10px', borderTop: `1px solid ${borderColor}`, boxSizing: 'border-box', flexShrink: 0, alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: 0, height: 32 }}>
           <InputImpl

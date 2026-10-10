@@ -8,7 +8,7 @@ import CellBaseBuilder from '../core/cell/cell-base';
 
 /**
  * DashboardCell：仪表盘容器。grid(140, 110) 网格布局，默认插槽经 fill 填充子 Cell；
- * 子项不可自由移动，隐藏子项拖拽手柄。
+ * 子项不可自由移动（Grid 单元格等尺寸，不产生拖拽手柄）。
  */
 class DashboardCell extends CellBaseBuilder {
   /**
@@ -17,7 +17,7 @@ class DashboardCell extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.grid(140, 110).color('surface')
-      .moveX(false).moveY(false).showChildOverlays(false);
+      .moveX(false).moveY(false);
   }
 }
 

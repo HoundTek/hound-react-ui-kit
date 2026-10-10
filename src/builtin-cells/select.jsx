@@ -18,6 +18,7 @@ import { cornerStyle } from '../core/theme/shape';
 import { ButtonImpl } from '../basic-cells/button';
 import { GlyphChevron } from '../basic-cells/glyphs';
 import { MenuImpl } from './menu';
+import { ViewScrollArea } from '../core/box/floating-scrollbar';
 
 /**
  * 下拉选项列表（拆为子组件：MenuImpl 项标题经 useText 渲染）。
@@ -34,9 +35,12 @@ function SelectDropdown({ options, value, onPick }) {
       position: 'absolute', top: '100%', left: 8, right: 8, zIndex: 10,
       ...cornerStyle(corner, overlayR), backgroundColor: surface,
       border: `1px solid ${border}`, boxSizing: 'border-box', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-      maxHeight: 200, overflowY: 'auto',
     }}>
-      <MenuImpl items={options} activeId={value} direction="vertical" onSelect={onPick} />
+      {/* 下拉列表为内容自适应限高的内部滚动区，经 ViewScrollArea 获得
+          浮动滚动条与滚轮阻尼（无 style：滚动容器在流内，maxHeight 限高） */}
+      <ViewScrollArea scrollStyle={{ maxHeight: 200 }}>
+        <MenuImpl items={options} activeId={value} direction="vertical" onSelect={onPick} />
+      </ViewScrollArea>
     </div>
   );
 }

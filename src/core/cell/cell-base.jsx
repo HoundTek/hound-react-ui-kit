@@ -28,7 +28,7 @@ import { CellRoot } from './cell-react';
 const SLOT_BOX_CONFIG_KEYS = [
   'fixedWidth', 'fixedHeight', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight',
   'defaultWidth', 'defaultHeight', 'layout', 'moveX', 'moveY',
-  'backgroundColor', 'alignItems', 'draggable', 'showChildOverlays', 'dragHandle',
+  'backgroundColor', 'alignItems', 'draggable', 'showEdges', 'gap', 'padding', 'dragHandle',
   'shape', 'styleRole', 'color', 'material', 'opacity',
 ];
 
@@ -643,11 +643,27 @@ class CellBaseBuilder {
    */
   draggable(d) { return this._recordBoxOp('draggable', [d]); }
   /**
-   * 控制下一级子 Box 的 Edge/Corner 覆盖层是否显示（委托 BoxBuilder#showChildOverlays）
-   * @param {boolean} v 是否显示下一级覆盖层
+   * 设置 Edge 覆盖层（拖拽分界线手柄）是否显示（委托 BoxBuilder#showEdges）。
+   * 默认隐藏、就近继承：本设置覆盖祖先，作用于自身分界线与整个子树；
+   * 只有实际可拖拽（容器主轴锁定且两侧有可伸缩子项）的分界线才渲染手柄。
+   * @param {boolean} [v=true] 是否显示
    * @returns {CellBaseBuilder} self（链式）
    */
-  showChildOverlays(v) { return this._recordBoxOp('showChildOverlays', [v]); }
+  showEdges(v = true) { return this._recordBoxOp('showEdges', [v]); }
+  /**
+   * 设置子项间距（委托 BoxBuilder#gap）。作用于相邻子项之间的间隔，
+   * reflow 分配尺寸时已扣除，三层（内容/边/角）口径一致。
+   * @param {number} px 间距（px）
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  gap(px) { return this._recordBoxOp('gap', [px]); }
+  /**
+   * 设置容器内边距（委托 BoxBuilder#padding）。作用于子项与容器边界之间，
+   * reflow 分配尺寸时已扣除，三层（内容/边/角）口径一致。
+   * @param {number} px 内边距（px）
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  padding(px) { return this._recordBoxOp('padding', [px]); }
   /**
    * 标记为视口根节点，尺寸取 100vw/100vh（委托 BoxBuilder#viewport）
    * @returns {CellBaseBuilder} self（链式）

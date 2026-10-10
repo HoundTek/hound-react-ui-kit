@@ -26,7 +26,7 @@ class FloatingPanelCell extends CellBaseBuilder {
       })
       .defineSlot('body', {
         minHeight: 80, moveY: true, layout: 'vertical',
-        color: 'surface', showChildOverlays: false,
+        color: 'surface',
       });
   }
 }

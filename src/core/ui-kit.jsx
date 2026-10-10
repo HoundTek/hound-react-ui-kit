@@ -23,12 +23,14 @@ import { ensureStateLayerStyle, stateLayerProps, FONT_STACK } from './theme/stat
 import {
   TextCell, ToggleCell,
   CloseButtonCell,
-  NotificationCell, ModalCell, WindowCell,
+  NotificationCell, FloatingWindowCellBase, ModalCell, WindowCell,
 } from './builtin-cells/builtin-cells';
+import { FloatingLayer } from './box/box-component';
 import {
   ButtonCell, SliderCell, InputCell, MediaCell, PanelCell, ListCell,
   ButtonImpl, SliderTrackImpl, TextImpl, InputImpl, ListImpl,
   GlyphChevron, GlyphClose, GlyphCheck, GlyphTriangle, GlyphRadio, GlyphCheckbox,
+  GlyphMaximize, GlyphRestore,
 } from '../basic-cells';
 import { TextareaImpl } from '../builtin-cells/textarea';
 import { OptionImpl } from '../builtin-cells/checkbox';
@@ -38,16 +40,16 @@ import { NoticeImpl } from '../builtin-cells/notice';
 import { MenuImpl } from '../builtin-cells/menu';
 import { TabBarImpl } from '../builtin-cells/tab-bar';
 import {
-  AccordionCell, AlertCell, AvatarCell, BadgeCell, BarCell, BreadcrumbCell,
+  AccordionCell, AlertCell, AppBarCell, AvatarCell, BadgeCell, BarCell, BoardCell, BreadcrumbCell,
   CalendarCell, CardCell, CarouselCell, ChartCell, ChatCell,
   CheckboxCell, ColorPickerCell, ConfirmCell, ControlCell, DashboardCell,
   DatePickerCell, DialogCell, DividerCell, DocumentCell, DrawerCell, EditorCell,
-  EmptyCell, FieldCell, FloatingPanelCell, FormCell, GridCell, GroupCell, IconCell,
+  EmptyCell, FieldCell, FloatingPanelCell, FooterCell, FormCell, GridCell, GroupCell, IconCell,
   IndexBarCell, JoyConCell, KanbanCell, LoadingCell, LoginCell,
   MenuCell, MessageCell, MultiSwitchCell, NavBarCell, NoticeCell, OrderCell, PageCell,
   PaginationCell, PickerCell, PopoverCell, ProcessCell, ProfileCell,
-  ProgressCell, RadioCell, RateCell, ResultCell, SearchCell, SectionCell, SelectCell,
-  SettingsCell, SkeletonCell, StatCell, StepperCell, SwitchCell, TabBarCell,
+  ProgressCell, RadioCell, RateCell, ResultCell, RowCell, SearchCell, SectionCell, SelectCell,
+  SettingsCell, SkeletonCell, SplitCell, StatCell, StepperCell, SwitchCell, TabBarCell,
   TabCell, TableCell, TagCell, TextareaCell, TilingCell, TimelineCell, TitleCell,
   ToastCell, TooltipCell, TreeCell, UploadCell,
 } from '../builtin-cells';
@@ -91,8 +93,12 @@ export {
   ToggleCell,
   CloseButtonCell,
   NotificationCell,
+  // 浮动窗口基座（页面作者派生自定义窗口 Cell 的继承起点）
+  FloatingWindowCellBase,
   ModalCell,
   WindowCell,
+  // 浮动层渲染器（所有浮动视口 Cell 的全局渲染入口，由应用外壳挂载一次）
+  FloatingLayer,
   // 基础 Cell（src/basic-cells/，实现组件供高级 Cell 组装复用）
   ButtonCell,
   SliderCell,
@@ -112,6 +118,8 @@ export {
   GlyphTriangle,
   GlyphRadio,
   GlyphCheckbox,
+  GlyphMaximize,
+  GlyphRestore,
   // 高级 Cell 共享实现组件（供组装复用 / 主题重写参考）
   TextareaImpl,
   OptionImpl,
@@ -123,9 +131,11 @@ export {
   // 高级预设（src/builtin-cells/）
   AccordionCell,
   AlertCell,
+  AppBarCell,
   AvatarCell,
   BadgeCell,
   BarCell,
+  BoardCell,
   BreadcrumbCell,
   CalendarCell,
   CardCell,
@@ -146,6 +156,7 @@ export {
   EmptyCell,
   FieldCell,
   FloatingPanelCell,
+  FooterCell,
   FormCell,
   GridCell,
   GroupCell,
@@ -171,11 +182,13 @@ export {
   RadioCell,
   RateCell,
   ResultCell,
+  RowCell,
   SearchCell,
   SectionCell,
   SelectCell,
   SettingsCell,
   SkeletonCell,
+  SplitCell,
   StatCell,
   StepperCell,
   SwitchCell,

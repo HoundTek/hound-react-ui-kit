@@ -13,6 +13,7 @@ import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor } from '../core/theme/theme-react';
+import { ViewScrollArea } from '../core/box/floating-scrollbar';
 
 /**
  * 抽屉组装视图（fallback）：订阅 title/text，渲染标题栏与可滚动正文区。
@@ -38,12 +39,17 @@ function DrawerAssembledView({ cell }) {
       }}>
         {title}
       </div>
-      <div style={{
-        flex: 1, overflow: 'auto', padding: '0 12px 12px', fontSize: 13,
-        color: bodyColor, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-      }}>
+      {/* 正文为有意设计的内部滚动子区域（标题栏固定），经 ViewScrollArea
+          获得与 Box 层一致的浮动滚动条与滚轮阻尼 */}
+      <ViewScrollArea
+        style={{ flex: 1, minHeight: 0 }}
+        scrollStyle={{
+          padding: '0 12px 12px', fontSize: 13,
+          color: bodyColor, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+        }}
+      >
         {text}
-      </div>
+      </ViewScrollArea>
     </div>
   );
 }

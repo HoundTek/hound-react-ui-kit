@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { Reflowable, reflowScheduler } from './scheduler';
-import { ContentLayer, EdgeLayer, CornerLayer, registerFloating, reparentFloating, getFloatingChildren, focusFloating, notifyFloatingChange, setOperable, clearOperable } from './box-component';
+import { ContentLayer, EdgeLayer, CornerLayer, registerFloating, reparentFloating, getFloatingChildren, focusFloating, notifyFloatingChange, setOperable, clearOperable, syncFloatingFrame } from './box-component';
 
 /**
  * Box 布局构建器。继承 Reflowable 获得 reflow 调度能力，通过链式方法配置尺寸约束、
@@ -41,8 +41,13 @@ class BoxBuilder extends Reflowable {
     this._layoutValid = true;
     /** @type {{width: number, height: number}} 容器实际尺寸（视口取可视区域，其余由 ResizeObserver 提供） */
     this._containerSize = { width: 0, height: 0 };
-    /** @type {boolean} 是否显示下一级子 Box 的 Edge/Corner 覆盖层 */
-    this._showChildOverlays = true;
+    /** @type {boolean|undefined} Edge 覆盖层（拖拽分界线）显示开关；undefined = 继承父级，全链未设置时默认隐藏。
+     *  Corner 角点是两条 Edge 的交点，跟随 Edge 的显隐（无独立开关，且永不绘制，仅作命中区） */
+    this._showEdges = undefined;
+    /** @type {number} 子项间距（主轴，px）；默认 0 */
+    this._gap = 0;
+    /** @type {number} 容器内边距（四边，px）；默认 0 */
+    this._padding = 0;
     /** @type {boolean} 是否为浮动视口（脱离主布局树，悬浮于页面上层） */
     this._isFloatingViewport = false;
     /** @type {number|null} 浮动视口距可视区域左边缘的位置（px）；null 表示未指定（默认 0） */
@@ -67,6 +72,16 @@ class BoxBuilder extends Reflowable {
     this._visible = true;
     /** @type {boolean} 浮动视口是否可关闭（右上角渲染关闭按钮） */
     this._closable = false;
+    /** @type {boolean} 浮动视口是否最大化（铺满可视区域，见 toggleMaximize） */
+    this._maximized = false;
+    /** @type {boolean} 浮动视口是否最小化（卷起为标题栏，见 toggleMinimize） */
+    this._minimized = false;
+    /** @type {Object|null} 最大化前记录的位置/尺寸/约束（还原用） */
+    this._preMaximizeFrame = null;
+    /** @type {number|null} 最小化前的高度（还原用） */
+    this._preMinimizeHeight = null;
+    /** @type {Object|null} 最小化前的高度约束（还原用） */
+    this._preMinimizeConstraint = null;
     /** @type {'rect'|'capsule'|'circle'|null} 基础形状（见 docs/theme-shape-design.md）；null 为 rect */
     this._shape = null;
     /** @type {string|null} 组件角色：主题包裹层规范的查询键（如 'button'、'window'） */
@@ -336,14 +351,40 @@ class BoxBuilder extends Reflowable {
   }
 
   /**
-   * 设置是否显示下一级子 Box 的 Edge 与 Corner 覆盖层（拖拽手柄）。
-   * false 时本 Box 的 EdgeLayer/CornerLayer 不再递归渲染子层，子层的拖拽手柄全部隐藏。
-   * 本 Box 自身的分界线（直接子项间的 Edge/Corner）不受影响。
-   * @param {boolean} show 是否显示下一级覆盖层
+   * 设置 Edge 覆盖层（拖拽分界线手柄）是否显示。覆盖层默认隐藏，需显式开启。
+   * 就近继承语义：未设置时沿父链取最近的显式设置，全链未设置视为 false；
+   * 本 Box 的设置覆盖祖先，作用于自身分界线与整个子树（子树内可再覆盖）。
+   * 只有实际可拖拽的分界线（容器主轴锁定且两侧存在可伸缩子项）才会渲染手柄。
+   * Corner 角点跟随本开关：仅在两条相交 Edge 均实际可拖拽时存在
+   *（双轴拖拽命中区），且永不绘制视觉。
+   * @param {boolean} [show=true] 是否显示
    * @returns {BoxBuilder} self（链式调用）
    */
-  showChildOverlays(show) {
-    this._showChildOverlays = show;
+  showEdges(show = true) {
+    this._showEdges = show;
+    return this;
+  }
+
+  /**
+   * 设置子项间距（主轴方向相邻子项之间，px）。间距参与 reflow 尺寸分配
+   *（锁定主轴时从容器尺寸中扣除），内容层以子项 margin 实现、覆盖层
+   * 以偏移量对齐，三层位置一致
+   * @param {number} px 间距（px）
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  gap(px) {
+    this._gap = px;
+    return this;
+  }
+
+  /**
+   * 设置容器内边距（四边，px）。内边距参与 reflow 尺寸分配（子项可用尺寸
+   * 扣除两侧内边距），内容层以子项 margin 实现、覆盖层以偏移量对齐
+   * @param {number} px 内边距（px）
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  padding(px) {
+    this._padding = px;
     return this;
   }
 
@@ -462,6 +503,109 @@ class BoxBuilder extends Reflowable {
    */
   closable(enabled = true) {
     this._closable = enabled;
+    return this;
+  }
+
+  /**
+   * 切换最大化（仅浮动视口）：最大化 = 铺满可视区域（位置 0,0、尺寸取
+   * window.innerWidth/innerHeight），再次调用还原到最大化前记录的位置/尺寸。
+   * 最大化时解除 min/max 上下限约束（含 fixed 固定尺寸），还原时一并放回；
+   * 处于最小化（卷起）状态时先还原最小化。最大化期间禁用最小化。
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  toggleMaximize() {
+    if (!this._isFloatingViewport) return this;
+    if (this._minimized) this.toggleMinimize();
+    if (this._maximized) {
+      const f = this._preMaximizeFrame;
+      this._maximized = false;
+      this._preMaximizeFrame = null;
+      if (f) {
+        this._posX = f.x;
+        this._posY = f.y;
+        this._viewWidth = f.w ?? undefined;
+        this._viewHeight = f.h ?? undefined;
+        this._minWidth = f.minW;
+        this._maxWidth = f.maxW;
+        this._minHeight = f.minH;
+        this._maxHeight = f.maxH;
+        this._explicitMinWidth = f.xMinW;
+        this._explicitMaxWidth = f.xMaxW;
+        this._explicitMinHeight = f.xMinH;
+        this._explicitMaxHeight = f.xMaxH;
+      }
+    } else {
+      this._preMaximizeFrame = {
+        x: this._posX ?? 0,
+        y: this._posY ?? 0,
+        w: this._viewWidth ?? this._containerSize?.width ?? null,
+        h: this._viewHeight ?? this._containerSize?.height ?? null,
+        minW: this._minWidth,
+        maxW: this._maxWidth,
+        minH: this._minHeight,
+        maxH: this._maxHeight,
+        xMinW: this._explicitMinWidth,
+        xMaxW: this._explicitMaxWidth,
+        xMinH: this._explicitMinHeight,
+        xMaxH: this._explicitMaxHeight,
+      };
+      this._maximized = true;
+      // 解除上下限约束（含 fixed 固定尺寸，同 startFloatingResize 的解除逻辑），
+      // 否则 reflow 会把窗口钳回约束尺寸，最大化无法生效
+      this._minWidth = undefined;
+      this._maxWidth = undefined;
+      this._minHeight = undefined;
+      this._maxHeight = undefined;
+      this._explicitMinWidth = false;
+      this._explicitMaxWidth = false;
+      this._explicitMinHeight = false;
+      this._explicitMaxHeight = false;
+      this._posX = 0;
+      this._posY = 0;
+      this._viewWidth = window.innerWidth;
+      this._viewHeight = window.innerHeight;
+    }
+    syncFloatingFrame(this);
+    return this;
+  }
+
+  /**
+   * 切换最小化（卷起为标题栏，仅浮动视口）：窗口高度收起为 chromeHeight
+   *（仅窗口控件结构可见），再次调用还原高度；收起时解除高度上下限约束，
+   * 还原时一并放回。最大化状态下不可用（先还原最大化再最小化）。
+   * @param {number} [chromeHeight=36] 卷起后保留的标题栏高度（px）
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  toggleMinimize(chromeHeight = 36) {
+    if (!this._isFloatingViewport || this._maximized) return this;
+    if (this._minimized) {
+      this._minimized = false;
+      this._viewHeight = this._preMinimizeHeight ?? undefined;
+      this._preMinimizeHeight = null;
+      const c = this._preMinimizeConstraint;
+      this._preMinimizeConstraint = null;
+      if (c) {
+        this._minHeight = c.minH;
+        this._maxHeight = c.maxH;
+        this._explicitMinHeight = c.xMinH;
+        this._explicitMaxHeight = c.xMaxH;
+      }
+    } else {
+      this._preMinimizeHeight = this._viewHeight ?? this._containerSize?.height ?? null;
+      this._preMinimizeConstraint = {
+        minH: this._minHeight,
+        maxH: this._maxHeight,
+        xMinH: this._explicitMinHeight,
+        xMaxH: this._explicitMaxHeight,
+      };
+      this._minimized = true;
+      this._minHeight = undefined;
+      this._maxHeight = undefined;
+      this._explicitMinHeight = false;
+      this._explicitMaxHeight = false;
+      this._viewHeight = chromeHeight;
+    }
+    syncFloatingFrame(this);
     return this;
   }
 
@@ -804,21 +948,26 @@ class BoxBuilder extends Reflowable {
     const n = this._children.length;
     // 排列方向由 box 决定：horizontal（或未定义）→ 行优先；vertical → 列优先
     const rowMajor = this._layout !== 'vertical';
+    // 内边距与子项间距参与网格尺寸求解：可用尺寸扣除四边 padding 与格间 gap
+    const pad = this._padding || 0;
+    const gap = this._gap || 0;
+    const innerW = Math.max(0, width - 2 * pad);
+    const innerH = Math.max(0, height - 2 * pad);
 
     let cols, rows, cellW, cellH;
     if (rowMajor) {
-      // 每行 ⌊W/w⌋ 个单元格并平分宽度；行平分高度，不足最小高度时溢出滚动
-      cols = Math.max(1, Math.floor(width / minCellWidth));
-      cellW = width / cols;
+      // 每行 ⌊(W+gap)/(w+gap)⌋ 个单元格并平分宽度；行平分高度，不足最小高度时溢出滚动
+      cols = Math.max(1, Math.floor((innerW + gap) / (minCellWidth + gap)));
+      cellW = (innerW - (cols - 1) * gap) / cols;
       rows = Math.max(1, Math.ceil(n / cols));
-      cellH = height / rows;
+      cellH = (innerH - (rows - 1) * gap) / rows;
       if (cellH < minCellHeight) cellH = minCellHeight;
     } else {
-      // 每列 ⌊H/h⌋ 个单元格并平分高度；列平分宽度，不足最小宽度时溢出滚动
-      rows = Math.max(1, Math.floor(height / minCellHeight));
-      cellH = height / rows;
+      // 每列 ⌊(H+gap)/(h+gap)⌋ 个单元格并平分高度；列平分宽度，不足最小宽度时溢出滚动
+      rows = Math.max(1, Math.floor((innerH + gap) / (minCellHeight + gap)));
+      cellH = (innerH - (rows - 1) * gap) / rows;
       cols = Math.max(1, Math.ceil(n / rows));
-      cellW = width / cols;
+      cellW = (innerW - (cols - 1) * gap) / cols;
       if (cellW < minCellWidth) cellW = minCellWidth;
     }
 
@@ -847,12 +996,19 @@ class BoxBuilder extends Reflowable {
     const { width, height } = this._containerSize;
     let isValid = true;
 
+    // 内边距与子项间距参与 reflow：锁定主轴分配时从容器尺寸扣除
+    //（两侧 padding + (n-1) 个 gap），子项可用尺寸随之收紧
+    const pad = this._padding || 0;
+    const gap = this._gap || 0;
+    const childCount = this._children.length;
+    const mainPadX = 2 * pad + Math.max(0, childCount - 1) * gap;
+
     if (isGrid && this._children.length > 0 && width > 0 && height > 0) {
       this._performGridLayout(width, height);
     }
 
     if (!isGrid && isHorizontal && isLockedX && this._children.length > 0 && width > 0) {
-      const result = this._calculateLayout(width, 'Width');
+      const result = this._calculateLayout(Math.max(0, width - mainPadX), 'Width');
       if (!result.isValid) {
         isValid = false;
       } else {
@@ -863,7 +1019,7 @@ class BoxBuilder extends Reflowable {
     }
 
     if (!isGrid && isVertical && isLockedY && this._children.length > 0 && height > 0) {
-      const result = this._calculateLayout(height, 'Height');
+      const result = this._calculateLayout(Math.max(0, height - mainPadX), 'Height');
       if (!result.isValid) {
         isValid = false;
       } else {
@@ -878,7 +1034,7 @@ class BoxBuilder extends Reflowable {
                            (this._minHeight === this._maxHeight ? this._minHeight : this._defaultHeight);
       if (parentHeight > 0) {
         this._children.forEach(child => {
-          child._layoutHeight = parentHeight;
+          child._layoutHeight = Math.max(0, parentHeight - 2 * pad);
         });
       }
     }
@@ -888,7 +1044,7 @@ class BoxBuilder extends Reflowable {
                           (this._minWidth === this._maxWidth ? this._minWidth : this._defaultWidth);
       if (parentWidth > 0) {
         this._children.forEach(child => {
-          child._layoutWidth = parentWidth;
+          child._layoutWidth = Math.max(0, parentWidth - 2 * pad);
         });
       }
     }
@@ -907,8 +1063,9 @@ class BoxBuilder extends Reflowable {
         }
         totalWidth += child._layoutWidth;
       });
+      // 自由滚动主轴：容器内容尺寸 = 子项总和 + 间距 + 两侧内边距
       if (!this._isViewport && !parentLockedX && this._layoutWidth === undefined) {
-        this._layoutWidth = totalWidth;
+        this._layoutWidth = totalWidth + mainPadX;
       }
     }
 
@@ -922,7 +1079,7 @@ class BoxBuilder extends Reflowable {
         totalHeight += child._layoutHeight;
       });
       if (!this._isViewport && !parentLockedY && this._layoutHeight === undefined) {
-        this._layoutHeight = totalHeight;
+        this._layoutHeight = totalHeight + mainPadX;
       }
     }
 

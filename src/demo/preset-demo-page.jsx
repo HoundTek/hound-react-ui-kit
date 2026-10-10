@@ -1,7 +1,7 @@
 /**
  * @file preset-demo-page.jsx —— 预设 Cell 展示台
  *
- * 集中展示 src/builtin-cells/ 下全部 75 个扩展预设 Cell 的实际用法与效果。
+ * 集中展示 src/builtin-cells/ 下全部 80 个扩展预设 Cell 的实际用法与效果。
  * 与 cell-demo-page（工作台）互补：工作台侧重"数据驱动交互 + 框架特性"，
  * 本页侧重"预设速览"——按 10 大类分区块陈列，每个预设都给出真实的数据。
  *
@@ -18,17 +18,17 @@ import React from 'react';
 import { createPageNav } from './page-nav';
 import {
   CellBaseBuilder, DataDag, TextCell, ToggleCell, ButtonCell,
-  AccordionCell, AlertCell, AvatarCell, BadgeCell, BarCell, BreadcrumbCell,
+  AccordionCell, AlertCell, AppBarCell, AvatarCell, BadgeCell, BarCell, BoardCell, BreadcrumbCell,
   CalendarCell, CardCell, CarouselCell, ChartCell, ChatCell, CheckboxCell,
   ColorPickerCell, ConfirmCell, ControlCell, DashboardCell, DatePickerCell,
   DialogCell, DividerCell, DocumentCell, DrawerCell, EditorCell, EmptyCell,
-  FieldCell, FloatingPanelCell, FormCell, GridCell, GroupCell, IconCell,
+  FieldCell, FloatingPanelCell, FooterCell, FormCell, GridCell, GroupCell, IconCell,
   IndexBarCell, InputCell, JoyConCell, KanbanCell, ListCell, LoadingCell,
   LoginCell, MediaCell, MenuCell, MessageCell, NavBarCell, NoticeCell,
   OrderCell, PageCell, PaginationCell, PanelCell, PickerCell, PopoverCell,
   ProcessCell, ProfileCell, ProgressCell, RadioCell, RateCell, ResultCell,
-  SearchCell, SectionCell, SelectCell, SettingsCell, SkeletonCell, SliderCell,
-  StatCell, StepperCell, SwitchCell, TabBarCell, TabCell, TableCell, TagCell,
+  RowCell, SearchCell, SectionCell, SelectCell, SettingsCell, SkeletonCell, SliderCell,
+  SplitCell, StatCell, StepperCell, SwitchCell, TabBarCell, TabCell, TableCell, TagCell,
   TextareaCell, TilingCell, TimelineCell, TitleCell, ToastCell, TooltipCell,
   TreeCell, UploadCell,
 } from '../core/ui-kit';
@@ -38,7 +38,7 @@ import {
 // =========================================================================
 
 /**
- * 展示行：横向排列、双轴锁定、固定高（由调用方显式指定）、隐藏子项拖拽手柄。
+ * 展示行：横向排列、双轴锁定、固定高（由调用方显式指定）。
  * 横向 reflow 对子项均分宽度；子项高度拉伸到行高。
  */
 class DemoRow extends CellBaseBuilder {
@@ -48,7 +48,7 @@ class DemoRow extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.layout('horizontal').moveX(false).moveY(false)
-      .color('surface-muted').showChildOverlays(false);
+      .color('surface-muted');
   }
 }
 
@@ -69,7 +69,7 @@ class DemoUnit extends CellBaseBuilder {
       })
       .defineSlot('content', {
         layout: 'vertical', moveX: false, moveY: false,
-        color: 'surface', showChildOverlays: false,
+        color: 'surface',
       });
   }
 }
@@ -88,8 +88,7 @@ class DemoSection extends CellBaseBuilder {
       .defineSlot('title', {
         fixedHeight: 32, color: 'surface-muted', layout: 'horizontal',
         moveX: false, moveY: false, single: true,
-      })
-      .showChildOverlays(false);
+      });
   }
 }
 
@@ -103,7 +102,7 @@ class DemoHeroCell extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.layout('vertical').moveX(false).moveY(false).fixedHeight(92)
-      .color('primary').showChildOverlays(false);
+      .color('primary');
   }
 }
 
@@ -190,7 +189,7 @@ function buildPresetDemo() {
   // ---------- 页首 ----------
   const hero = new DemoHeroCell('hero').fill('_default', [
     new TextCell('heroTitle').setText('Hound UI-Kit 预设 Cell 展示台').setSize(20).setBold(true).setColor('on-primary'),
-    new TextCell('heroDesc').setText('75 个扩展预设 Cell 分类速览：展示 · 指标 · 表单 · 交互 · 列表 · 导航 · 反馈 · 浮层 · 业务 · 容器')
+    new TextCell('heroDesc').setText('80 个扩展预设 Cell 分类速览：展示 · 指标 · 表单 · 交互 · 列表 · 导航 · 反馈 · 浮层 · 业务 · 容器')
       .setSize(12).setColor('rgba(255,255,255,0.85)'),
   ]);
 
@@ -291,7 +290,7 @@ function buildPresetDemo() {
     R('l-row1', 170, [
       new ListCell('l_list').setItems([
         { id: 'a', title: '设计系统', subtitle: '规范与组件', icon: '◆' },
-        { id: 'b', title: '组件库', subtitle: '75 个预设 Cell', icon: '●' },
+        { id: 'b', title: '组件库', subtitle: '80 个预设 Cell', icon: '●' },
         { id: 'c', title: '文档中心', subtitle: '设计文档', icon: '■' },
       ]).setSelected('a'),
       new MenuCell('l_menu').setItems([
@@ -433,8 +432,8 @@ function buildPresetDemo() {
     ]),
   ]);
 
-  // ---------- 10. 容器与布局（32 + 130 + 70 + 130 + 130 + 90 = 582） ----------
-  const secContainer = S('sec-container', '10. 容器与布局', 582, [
+  // ---------- 10. 容器与布局（32 + 130 + 70 + 130 + 130 + 90 + 110 = 692） ----------
+  const secContainer = S('sec-container', '10. 容器与布局', 692, [
     R('c-row1', 130, [
       new CardCell('c_card').fill('header', new TextCell('c_card_t').setText('卡片标题').setSize(13).setBold(true))
         .fill('body', [
@@ -464,7 +463,7 @@ function buildPresetDemo() {
       ]),
       new GroupCell('c_group').fill('_default', [
         new TextCell('c_group_t').setText('分组标题').setSize(13).setBold(true),
-        new TextCell('c_group_b').setText('分组内容：纵向容器，showChildOverlays 已关闭。').setSize(12).setColor('text-secondary'),
+        new TextCell('c_group_b').setText('分组内容：纵向容器；Edge/Corner 覆盖层默认隐藏。').setSize(12).setColor('text-secondary'),
       ]),
     ]),
     R('c-row4', 130, [
@@ -490,6 +489,31 @@ function buildPresetDemo() {
       new SectionCell('c_sec').setTitle('内嵌分区').fill('_default', [
         new TextCell('c_sec_b').setText('分区容器可在任意位置内嵌使用。').setSize(12).setColor('text-secondary'),
       ]),
+    ]),
+    // 页面结构容器：顶栏 / 分栏（side 插槽 + 主区）/ 横向行 / 页脚
+    R('c-row6', 110, [
+      U('c-appbar', 'AppBarCell', new AppBarCell('c_appbar').fill('_default', [
+        new TextCell('c_appbar_t').setText('顶栏').setColor('on-primary').setBold(true),
+      ])),
+      U('c-split', 'SplitCell', new SplitCell('c_split')
+        .fill('side', new TextCell('c_split_s').setText('侧栏').setSize(12).setColor('text-secondary'))
+        .fill('_default', new TextCell('c_split_m').setText('主区').setSize(12).setColor('text'))),
+      U('c-row', 'RowCell', new RowCell('c_row').fixedHeight(56).fill('_default', [
+        new TagCell('c_row_t1').setText('行项 1').setColor('#4a90d9'),
+        new TagCell('c_row_t2').setText('行项 2').setColor('#1a8a4a'),
+      ])),
+      U('c-footer', 'FooterCell', new FooterCell('c_footer').fill('_default', [
+        new TextCell('c_footer_t').setText('页脚').setSize(12).setColor('inverse-on-surface'),
+      ])),
+    ]),
+    // 布局板块：给其他 cell 套壳——板块自带样式（card 形状 + outlined 描边），
+    // 内部 padding/gap 保持内容间距；板块与同级元素的间距由父容器 gap 承担
+    R('c-row7', 170, [
+      U('c-board', 'BoardCell', new BoardCell('c_board').fill('_default', [
+        new TextCell('c_board_t1').setText('板块自带样式（形状 + 描边）').setSize(12).setColor('text').fixedHeight(32),
+        new TextCell('c_board_t2').setText('内部 padding/gap 保持内容间距').setSize(12).setColor('text-secondary').fixedHeight(32),
+        new TextCell('c_board_t3').setText('与同级元素的间距由父容器 gap 承担').setSize(12).setColor('text-muted'),
+      ])),
     ]),
   ]);
 
