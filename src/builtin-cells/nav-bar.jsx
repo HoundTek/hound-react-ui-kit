@@ -71,7 +71,7 @@ function NavBarAssembledView({ cell }) {
             item={item}
             active={activeId === item.id}
             onPrimary={onPrimary}
-            onSelect={(id) => { cell.setActiveId(id); if (cell._onSelect) cell._onSelect(id); }}
+            onSelect={(id) => { cell.setActiveId(id); cell.emit('select', id); }}
           />
         ))}
       </div>
@@ -110,7 +110,7 @@ class NavBarCell extends CellBaseBuilder {
    * @returns {NavBarCell} self（链式）
    */
   onSelect(handler) {
-    this._onSelect = handler;
+    this.on('select', handler);
     return this;
   }
 }

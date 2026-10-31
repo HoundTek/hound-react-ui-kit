@@ -3,7 +3,7 @@
  *
  * 输入族：搜索框 = 文本输入 + 搜索按钮（见 docs/basic-cell-design.md）。
  * 组装 fallback（SearchAssembledView）：InputImpl + ButtonImpl「搜索」，
- * Enter 或点击按钮触发 cell._onSearch(value)。主题可经
+ * Enter 或点击按钮触发 cell.emit('search', value)（经 onSearch(fn) 注册）。主题可经
  * theme.components.search 整体重写呈现实现。
  *
  * Schema（数据契约，与旧版一致）：placeholder / value。
@@ -16,7 +16,7 @@ import { InputImpl, ButtonImpl } from '../basic-cells';
 
 /**
  * 搜索组装视图（fallback）：InputImpl 受控写入 value，Enter（onSubmit）
- * 或点击「搜索」按钮时调用 cell._onSearch(value)。
+ * 或点击「搜索」按钮时触发 'search' 事件（携带当前 value）。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
@@ -25,7 +25,7 @@ function SearchAssembledView({ cell }) {
   const value = useCellData(cell, 'value') || '';
   const surface = useThemeColor('surface', '#fff');
   const doSearch = () => {
-    if (cell._onSearch) cell._onSearch(value);
+    cell.emit('search', value);
   };
   return (
     <div style={{
@@ -75,7 +75,7 @@ class SearchCell extends CellBaseBuilder {
    * @returns {SearchCell} this，支持链式
    */
   onSearch(handler) {
-    this._onSearch = handler;
+    this.on('search', handler);
     return this;
   }
 }

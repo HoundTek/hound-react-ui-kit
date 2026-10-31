@@ -28,7 +28,7 @@ function UploadAssembledView({ cell }) {
   const sizeColor = useThemeColor('text-muted', '#999');
   const addFile = () => {
     cell.setFileList([...fileList, { id: String(Date.now()), name: 'file.txt', size: 1024 }]);
-    if (cell._onUpload) cell._onUpload();
+    cell.emit('upload');
   };
   const removeFile = (id) => {
     cell.setFileList(fileList.filter(f => f.id !== id));
@@ -90,7 +90,7 @@ class UploadCell extends CellBaseBuilder {
    * @returns {UploadCell} self（链式）
    */
   onUpload(handler) {
-    this._onUpload = handler;
+    this.on('upload', handler);
     return this;
   }
 }

@@ -11,6 +11,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { devWarn } from '../core/runtime';
 import { MenuImpl } from './menu';
 
 /**
@@ -29,7 +30,7 @@ function TabBarImpl({ items, activeId, onChange }) {
 }
 
 /**
- * 页标签栏组装视图（fallback）：TabBarImpl，点击写回 activeId 并回调 _onChange。
+ * 页标签栏组装视图（fallback）：TabBarImpl，点击写回 activeId 并触发 'select' 事件。
  * @param {{cell: CellBaseBuilder}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
@@ -42,7 +43,7 @@ function TabBarAssembledView({ cell }) {
       activeId={activeId}
       onChange={(id) => {
         cell.setActiveId(id);
-        if (cell._onChange) cell._onChange(id);
+        cell.emit('select', id);
       }}
     />
   );
@@ -53,8 +54,10 @@ const TabBarDispatcher = createImplDispatcher('tab-bar', TabBarAssembledView);
 
 /**
  * TabBarCell：页标签栏（高级 Cell，按钮族）。items 为 [{id, title, icon?}]
- * （title 可存 i18n key 或纯文本），activeId 为当前激活项 id；页面作者可用
- * onChange(handler) 注入回调（handler(id)）。
+ * （title 可存 i18n key 或纯文本），activeId 为当前激活项 id。
+ * 事件语义统一（见 docs/improvement-plan.md）：激活项变更属"选中项变更"，
+ * 规范回调为 onSelect(handler)（等价 on('select', handler)）；
+ * onChange 为废弃别名，保留一个 major 版本过渡。
  * 呈现实现由 kind 'tab-bar' 分发（缺省为横向菜单组装版）。
  */
 class TabBarCell extends CellBaseBuilder {
@@ -72,12 +75,24 @@ class TabBarCell extends CellBaseBuilder {
   }
 
   /**
-   * 注入标签切换回调：点击标签项时调用 handler(id)。
-   * @param {(id: string) => void} handler 标签切换回调
+   * 注册标签选择回调（规范命名）：点击标签项时调用 handler(id)。
+   * @param {(id: string) => void} handler 标签选择回调
+   * @returns {TabBarCell} self（链式）
+   */
+  onSelect(handler) {
+    this.on('select', handler);
+    return this;
+  }
+
+  /**
+   * @deprecated 语义漂移别名（激活项变更属 select 而非 change），
+   * 请改用 onSelect(handler)。保留一个 major 版本过渡。
+   * @param {(id: string) => void} handler 标签选择回调
    * @returns {TabBarCell} self（链式）
    */
   onChange(handler) {
-    this._onChange = handler;
+    devWarn('[TabBarCell]', 'onChange 已废弃（语义为选中项变更），请改用 onSelect');
+    this.on('select', handler);
     return this;
   }
 }

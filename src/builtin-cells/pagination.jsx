@@ -28,7 +28,7 @@ function PaginationAssembledView({ cell }) {
   const go = (page) => {
     if (page < 1 || page > pages) return;
     cell.setCurrent(page);
-    if (cell._onChange) cell._onChange(page);
+    cell.emit('change', page);
   };
   const pageNumbers = [];
   for (let p = 1; p <= pages; p++) pageNumbers.push(p);
@@ -96,7 +96,7 @@ class PaginationCell extends CellBaseBuilder {
    * @returns {PaginationCell} self（链式）
    */
   onChange(handler) {
-    this._onChange = handler;
+    this.on('change', handler);
     return this;
   }
 }

@@ -4,7 +4,7 @@
  * 输入族：紧凑登录表单 = 文本输入 ×2（密码框 type='password'）+ 提交按钮
  *（见 docs/basic-cell-design.md）。组装 fallback（LoginAssembledView）：
  * InputImpl ×2 + ButtonImpl 提交，点击写入 submitted(true) 并回调
- * cell._onSubmit({username, password})。主题可经 theme.components.login
+ * 触发 'submit' 事件（携带 {username, password}，经 onSubmit(fn) 注册）。主题可经 theme.components.login
  * 整体重写呈现实现。
  *
  * Schema（数据契约，与旧版一致）：username / password / submitText / submitted。
@@ -26,7 +26,7 @@ function LoginAssembledView({ cell }) {
   const submitText = useCellData(cell, 'submitText');
   const submit = () => {
     cell.setSubmitted(true);
-    if (cell._onSubmit) cell._onSubmit({ username, password });
+    cell.emit('submit', { username, password });
   };
   return (
     <div style={{
@@ -88,7 +88,7 @@ class LoginCell extends CellBaseBuilder {
    * @returns {LoginCell} self（链式）
    */
   onSubmit(handler) {
-    this._onSubmit = handler;
+    this.on('submit', handler);
     return this;
   }
 }

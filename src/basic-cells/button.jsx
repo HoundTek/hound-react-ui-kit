@@ -126,7 +126,7 @@ function ButtonView({ cell }) {
         disabled={disabled}
         onPress={() => {
           cell.setPressed(true);
-          if (cell._onPress) cell._onPress();
+          cell.emit('press');
         }}
       />
     </div>
@@ -156,12 +156,12 @@ class ButtonCell extends CellBaseBuilder {
   }
 
   /**
-   * 注入点击动作回调。按钮被点击时调用（点击同时写入 pressed 字段）。
+   * 注册点击动作回调（可多个，按注册顺序触发；等价 on('press', handler)）。
    * @param {Function} handler 点击回调
    * @returns {ButtonCell} self（链式）
    */
   onPress(handler) {
-    this._onPress = handler;
+    this.on('press', handler);
     return this;
   }
 }

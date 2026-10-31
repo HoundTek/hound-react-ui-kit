@@ -38,7 +38,7 @@ function ConfirmAssembledView({ cell }) {
           label={okText}
           type="primary"
           size="small"
-          onPress={() => { if (cell._onOk) cell._onOk(); cell.close(); }}
+          onPress={() => { cell.emit('ok'); cell.close(); }}
         />
       </div>
     </div>
@@ -76,7 +76,7 @@ class ConfirmCell extends CellBaseBuilder {
    * @returns {ConfirmCell} self（链式）
    */
   onOk(handler) {
-    this._onOk = handler;
+    this.on('ok', handler);
     return this;
   }
 }

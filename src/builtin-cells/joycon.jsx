@@ -40,7 +40,7 @@ function JoyConAssembledView({ cell }) {
   const textColor = useThemeColor('text', '#333');
   const xValue = direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
   const yValue = direction === 'up' ? 1 : direction === 'down' ? -1 : 0;
-  const move = (dir) => { cell.setDirection(dir); if (cell._onMove) cell._onMove(dir); };
+  const move = (dir) => { cell.setDirection(dir); cell.emit('move', dir); };
   return (
     <div style={{
       width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
@@ -101,7 +101,7 @@ class JoyConCell extends CellBaseBuilder {
    * @returns {JoyConCell} self（链式）
    */
   onMove(handler) {
-    this._onMove = handler;
+    this.on('move', handler);
     return this;
   }
 }
