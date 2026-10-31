@@ -6,6 +6,7 @@
  *        - useNodeData 订阅任意 DataNode 字段（用于实例引用 cellA.data、引用节点等）
  */
 import React, { useState, useEffect } from 'react';
+import { getDefaultRuntime } from '../runtime';
 import { ResizeEffectViewport } from '../theme/resize-effects';
 import { useTheme } from '../theme/theme-react';
 import { getCellImpl } from './implementations';
@@ -23,6 +24,14 @@ import { getCellImpl } from './implementations';
  * @returns {JSX.Element} 三层叠加的根元素
  */
 function CellRoot({ cell, mountIndex = 0 }) {
+  // 订阅结构变更（fill/mount/destroy）：子 Cell 动态增删时重渲染本根。
+  // 无条件调用 hook（mount 缺失时仍返回 null，不违反 hook 规则）
+  const [, forceUpdate] = useState(0);
+  useEffect(() => {
+    const rt = cell.runtime;
+    if (!rt) return;
+    return rt.subscribeStructural(() => forceUpdate(n => n + 1));
+  }, [cell]);
   const mount = cell._mounts[mountIndex];
   if (!mount) return null;
   const box = mount.box;
@@ -113,7 +122,9 @@ function createImplDispatcher(kind, AssembledView) {
   return function ImplDispatcher({ cell }) {
     const theme = useTheme();
     const implName = theme?.getComponent(kind);
-    const Impl = implName ? getCellImpl(kind, implName) : null;
+    // 实现注册表按 cell 所属 runtime 解析（多实例隔离）；未挂载回退默认 runtime
+    const runtime = cell.runtime || getDefaultRuntime();
+    const Impl = implName ? getCellImpl(kind, implName, runtime) : null;
     return Impl ? <Impl cell={cell} /> : <AssembledView cell={cell} />;
   };
 }

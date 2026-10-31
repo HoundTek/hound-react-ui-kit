@@ -12,6 +12,7 @@
 import CellBaseBuilder from './cell/cell-base';
 import { CellRoot, useCellData, useNodeData, createImplDispatcher } from './cell/cell-react';
 import { registerCellImpl, getCellImpl, hasCellImpl } from './cell/implementations';
+import { KitRuntime, createRuntime, getDefaultRuntime } from './runtime';
 import { DataDag, DataNode } from './data-dag/data-dag';
 import I18n from './i18n/i18n';
 import { I18nProvider, I18nContext, useText, useI18n } from './i18n/i18n-react';
@@ -63,6 +64,10 @@ export {
   registerCellImpl,
   getCellImpl,
   hasCellImpl,
+  // 运行时实例（多实例隔离：调度器/浮动树/ref 注册表/实现注册表归属 runtime）
+  KitRuntime,
+  createRuntime,
+  getDefaultRuntime,
   DataDag,
   DataNode,
   I18n,

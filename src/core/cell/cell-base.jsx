@@ -22,6 +22,7 @@
  */
 import React from 'react';
 import BoxBuilder from '../box/box';
+import { devWarn } from '../runtime';
 import { CellRoot } from './cell-react';
 
 /** Slot 配置中映射到 Box 方法的键名 */
@@ -65,6 +66,61 @@ class CellBaseBuilder {
     this._pendingRefChildren = [];
     /** @type {Map<string, *>|null} 延迟应用的 setData（未挂载时暂存，_mountData 时应用，覆盖 Schema 默认值） */
     this._pendingData = null;
+    /** @type {boolean} 是否已销毁（destroy 后置 true，重复调用幂等） */
+    this._destroyed = false;
+    /**
+     * 统一事件注册表：事件名 → 处理器集合（见 on/off/emit）。
+     * 事件命名规范（docs/improvement-plan.md 阶段 2）：
+     * press 瞬时动作 / change 值变更 / select 选中项变更 / toggle 开合 /
+     * submit 提交 / ok 确认 / search 搜索 / upload 上传 / move 位移。
+     * @type {Map<string, Set<Function>>}
+     */
+    this._callbacks = new Map();
+  }
+
+  // === 事件 API（统一注册表） ===
+
+  /**
+   * 注册事件处理器（同一事件可注册多个，按注册顺序触发）。
+   * @param {string} event 事件名（如 'press'、'change'）
+   * @param {Function} handler 处理器
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  on(event, handler) {
+    if (typeof handler !== 'function') {
+      devWarn('[Cell]', `on("${event}") 的 handler 不是函数，已忽略（cell: ${this._id}）`);
+      return this;
+    }
+    if (!this._callbacks.has(event)) this._callbacks.set(event, new Set());
+    this._callbacks.get(event).add(handler);
+    return this;
+  }
+
+  /**
+   * 移除事件处理器。不传 handler 时移除该事件全部处理器。
+   * @param {string} event 事件名
+   * @param {Function} [handler] 处理器
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  off(event, handler) {
+    const set = this._callbacks.get(event);
+    if (!set) return this;
+    if (handler) set.delete(handler);
+    else this._callbacks.delete(event);
+    return this;
+  }
+
+  /**
+   * 触发事件：按注册顺序调用全部处理器（遍历副本，处理器内 off 安全）。
+   * @param {string} event 事件名
+   * @param {...*} args 事件参数
+   * @returns {boolean} 是否存在处理器
+   */
+  emit(event, ...args) {
+    const set = this._callbacks.get(event);
+    if (!set || set.size === 0) return false;
+    for (const handler of [...set]) handler(...args);
+    return true;
   }
 
   // === Schema ===
@@ -249,7 +305,9 @@ class CellBaseBuilder {
   _mountBox() {
     const idx = this._mounts.length;
     const basePath = this._dataNode.path + (idx > 0 ? '#m' + idx : '');
-    const box = new BoxBuilder(basePath);
+    // Box 继承数据节点的 runtime（浮动注册/调度器/ref 注册表全部 runtime 级）
+    const runtime = this._dataNode._runtime;
+    const box = new BoxBuilder(basePath, runtime);
     // 重放 Box 配方
     for (const [method, args] of this._boxRecipe) {
       box[method](...args);
@@ -258,7 +316,7 @@ class CellBaseBuilder {
     const slotBoxes = new Map();
     const slotSubBoxArray = [];
     for (const def of this._slotDefs) {
-      const slotBox = new BoxBuilder(basePath + '/' + def.name);
+      const slotBox = new BoxBuilder(basePath + '/' + def.name, runtime);
       this._applySlotConfig(slotBox, def.config);
       slotBoxes.set(def.name, slotBox);
       slotSubBoxArray.push(slotBox);
@@ -330,8 +388,10 @@ class CellBaseBuilder {
       throw new Error(`Cell "${this._id}" 的插槽 "${slotName}" 不存在`);
     }
     const cellList = Array.isArray(cells) ? cells : [cells];
-    // 单插槽覆盖语义：清空旧子项
+    // 单插槽覆盖语义：清空旧子项并销毁（旧子 Cell 的 Box 挂载与数据子树
+    // 一并释放，否则泄漏且旧视图残留渲染树）
     if (slot.config.single && slot.children.length > 0) {
+      const oldChildren = slot.children;
       slot.children = [];
       for (const mount of this._mounts) {
         mount.slotChildrenBoxes.set(slotName, []);
@@ -339,12 +399,16 @@ class CellBaseBuilder {
           mount.slotBoxes.get(slotName).children([]);
         }
       }
+      for (const old of oldChildren) {
+        if (old !== this && !cellList.includes(old)) old.destroy();
+      }
     }
     // 记录 slot 关系
     slot.children.push(...cellList);
     // 已挂载时（动态填充）立即挂载新子项
     if (this._mounts.length > 0) {
       this._mountNewChildren(slotName, cellList);
+      this._dataNode?._runtime?.notifyStructural();
     }
     return this;
   }
@@ -432,7 +496,11 @@ class CellBaseBuilder {
     const binding = this._bindings.get(key);
     if (binding) {
       const target = this._dataNode.resolve(binding.path);
-      return target ? target.getData(binding.key) : undefined;
+      if (!target) {
+        devWarn('[Cell]', `字段 "${key}" 的绑定目标 "${binding.path}" 不可达（cell: ${this._id}）`);
+        return undefined;
+      }
+      return target.getData(binding.key);
     }
     return this._dataNode.getData(key);
   }
@@ -454,7 +522,11 @@ class CellBaseBuilder {
     const binding = this._bindings.get(key);
     if (binding) {
       const target = this._dataNode.resolve(binding.path);
-      if (target) target.setData(binding.key, value);
+      if (!target) {
+        devWarn('[Cell]', `字段 "${key}" 的绑定目标 "${binding.path}" 不可达，setData 被忽略（cell: ${this._id}）`);
+      } else {
+        target.setData(binding.key, value);
+      }
       return this;
     }
     this._dataNode.setData(key, value);
@@ -471,7 +543,10 @@ class CellBaseBuilder {
     const unsubs = [this._dataNode.subscribe(callback)];
     for (const [key, binding] of this._bindings) {
       const target = this._dataNode.resolve(binding.path);
-      if (!target) continue;
+      if (!target) {
+        devWarn('[Cell]', `字段 "${key}" 的绑定目标 "${binding.path}" 订阅时不可达，绑定变更不会通知（cell: ${this._id}）`);
+        continue;
+      }
       const fieldKey = binding.key;
       const ownNode = this._dataNode;
       unsubs.push(target.subscribe((payload) => {
@@ -712,10 +787,15 @@ class CellBaseBuilder {
    * @returns {CellBaseBuilder} self（链式）
    */
   setParent(parentCellOrBox) {
-    const parentBox = parentCellOrBox instanceof BoxBuilder
+    const isBox = parentCellOrBox instanceof BoxBuilder;
+    const parentBox = isBox
       ? parentCellOrBox
       : parentCellOrBox?._mounts?.[0]?.box ?? null;
-    if (parentBox) this._recordBoxOp('child', [parentBox]);
+    if (parentBox) {
+      this._recordBoxOp('child', [parentBox]);
+    } else if (!isBox && parentCellOrBox) {
+      devWarn('[Cell]', `setParent 的父 Cell（${parentCellOrBox._id}）尚未挂载，父子窗口关系未建立——父 Cell 需先 mount`);
+    }
     return this;
   }
   /**
@@ -782,9 +862,51 @@ class CellBaseBuilder {
     if (!this._dataNode) {
       this._mountData(parentDataNode);
       this._mountBox();
+      this._dataNode._runtime.notifyStructural();
     }
     return this;
   }
+
+  /**
+   * 销毁本 Cell：递归销毁 slot 子 Cell、销毁全部 Box 挂载（浮动窗口注销、
+   * 从父 Box 摘除、子 Box 树级联销毁）、销毁数据节点（从父节点摘除、
+   * 清空订阅与锚点）。销毁后实例不可再用；重复调用无副作用（幂等）。
+   *
+   * 与 close() 的区别：close() 仅隐藏浮动视口（可再 open()），destroy()
+   * 释放全部运行时资源。动态创建的一次性 Cell（对话框、临时窗口）应在
+   * 不再需要时调用本方法，避免结构性泄漏。
+   * @returns {void}
+   */
+  destroy() {
+    if (this._destroyed) return;
+    this._destroyed = true;
+    const runtime = this._dataNode ? this._dataNode._runtime : null;
+    // 先递归销毁 slot 子 Cell（子 Cell 自行释放其 Box 挂载与数据节点）
+    for (const slot of this._slots.values()) {
+      for (const child of [...slot.children]) {
+        if (child !== this) child.destroy();
+      }
+      slot.children = [];
+      slot.dataNode = null;
+    }
+    // 销毁所有 Box 挂载（级联清理子 Box 树、浮动注册、可操作集合）
+    for (const mount of this._mounts) {
+      mount.box.destroy();
+    }
+    this._mounts = [];
+    // 销毁数据节点（从父节点摘除、递归清理、清空订阅者与锚点注册）
+    if (this._dataNode) this._dataNode.destroy();
+    this._dataNode = null;
+    this._pendingData = null;
+    this._callbacks.clear();
+    if (runtime) runtime.notifyStructural();
+  }
+
+  /** 是否已销毁 */
+  get destroyed() { return this._destroyed === true; }
+
+  /** 所属运行时（挂载后可用；未挂载返回 null） */
+  get runtime() { return this._dataNode ? this._dataNode._runtime : null; }
 
   // === 渲染 ===
 

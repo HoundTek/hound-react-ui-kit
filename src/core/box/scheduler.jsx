@@ -3,6 +3,7 @@
  *         reflow，Reflowable 为可 reflow 对象提供请求/执行/通知基类。
  *         尺寸变化的过渡呈现由主题特效系统（resize-effects）统一负责，不在此处。
  */
+import { getDefaultRuntime } from '../runtime';
 
 /** reflow 最小调度间隔（ms） */
 const REFLOW_INTERVAL = 250;
@@ -61,16 +62,26 @@ class ReflowScheduler {
   }
 }
 
-const reflowScheduler = new ReflowScheduler();
-
 /**
  * 可 reflow 基类。提供 _needsReflow 标记、_requestReflow 向上冒泡至 reflow 根
- * （根向调度器请求调度）、_performReflow 默认实现与完成回调通知。
+ * （根向所属 runtime 的调度器请求调度）、_performReflow 默认实现与完成回调通知。
+ * 调度器为 runtime 级实例（见 src/core/runtime.js），不再共享模块级全局单例。
  */
 class Reflowable {
-  constructor() {
+  /**
+   * @param {KitRuntime|null} [runtime] 所属运行时；缺省取全局默认 runtime
+   */
+  constructor(runtime = null) {
+    /** @type {KitRuntime} 所属运行时（惰性解析，避免模块循环依赖） */
+    this._runtime = runtime;
     this._needsReflow = false;
     this._onReflowCompleteCallbacks = new Set();
+  }
+
+  /** 所属运行时（未显式注入时回退全局默认 runtime） */
+  get runtime() {
+    if (!this._runtime) this._runtime = getDefaultRuntime();
+    return this._runtime;
   }
 
   /**
@@ -80,7 +91,7 @@ class Reflowable {
   _requestReflow() {
     this._needsReflow = true;
     if (this._isViewport || this._isFloatingViewport || !this._parent) {
-      reflowScheduler.schedule();
+      this.runtime.scheduler.schedule();
     } else {
       this._parent._requestReflow();
     }
@@ -123,6 +134,6 @@ class Reflowable {
 
 export {
   Reflowable,
-  reflowScheduler,
+  ReflowScheduler,
   REFLOW_INTERVAL,
 };

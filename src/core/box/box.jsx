@@ -3,20 +3,23 @@
  *        负责尺寸约束建模与 reflow 计算；React 渲染由 box-component 中的三层组件承担。
  */
 import React from 'react';
-import { Reflowable, reflowScheduler } from './scheduler';
-import { ContentLayer, EdgeLayer, CornerLayer, registerFloating, reparentFloating, getFloatingChildren, focusFloating, notifyFloatingChange, setOperable, clearOperable, syncFloatingFrame } from './box-component';
+import { Reflowable } from './scheduler';
+import { ContentLayer, EdgeLayer, CornerLayer, syncFloatingFrame } from './box-component';
 
 /**
  * Box 布局构建器。继承 Reflowable 获得 reflow 调度能力，通过链式方法配置尺寸约束、
  * 排列方向、滚动开关等属性，最终由 reactContent/reactEdge/reactCorner 产出三层 React 元素。
  * 路径以 `@` 开头表示绝对路径（如 `@demo/header/logo`），`_pathResolved` 为去掉前缀后的段数组。
+ * 浮动窗口注册/层级等运行时状态归属 `runtime`（见 src/core/runtime.js），
+ * 未显式注入时回退全局默认 runtime。
  */
 class BoxBuilder extends Reflowable {
   /**
    * @param {string} path Box 路径，`@` 开头为绝对路径，用 `/` 分隔层级
+   * @param {KitRuntime|null} [runtime] 所属运行时；缺省回退全局默认 runtime
    */
-  constructor(path) {
-    super();
+  constructor(path, runtime = null) {
+    super(runtime);
     this._path = path;
     this._pathResolved = path.replace(/^@/, '').split('/').filter(Boolean);
     this._children = [];
@@ -405,7 +408,7 @@ class BoxBuilder extends Reflowable {
    */
   floatingViewport() {
     this._isFloatingViewport = true;
-    registerFloating(this);
+    this.runtime.registerFloating(this);
     return this;
   }
 
@@ -450,7 +453,7 @@ class BoxBuilder extends Reflowable {
   child(parent) {
     const prev = this._floatingParent ?? null;
     this._floatingParent = parent ?? null;
-    if (this._isFloatingViewport) reparentFloating(this, prev);
+    if (this._isFloatingViewport) this.runtime.reparentFloating(this, prev);
     return this;
   }
 
@@ -460,7 +463,7 @@ class BoxBuilder extends Reflowable {
    * @returns {BoxBuilder} self（链式调用）
    */
   operable() {
-    setOperable(this);
+    this.runtime.setOperable(this);
     return this;
   }
 
@@ -616,11 +619,11 @@ class BoxBuilder extends Reflowable {
    * @returns {BoxBuilder} self（链式调用）
    */
   close() {
-    for (const child of getFloatingChildren(this)) {
+    for (const child of this.runtime.getFloatingChildren(this)) {
       child.close();
     }
     this._visible = false;
-    notifyFloatingChange();
+    this.runtime.notifyFloatingChange();
     return this;
   }
 
@@ -631,9 +634,50 @@ class BoxBuilder extends Reflowable {
    */
   open() {
     this._visible = true;
-    if (this._isFloatingViewport) focusFloating(this);
-    notifyFloatingChange();
+    if (this._isFloatingViewport) this.runtime.focusFloating(this);
+    this.runtime.notifyFloatingChange();
     return this;
+  }
+
+  /**
+   * 从父 Box 摘除自身（不销毁子树）。父内容层经结构变更通知重渲染后不再包含本 Box。
+   * @returns {BoxBuilder} self
+   */
+  detachFromParent() {
+    const parent = this._parent;
+    if (!parent) return this;
+    const idx = parent._children.indexOf(this);
+    if (idx !== -1) parent._children.splice(idx, 1);
+    const seg = this._pathResolved[this._pathResolved.length - 1];
+    if (parent._childrenMap.get(seg) === this) parent._childrenMap.delete(seg);
+    this._parent = null;
+    return this;
+  }
+
+  /**
+   * 销毁本 Box：注销浮动窗口注册与可操作集合、从父 Box 摘除、
+   * 递归销毁子 Box 树并清空订阅。销毁后不可再用（幂等）。
+   * 由 CellBaseBuilder#destroy 级联调用，纯 Box 用法亦可显式调用。
+   * @returns {void}
+   */
+  destroy() {
+    if (this._destroyed) return;
+    this._destroyed = true;
+    const rt = this.runtime;
+    if (this._isFloatingViewport) {
+      rt.clearOperable(this);
+      rt.unregisterFloating(this);
+    }
+    this.detachFromParent();
+    for (const child of [...this._children]) {
+      child.destroy();
+    }
+    this._children = [];
+    this._childrenMap = new Map();
+    this._childrenMap.set('.', this);
+    this._content = null;
+    this._onReflowCompleteCallbacks.clear();
+    this._needsReflow = false;
   }
 
   /**

@@ -15,6 +15,8 @@
  * 通知策略：仅本节点 setData 触发本节点订阅者；子节点变更不冒泡到父。
  */
 
+import { getDefaultRuntime, devWarn } from '../runtime';
+
 /** DataTree 节点解析时用于循环检测的最大 ref 跟随深度。 */
 const MAX_REF_DEPTH = 1024;
 
@@ -25,10 +27,14 @@ class DataNode {
   /**
    * @param {string} name 节点段名（根节点为空串）
    * @param {DataNode|null} parent 父节点；根节点为 null
+   * @param {KitRuntime|null} [runtime] 所属运行时；子节点自动继承父节点，
+   *   根节点缺省取全局默认 runtime
    */
-  constructor(name, parent = null) {
+  constructor(name, parent = null, runtime = null) {
     this._name = name;
     this._parent = parent;
+    /** @type {KitRuntime} 所属运行时（Box/Cell 挂载时继承本字段） */
+    this._runtime = runtime || (parent ? parent._runtime : getDefaultRuntime());
     this._children = new Map();
     this._data = new Map();
     this._subscribers = new Set();
@@ -58,6 +64,9 @@ class DataNode {
 
   /** 命名锚点名（不含 `@` 前缀）；未命名返回 null */
   get anchor() { return this._anchor; }
+
+  /** 所属运行时（Box/Cell 挂载时继承本字段） */
+  get runtime() { return this._runtime; }
 
   /**
    * 节点绝对路径。根节点返回 `@`，否则返回 `@/seg1/seg2/...`。
@@ -135,6 +144,66 @@ class DataNode {
    */
   hasChild(name) {
     return this._children.has(name);
+  }
+
+  /**
+   * 移除并销毁子节点（递归销毁其整个子树，解除锚点注册与订阅）。
+   * @param {string} name 子节点段名
+   * @returns {boolean} 是否移除成功（不存在返回 false）
+   */
+  removeChild(name) {
+    const child = this._children.get(name);
+    if (!child) return false;
+    child.destroy();
+    return true;
+  }
+
+  /**
+   * 销毁本节点：递归销毁全部子节点、清除锚点注册、清空订阅者、
+   * 从父节点摘除自身并断开反向引用。销毁后节点不可再用。
+   * @returns {void}
+   */
+  destroy() {
+    if (this._destroyed) return;
+    this._destroyed = true;
+    for (const child of this._children.values()) {
+      child.destroy();
+    }
+    this._children.clear();
+    if (this._anchor) {
+      const root = this._parent ? this.root : this;
+      root._anchors?.delete(this._anchor);
+      this._anchor = null;
+    }
+    this._subscribers.clear();
+    if (this._parent) {
+      this._parent._children.delete(this._name);
+      this._parent = null;
+    }
+    this._cell = null;
+  }
+
+  /** 是否已销毁 */
+  get destroyed() { return this._destroyed === true; }
+
+  /**
+   * 序列化为 JSON 快照：本节点数据字段 + 子树（ref 节点记录目标路径）。
+   * 用于状态持久化 / 调试 / 测试断言；配合 DataDag#restore 恢复字段值。
+   * @returns {Object} 快照对象
+   */
+  toJSON() {
+    const out = { name: this._name };
+    if (this._isRef) { out.ref = this._refTargetPath; return out; }
+    if (this._data.size > 0) {
+      out.data = Object.fromEntries(this._data);
+    }
+    if (this._anchor) out.anchor = this._anchor;
+    const children = {};
+    for (const [name, child] of this._children) {
+      children[name] = child.toJSON();
+    }
+    if (Object.keys(children).length > 0) out.children = children;
+    return out;
   }
 
   // === 命名锚点 ===
@@ -368,15 +437,26 @@ class DataNode {
 }
 
 /**
- * DataTree 容器。持有一个根节点，提供根节点的访问与全局路径解析。
+ * DataTree 容器。持有一个根节点与一个运行时实例（KitRuntime），
+ * 提供根节点的访问、全局路径解析与整树快照/恢复。
  */
 class DataDag {
-  constructor() {
-    this._rootNode = new DataNode('', null);
+  /**
+   * @param {Object} [options]
+   * @param {KitRuntime} [options.runtime] 运行时实例；缺省使用全局默认 runtime
+   *   （向后兼容），传入 createRuntime() 可获得完全隔离的多实例运行时
+   */
+  constructor(options = {}) {
+    /** @type {KitRuntime} 本数据树所属运行时 */
+    this._runtime = options.runtime || getDefaultRuntime();
+    this._rootNode = new DataNode('', null, this._runtime);
   }
 
   /** 根节点 */
   get _root() { return this._rootNode; }
+
+  /** 本树所属运行时 */
+  get runtime() { return this._runtime; }
 
   /**
    * 从根节点解析绝对路径或命名锚点
@@ -394,6 +474,43 @@ class DataDag {
    */
   getAnchor(anchorName) {
     return this._rootNode._anchors.get(anchorName);
+  }
+
+  /**
+   * 整树 JSON 快照（数据字段 + 结构，ref 记录目标路径）。
+   * @returns {Object} 快照对象
+   */
+  toJSON() {
+    return this._rootNode.toJSON();
+  }
+
+  /**
+   * 从 toJSON 快照恢复字段值：按快照路径写入已存在的节点（不重建 Cell 结构——
+   * Cell 由代码构造，本方法只恢复数据值）。快照中不存在于当前树的节点跳过并告警。
+   * @param {Object} json toJSON() 产出的快照
+   * @returns {void}
+   */
+  restore(json) {
+    const apply = (node, snap) => {
+      if (!node || !snap) return;
+      if (snap.data) {
+        for (const [key, value] of Object.entries(snap.data)) {
+          node.setData(key, value);
+        }
+      }
+      if (snap.anchor) node.setAnchor(snap.anchor);
+      if (snap.children) {
+        for (const [name, childSnap] of Object.entries(snap.children)) {
+          const child = node.getChild(name);
+          if (!child) {
+            devWarn('[DataDag]', `restore 跳过不存在节点: ${node.path}/${name}`);
+            continue;
+          }
+          apply(child, childSnap);
+        }
+      }
+    };
+    apply(this._rootNode, json);
   }
 }
 

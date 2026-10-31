@@ -1,12 +1,14 @@
 /**
  * @file Box 三层 React 组件实现。ContentLayer 承担布局与子项渲染，
  *        EdgeLayer/CornerLayer 为绝对定位覆盖层，负责拖拽分界线与双轴交点。
- *        模块级维护拖拽会话与滚动同步注册表，跨组件共享。
+ *        拖拽会话、浮动窗口树与滚动同步注册表等可变状态全部归属
+ *        KitRuntime 实例（见 src/core/runtime.js），经 `builder._runtime`
+ *        / `FloatingLayer` 的 runtime prop 访问，不再有模块级全局单例。
  *        尺寸变化的过渡呈现由主题特效系统（resize-effects）统一负责，
  *        本文件不再包含独立的 reflow 过渡动画。
  */
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect, useContext } from 'react';
-import { reflowScheduler } from './scheduler';
+import { getDefaultRuntime } from '../runtime';
 import FloatingScrollbar from './floating-scrollbar';
 import { attachScrollDamping, getScrollDamping } from './scroll-damping';
 import { useHoveredEdges } from './hovered-edges-context';
@@ -51,10 +53,10 @@ if (typeof document !== 'undefined' && !document.getElementById('box-drag-styles
 
 // === 辅助函数（纯计算，无 hook）===
 
-// === 拖拽会话（模块级，Edge / Corner 共用）===
+// === 拖拽会话（runtime 级，Edge / Corner 共用）===
 // session.targets: [{ container, dividerIndex, dim, axis, baseSizes }]
 // axis 为 'x' 时鼠标横向位移驱动（竖直边，调 Width），为 'y' 时反之
-let _dragSession = null;
+// 会话槽存于 runtime.dragSession（null = 空闲），同一 runtime 内全局互斥
 
 /**
  * 标记整棵 builder 树需要 reflow（拖拽期间替代 ResizeObserver 的逐轮驱动）
@@ -114,7 +116,8 @@ function resolveDragTarget(rootBuilder, box, side) {
  * @param {{addHoveredEdges: Function, removeHoveredEdges: Function}} hover 悬停状态操作接口
  */
 function startDragSession(targets, edgeIds, event, hover) {
-  if (_dragSession || targets.length === 0) return;
+  const runtime = targets[0]?.container.runtime;
+  if (!runtime || runtime.dragSession || targets.length === 0) return;
   event.preventDefault();
   event.stopPropagation();
 
@@ -122,7 +125,7 @@ function startDragSession(targets, edgeIds, event, hover) {
     t.baseSizes = t.container._children.map(c => safeNum(c[`_layout${t.dim}`]));
     t.containerSize = safeNum(t.container._containerSize?.[t.dim.toLowerCase()]);
   });
-  _dragSession = { targets };
+  runtime.dragSession = { targets };
   hover.addHoveredEdges(edgeIds);
 
   const startX = event.clientX;
@@ -158,7 +161,7 @@ function startDragSession(targets, edgeIds, event, hover) {
     document.removeEventListener('mouseup', onUp);
     unlockBody();
     hover.removeHoveredEdges(edgeIds);
-    _dragSession = null;
+    runtime.dragSession = null;
     // 拖拽结束：更新尺寸分配比并触发一次正式 reflow
     targets.forEach(t => commitContainerRatios(t.container, t.dim));
   };
@@ -491,81 +494,21 @@ function computeBuilderLayout(builder) {
   };
 }
 
-// === 滚动同步注册表（模块级，跨组件共享） ===
-const _contentRefRegistry = {};
-
-/**
- * 登记内容层容器 ref，供覆盖层（Edge/Corner）双向同步滚动
- * @param {string} path builder 路径
- * @param {React.RefObject} ref 容器 ref
- */
-function registerContentRef(path, ref) {
-  _contentRefRegistry[path] = ref;
-}
-
-/**
- * 注销内容层容器 ref
- * @param {string} path builder 路径
- */
-function unregisterContentRef(path) {
-  delete _contentRefRegistry[path];
-}
-
-/**
- * 取内容层容器 ref
- * @param {string} path builder 路径
- * @returns {React.RefObject|undefined} 容器 ref
- */
-function getContentRef(path) {
-  return _contentRefRegistry[path];
-}
-
-// === 浮动视口三层容器 ref 注册表（跨组件共享）===
-// 供拖拽缩放会话直接写 DOM 尺寸（绕过 React 异步渲染，让窗口边缘与内容边缘
-// 在当前事件帧内即与鼠标精确重合，见 startFloatingResize.onMove）。
+// === 滚动同步 / 层容器 ref 注册表 ===
+// 注册表状态已下沉至 KitRuntime（runtime.registerContentRef / registerLayerRef 等），
+// 本文件仅保留依赖注册表的 DOM 查找辅助函数。
 // 层名：'content' | 'edge' | 'corner'（三层）+ 'shell'（包壳，FloatingWindow 登记）
 // + 'effect'（特效包装层 resize-effect-layer，resize-effects.jsx 登记）
-const _layerRefRegistry = {};
-
-/**
- * 登记某一层的容器 ref（'content' | 'edge' | 'corner' | 'shell' | 'effect'）
- * @param {string} path builder 路径
- * @param {'content'|'edge'|'corner'|'shell'|'effect'} name 层名
- * @param {React.RefObject} ref 容器 ref
- */
-function registerLayerRef(path, name, ref) {
-  (_layerRefRegistry[path] || (_layerRefRegistry[path] = {}))[name] = ref;
-}
-
-/**
- * 注销某一层的容器 ref
- * @param {string} path builder 路径
- * @param {'content'|'edge'|'corner'|'shell'|'effect'} name 层名
- */
-function unregisterLayerRef(path, name) {
-  const entry = _layerRefRegistry[path];
-  if (!entry) return;
-  delete entry[name];
-  if (Object.keys(entry).length === 0) delete _layerRefRegistry[path];
-}
-
-/**
- * 取某 builder 已注册的层容器 ref 集合
- * @param {string} path builder 路径
- * @returns {Object|null} { content?, edge?, corner?, shell?, effect? }（缺层为 undefined）
- */
-function getLayerRefs(path) {
-  return _layerRefRegistry[path] || null;
-}
 
 /**
  * 从已注册的 content 层 ref 向上查找浮动视口的定位容器（position: fixed 祖先）。
  * 用于拖拽移动/缩放时直接写 left/top，绕过 React 异步渲染。
+ * @param {KitRuntime} runtime 所属运行时
  * @param {string} path builder 路径
  * @returns {HTMLElement|null} 定位容器 DOM 元素；未找到返回 null
  */
-function getFloatingPositionEl(path) {
-  const contentRef = _layerRefRegistry[path]?.content?.current;
+function getFloatingPositionEl(runtime, path) {
+  const contentRef = runtime.getLayerRefs(path)?.content?.current;
   if (!contentRef) return null;
   let el = contentRef.parentElement;
   while (el && getComputedStyle(el).position !== 'fixed') el = el.parentElement;
@@ -688,6 +631,20 @@ function useReflowSubscribe(builder) {
 }
 
 /**
+ * useStructuralSubscribe — 订阅 runtime 的结构变更通知（fill / mount / destroy /
+ * single-slot 覆盖），使 Cell/Box 树的动态结构变化对 React 渲染可见。
+ * 结构变化频率低（用户操作级），粗粒度全量重渲染即可保证正确性。
+ * @param {BoxBuilder} builder 当前层 builder
+ */
+function useStructuralSubscribe(builder) {
+  const [, forceUpdate] = useState(0);
+  useEffect(() => {
+    const unsubscribe = builder.runtime.subscribeStructural(() => forceUpdate(n => n + 1));
+    return unsubscribe;
+  }, [builder]);
+}
+
+/**
  * useBoxContent — ContentLayer 专用 hook，包含所有状态和副作用
  * 返回渲染所需的 ref 和 layout 计算结果
  */
@@ -705,13 +662,17 @@ function useBoxContent(builder) {
 
   const layout = computeBuilderLayout(builder);
 
+  // 订阅结构变更：fill/mount/destroy 改变子 Box 列表时重渲染（见 runtime.subscribeStructural）
+  useStructuralSubscribe(builder);
+
   // 注册容器 ref 供 edge/corner 层滚动同步；并登记到三层容器注册表（浮动缩放直接写 DOM）
   useEffect(() => {
-    registerContentRef(builder._path, containerRef);
-    registerLayerRef(builder._path, 'content', containerRef);
+    const rt = builder.runtime;
+    rt.registerContentRef(builder._path, containerRef);
+    rt.registerLayerRef(builder._path, 'content', containerRef);
     return () => {
-      unregisterContentRef(builder._path);
-      unregisterLayerRef(builder._path, 'content');
+      rt.unregisterContentRef(builder._path);
+      rt.unregisterLayerRef(builder._path, 'content');
     };
   }, [builder._path]);
 
@@ -747,11 +708,13 @@ function useBoxContent(builder) {
     return () => observer.disconnect();
   }, [builder._isViewport]);
 
-  // reflow scheduler 根节点注册（viewport 与 floating-viewport 均为独立 reflow 根）
+  // reflow scheduler 根节点注册（viewport 与 floating-viewport 均为独立 reflow 根；
+  // 调度器为 runtime 级实例，多实例互不干扰）
   useEffect(() => {
     if (builder._isViewport || builder._isFloatingViewport) {
-      reflowScheduler.registerRoot(builder);
-      return () => reflowScheduler.unregisterRoot(builder);
+      const scheduler = builder.runtime.scheduler;
+      scheduler.registerRoot(builder);
+      return () => scheduler.unregisterRoot(builder);
     }
   }, [builder]);
 
@@ -822,7 +785,7 @@ function useBoxOverlayScroll(layerRef, builder) {
 
   // transform 镜像（rAF 合并：一帧多个 scroll 事件只写一次）
   useEffect(() => {
-    const contentRefObj = getContentRef(builder._path);
+    const contentRefObj = builder.runtime.getContentRef(builder._path);
     if (!contentRefObj?.current || !layerRef.current) return;
     const contentEl = contentRefObj.current;
     const layerEl = layerRef.current;
@@ -851,7 +814,7 @@ function useBoxOverlayScroll(layerRef, builder) {
   // 该方向不可滚则放行，保持向祖先的滚动链）。deltaMode 归一：Firefox 可能
   // 按行（1）/按页（2）给增量
   useEffect(() => {
-    const contentRefObj = getContentRef(builder._path);
+    const contentRefObj = builder.runtime.getContentRef(builder._path);
     if (!contentRefObj?.current || !layerRef.current) return;
     const contentEl = contentRefObj.current;
     const layerEl = layerRef.current;
@@ -885,7 +848,7 @@ function useBoxOverlayScroll(layerRef, builder) {
 
   // 尺寸同步：观察内容容器尺寸变化时强制刷新
   useEffect(() => {
-    const contentRefObj = getContentRef(builder._path);
+    const contentRefObj = builder.runtime.getContentRef(builder._path);
     if (!contentRefObj?.current) return;
     const ro = new ResizeObserver(() => {
       forceUpdate(n => n + 1);
@@ -1061,8 +1024,9 @@ const EdgeLayer = ({ builder }) => {
   useBoxOverlayScroll(edgeRef, builder);
   // 登记到三层容器注册表（浮动缩放直接写 DOM）
   useEffect(() => {
-    registerLayerRef(builder._path, 'edge', edgeRef);
-    return () => unregisterLayerRef(builder._path, 'edge');
+    const rt = builder.runtime;
+    rt.registerLayerRef(builder._path, 'edge', edgeRef);
+    return () => rt.unregisterLayerRef(builder._path, 'edge');
   }, [builder._path]);
 
   // 无子节点或布局未稳定时跳过渲染
@@ -1139,8 +1103,8 @@ const EdgeLayer = ({ builder }) => {
         key={`edge-${box._path}-${side}`}
         className={`drag-handle ${dirClass}`}
         style={s}
-        onMouseEnter={() => { if (!_dragSession) addHoveredEdge(edgeId); }}
-        onMouseLeave={() => { if (!_dragSession) removeHoveredEdge(edgeId); }}
+        onMouseEnter={() => { if (!builder.runtime.dragSession) addHoveredEdge(edgeId); }}
+        onMouseLeave={() => { if (!builder.runtime.dragSession) removeHoveredEdge(edgeId); }}
         onMouseDown={(e) => handleEdgeMouseDown(box, side, edgeId, e)}
       >
         {isHovered && edgeIndicator && (
@@ -1186,8 +1150,8 @@ const EdgeLayer = ({ builder }) => {
         key={`edge-${box._path}-handle`}
         className={`drag-handle ${dirClass}`}
         style={s}
-        onMouseEnter={() => { if (!_dragSession) addHoveredEdge(edgeId); }}
-        onMouseLeave={() => { if (!_dragSession) removeHoveredEdge(edgeId); }}
+        onMouseEnter={() => { if (!builder.runtime.dragSession) addHoveredEdge(edgeId); }}
+        onMouseLeave={() => { if (!builder.runtime.dragSession) removeHoveredEdge(edgeId); }}
         onMouseDown={(e) => handleEdgeMouseDown(box, 'handle', edgeId, e)}
       >
         {isHovered && edgeIndicator && (
@@ -1267,8 +1231,9 @@ const CornerLayer = ({ builder }) => {
   useBoxOverlayScroll(cornerRef, builder);
   // 登记到三层容器注册表（浮动缩放直接写 DOM）
   useEffect(() => {
-    registerLayerRef(builder._path, 'corner', cornerRef);
-    return () => unregisterLayerRef(builder._path, 'corner');
+    const rt = builder.runtime;
+    rt.registerLayerRef(builder._path, 'corner', cornerRef);
+    return () => rt.unregisterLayerRef(builder._path, 'corner');
   }, [builder._path]);
 
   // 无子节点或布局未稳定时跳过渲染
@@ -1418,8 +1383,8 @@ const CornerLayer = ({ builder }) => {
         key={`corner-${box._path}-${side}-${crossSide}`}
         className="drag-handle drag-handle-horizontal drag-handle-vertical"
         style={s}
-        onMouseEnter={() => { if (!_dragSession) addHoveredEdges(edgeIds); }}
-        onMouseLeave={() => { if (!_dragSession) removeHoveredEdges(edgeIds); }}
+        onMouseEnter={() => { if (!builder.runtime.dragSession) addHoveredEdges(edgeIds); }}
+        onMouseLeave={() => { if (!builder.runtime.dragSession) removeHoveredEdges(edgeIds); }}
         onMouseDown={(e) => handleCornerMouseDown(box, side, crossSide, edgeIds, e)}
       />
     );
@@ -1522,218 +1487,13 @@ const FLOATING_MASK_STYLE = {
 const DEFAULT_MASK_COLOR = '#000000';
 const DEFAULT_MASK_OPACITY = 0.45;
 
-/** @type {Map<BoxBuilder|null, BoxBuilder[]>} 浮动窗口树：键为父窗口（null = 根 viewport，唯一根），
- *  值为该父窗口的有序子窗口列表（尾部 = 最近出现/聚焦，同层居上）。
- *  模块级管理"父子层级 + 后聚焦/出现居上"，FloatingLayer 按树先序渲染 */
-const _floatingTree = new Map();
-/** @type {Set<() => void>} 注册表变化监听器 */
-const _floatingListeners = new Set();
-/**
- * 可操作窗口集合（遮罩唯一来源，null = 根 viewport）。默认仅含根 viewport（无遮罩）；
- * 有效可操作窗口 = 集合中最靠近叶子的可见窗口，其本身及其子窗口链可操作，其余被遮罩挡住。
- * @type {Set<BoxBuilder|null>}
- */
-const _operableWindows = new Set([null]);
-
-/**
- * 取某父窗口的子窗口列表（按需创建）
- * @param {BoxBuilder|null} parent 父窗口；null = 根 viewport
- * @returns {BoxBuilder[]} 有序子窗口列表
- */
-function getFloatingChildren(parent) {
-  if (!_floatingTree.has(parent)) {
-    _floatingTree.set(parent, []);
-  }
-  return _floatingTree.get(parent);
-}
-
-/**
- * 注册浮动视口 builder：挂到其父窗口的 children 尾部（出现居上），并通知重渲染。
- * @param {BoxBuilder} builder 浮动视口 builder
- */
-function registerFloating(builder) {
-  const list = getFloatingChildren(builder._floatingParent ?? null);
-  if (!list.includes(builder)) {
-    list.push(builder);
-    _floatingListeners.forEach(cb => cb());
-  }
-}
-
-/**
- * 注销浮动视口 builder（从其父窗口的 children 移除），并通知重渲染。
- * @param {BoxBuilder} builder 浮动视口 builder
- */
-function unregisterFloating(builder) {
-  const list = _floatingTree.get(builder._floatingParent ?? null);
-  if (!list) return;
-  const idx = list.indexOf(builder);
-  if (idx !== -1) {
-    list.splice(idx, 1);
-    _floatingListeners.forEach(cb => cb());
-  }
-}
-
-/**
- * 重挂浮动视口：从旧父窗口的 children 移除，挂到新父窗口（builder._floatingParent）
- * 的 children 尾部。由 child(parent) 调用（树模型下改变父子关系）。
- * @param {BoxBuilder} builder 浮动视口 builder
- * @param {BoxBuilder|null} prevParent 变更前的父窗口（null = 根 viewport）
- */
-function reparentFloating(builder, prevParent) {
-  if (prevParent === (builder._floatingParent ?? null)) return;
-  const prevList = _floatingTree.get(prevParent);
-  if (prevList) {
-    const idx = prevList.indexOf(builder);
-    if (idx !== -1) prevList.splice(idx, 1);
-  }
-  const list = getFloatingChildren(builder._floatingParent ?? null);
-  if (!list.includes(builder)) {
-    list.push(builder);
-  }
-  _floatingListeners.forEach(cb => cb());
-}
-
-/**
- * 聚焦浮动视口（后聚焦居上）：移到其父窗口的 children 尾部，同层置顶，
- * 并通知重渲染。由 FloatingWindow 的 mousedown（捕获阶段）触发，
- * 及 BoxBuilder#open 打开时触发（出现居上）。
- * @param {BoxBuilder} builder 浮动视口 builder
- */
-function focusFloating(builder) {
-  const list = _floatingTree.get(builder._floatingParent ?? null);
-  if (!list) return;
-  const idx = list.indexOf(builder);
-  if (idx === -1 || idx === list.length - 1) return;
-  list.splice(idx, 1);
-  list.push(builder);
-  _floatingListeners.forEach(cb => cb());
-}
-
-/**
- * 订阅浮动注册表变化
- * @param {() => void} listener 变化回调
- * @returns {() => void} 取消订阅函数
- */
-function subscribeFloating(listener) {
-  _floatingListeners.add(listener);
-  return () => _floatingListeners.delete(listener);
-}
-
-/**
- * 通知浮动层重新渲染（浮动视口位置/尺寸变更后调用）
- */
-function notifyFloatingChange() {
-  _floatingListeners.forEach(cb => cb());
-}
-
-/**
- * 计算浮动窗口在树中的深度（根级窗口深度为 0，每向下一层 +1）
- * @param {BoxBuilder} builder 浮动窗口 builder
- * @returns {number} 树深度
- */
-function getWindowDepth(builder) {
-  let depth = 0;
-  let cur = builder;
-  while (cur._floatingParent) {
-    depth++;
-    cur = cur._floatingParent;
-  }
-  return depth;
-}
-
-/**
- * 求有效可操作窗口：可操作集合中最靠近叶子（深度最大）的可见浮动窗口；
- * 无则返回 null（= 根 viewport，无遮罩）。
- * @returns {BoxBuilder|null} 有效可操作窗口；null = 根 viewport
- */
-function getEffectiveOperable() {
-  let best = null;
-  let bestDepth = -1; // 根 viewport 深度视为 -1，任意浮动窗口皆胜过根
-  for (const w of _operableWindows) {
-    if (w === null || !w._isFloatingViewport || w._visible === false) continue;
-    const depth = getWindowDepth(w);
-    if (depth > bestDepth) {
-      best = w;
-      bestDepth = depth;
-    }
-  }
-  return best;
-}
-
-/**
- * 将 builder 加入可操作窗口集合（遮罩唯一来源），并通知重渲染。
- * 有效可操作窗口 = 集合中最靠近叶子的可见窗口；其本身及其子窗口链可操作，其余被遮罩挡住。
- * @param {BoxBuilder|null} builder 浮动窗口 builder；null = 根 viewport（恢复默认态，无遮罩）
- */
-function setOperable(builder) {
-  _operableWindows.add(builder ?? null);
-  _floatingListeners.forEach(cb => cb());
-}
-
-/**
- * 将 builder 移出可操作窗口集合，并通知重渲染。遮罩立即按剩余集合重新计算。
- * @param {BoxBuilder|null} builder 浮动窗口 builder；null = 根 viewport
- */
-function clearOperable(builder) {
-  _operableWindows.delete(builder ?? null);
-  _floatingListeners.forEach(cb => cb());
-}
-
-/**
- * 收集 builder 的可见子树（含自身）到集合中
- * @param {BoxBuilder} builder 起始窗口
- * @param {Set<BoxBuilder>} out 收集目标集合
- */
-function collectVisibleSubtree(builder, out) {
-  if (builder._visible === false) return;
-  out.add(builder);
-  for (const child of getFloatingChildren(builder)) {
-    collectVisibleSubtree(child, out);
-  }
-}
-
-/**
- * 按树先序收集可见浮动窗口到数组（父在前、子在后，子树区间连续）
- * @param {BoxBuilder|null} parent 起始父窗口
- * @param {BoxBuilder[]} out 收集目标数组
- */
-function collectPreOrder(parent, out) {
-  for (const child of getFloatingChildren(parent)) {
-    if (child._visible === false) continue;
-    out.push(child);
-    collectPreOrder(child, out);
-  }
-}
-
-/**
- * 计算最终渲染序：树先序遍历，但把"有效可操作窗口的可见子树"整体提升到序列末尾。
- * 先序保证子树连续区间；提升保证可操作子树独占全局最高 z 区间，
- * 使单一遮罩恰好压住所有非可操作窗口、又不挡可操作子树（见 FloatingLayer）。
- * @returns {BoxBuilder[]} 渲染序数组
- */
-function buildRenderOrder() {
-  const order = [];
-  const operable = getEffectiveOperable();
-  const operableSubtree = new Set();
-  if (operable) {
-    collectVisibleSubtree(operable, operableSubtree);
-  }
-  // 先序遍历所有窗口，跳过可操作子树（整体延迟到最后渲染）
-  const walk = (parent) => {
-    for (const child of getFloatingChildren(parent)) {
-      if (child._visible === false || operableSubtree.has(child)) continue;
-      order.push(child);
-      walk(child);
-    }
-  };
-  walk(null);
-  // 可操作子树提升到末尾（先序：可操作窗口自身在前，其后代在后）
-  if (operable) {
-    order.push(operable);
-    collectPreOrder(operable, order);
-  }
-  return order;
-}
+// === 浮动窗口树与可操作窗口 ===
+// 树状态（浮动树 / 可操作集合 / 变化监听器）与注册、聚焦、渲染序计算已全部
+// 下沉至 KitRuntime（见 src/core/runtime.js）：runtime.registerFloating /
+// unregisterFloating / reparentFloating / focusFloating / subscribeFloating /
+// notifyFloatingChange / setOperable / clearOperable / getFloatingChildren /
+// getEffectiveOperable / buildRenderOrder。同一 runtime 内浮动窗口互见，
+// 不同 runtime 完全隔离。
 
 /** @type {number} 浮动视口缩放下限（px） */
 const FLOAT_RESIZE_MIN = 24;
@@ -1789,7 +1549,7 @@ function clearSizeConstraints(el) {
  * @param {number} h 新高度
  */
 function applyFloatingSizeToDom(root, w, h) {
-  const layerRefs = getLayerRefs(root._path);
+  const layerRefs = root.runtime.getLayerRefs(root._path);
   if (!layerRefs) return;
   const sizeW = `${w}px`;
   const sizeH = `${h}px`;
@@ -1811,7 +1571,7 @@ function applyFloatingSizeToDom(root, w, h) {
  * @param {number} h 新高度
  */
 function applyFloatingShellToDom(root, w, h) {
-  const shell = getLayerRefs(root._path)?.shell?.current;
+  const shell = root.runtime.getLayerRefs(root._path)?.shell?.current;
   if (!shell) return;
   shell.style.width = `${w}px`;
   shell.style.height = `${h}px`;
@@ -1830,7 +1590,7 @@ function applyFloatingShellToDom(root, w, h) {
  * @param {number} h 新高度
  */
 function applyFloatingEffectToDom(root, w, h) {
-  const layerRefs = getLayerRefs(root._path);
+  const layerRefs = root.runtime.getLayerRefs(root._path);
   if (!layerRefs) return;
   const frozen = root._frozenViewportSize;
   if (!frozen || !frozen.width || !frozen.height) return;
@@ -1852,7 +1612,7 @@ function applyFloatingEffectToDom(root, w, h) {
  * @param {BoxBuilder} root 浮动视口 builder
  */
 function applyFloatingPositionToDom(root) {
-  const posEl = getFloatingPositionEl(root._path);
+  const posEl = getFloatingPositionEl(root.runtime, root._path);
   if (!posEl) return;
   posEl.style.left = `${root._posX ?? 0}px`;
   posEl.style.top = `${root._posY ?? 0}px`;
@@ -1870,7 +1630,7 @@ function syncFloatingSizeToBuilder(root, w, h) {
   root._containerSize = { width: w, height: h };
   markNeedsReflow(root);
   root._performReflow();
-  notifyFloatingChange();
+  root.runtime.notifyFloatingChange();
 }
 
 /**
@@ -1888,7 +1648,7 @@ function syncFloatingFrame(root) {
     markNeedsReflow(root);
     root._performReflow();
   }
-  notifyFloatingChange();
+  root.runtime.notifyFloatingChange();
 }
 
 /**
@@ -1927,7 +1687,7 @@ function computeFloatingResize({ baseW, baseH, dx, dy, moveW, moveE, moveN, move
  * @param {React.MouseEvent} event 触发事件
  */
 function startFloatingMove(root, event) {
-  if (event.button !== 0 || _dragSession) return;
+  if (event.button !== 0 || root.runtime.dragSession) return;
   event.preventDefault();
   event.stopPropagation();
   const startX = event.clientX;
@@ -1941,7 +1701,7 @@ function startFloatingMove(root, event) {
       root._posY = baseY + ev.clientY - startY;
       // 直接写定位容器 DOM（绕过 React 异步渲染），窗口在当前事件帧内即跟随鼠标
       applyFloatingPositionToDom(root);
-      notifyFloatingChange();
+      root.runtime.notifyFloatingChange();
     },
   });
 }
@@ -1957,7 +1717,7 @@ function startFloatingMove(root, event) {
  * @param {React.MouseEvent} event 触发事件
  */
 function startFloatingResize(root, dir, event) {
-  if (event.button !== 0 || _dragSession) return;
+  if (event.button !== 0 || root.runtime.dragSession) return;
   event.preventDefault();
   event.stopPropagation();
   // fixed 尺寸（min === max）的固定上下限会让缩放失效，缩放起始即解除两者：
@@ -2024,7 +1784,7 @@ function startFloatingResize(root, dir, event) {
       if (root._frozenViewportSize) {
         applyFloatingPositionToDom(root);
         applyFloatingEffectToDom(root, w, h);
-        notifyFloatingChange();
+        root.runtime.notifyFloatingChange();
         return;
       }
       // 尺寸与位置直接写入 DOM（绕过 React 异步渲染），当前事件帧内即与鼠标精确重合
@@ -2077,9 +1837,6 @@ function renderResizeHandles(builder) {
  * @returns {Object} 定位容器样式
  */
 function getFloatingItemStyle(builder, zIndex) {
-  if (typeof zIndex === 'number' && !isFinite(zIndex)) {
-    console.error('[zdbg] item zIndex NaN', { path: builder._path, zIndex });
-  }
   return {
     position: 'fixed',
     left: builder._posX ?? 0,
@@ -2225,8 +1982,9 @@ function FloatingCloseButton({ builder }) {
 function FloatingWindow({ builder, zIndex, focused }) {
   const shellRef = useRef(null);
   useEffect(() => {
-    registerLayerRef(builder._path, 'shell', shellRef);
-    return () => unregisterLayerRef(builder._path, 'shell');
+    const rt = builder.runtime;
+    rt.registerLayerRef(builder._path, 'shell', shellRef);
+    return () => rt.unregisterLayerRef(builder._path, 'shell');
   }, [builder]);
   const theme = useTheme();
   const visual = getFloatingVisualSize(builder);
@@ -2258,7 +2016,7 @@ function FloatingWindow({ builder, zIndex, focused }) {
     ...outerShape,
   };
   return (
-    <div style={itemStyle} onMouseDownCapture={() => focusFloating(builder)}>
+    <div style={itemStyle} onMouseDownCapture={() => builder.runtime.focusFloating(builder)}>
       <div className="floating-shell" ref={shellRef} style={shellStyle}>
         <ResizeEffectViewport builder={builder}>
           <ContentLayer builder={builder} />
@@ -2286,19 +2044,23 @@ function FloatingWindow({ builder, zIndex, focused }) {
  *   完整三层渲染（Content/Edge/Corner）；三层整体被 ResizeEffectViewport（主题
  *   尺寸变化特效壳）包裹，浮层尺寸变化时三层同步参与特效（拉伸/缩小/模糊），
  *   包壳以视觉尺寸裁剪，边界外内容不"支出"窗口
+ * @param {Object} props
+ * @param {KitRuntime} [props.runtime] 所属运行时；缺省取全局默认 runtime。
+ *   多实例场景为每个 runtime 各挂载一个 FloatingLayer
  * @returns {JSX.Element|null} 浮动层元素；无浮动视口时返回 null
  */
-const FloatingLayer = () => {
+const FloatingLayer = ({ runtime = null }) => {
+  const rt = runtime || getDefaultRuntime();
   const [, forceUpdate] = useState(0);
   // 订阅后立即强制刷新一次：补齐订阅生效前已发生的通知
   //（如与打开方在同一提交内挂载时，打开方的 effect 先于本订阅执行）
   useEffect(() => {
-    const unsubscribe = subscribeFloating(() => forceUpdate(n => n + 1));
+    const unsubscribe = rt.subscribeFloating(() => forceUpdate(n => n + 1));
     forceUpdate(n => n + 1);
     return unsubscribe;
-  }, []);
+  }, [rt]);
   const theme = useTheme();
-  const order = buildRenderOrder();
+  const order = rt.buildRenderOrder();
   if (order.length === 0) return null;
   // zIndex 按渲染序步进 2 分配（2001, 2003, ...）：窗口占奇数，遮罩取可操作窗口 z - 1
   // 的偶数位，严格介于"最后一个非可操作窗口"与"可操作子树首个成员"之间，避免层叠平局
@@ -2306,7 +2068,7 @@ const FloatingLayer = () => {
   let nextZ = DEFAULT_FLOATING_ZINDEX + 1;
   order.forEach(b => { zByPath.set(b._path, nextZ); nextZ += 2; });
   // 遮罩层级 = 可操作子树最低成员（即可操作窗口自身）的 zIndex - 1
-  const operable = getEffectiveOperable();
+  const operable = rt.getEffectiveOperable();
   const maskZ = operable ? zByPath.get(operable._path) - 1 : null;
   // 焦点窗口 = 渲染序最顶（后聚焦/出现居上 + 可操作子树提升的终点）：
   // 框架样式（边框 + 阴影）按焦点态取 focused* 值，与非焦点窗口区分
@@ -2321,4 +2083,4 @@ const FloatingLayer = () => {
   );
 };
 
-export { ContentLayer, EdgeLayer, CornerLayer, FloatingLayer, FloatingCloseButton, registerFloating, unregisterFloating, reparentFloating, getFloatingChildren, focusFloating, notifyFloatingChange, setOperable, clearOperable, applyFloatingSizeToDom, syncFloatingFrame, registerLayerRef, unregisterLayerRef };
+export { ContentLayer, EdgeLayer, CornerLayer, FloatingLayer, FloatingCloseButton, applyFloatingSizeToDom, syncFloatingFrame };

@@ -33,7 +33,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { flushSync } from 'react-dom';
 import { useTheme } from './theme-react';
-import { applyFloatingSizeToDom, registerLayerRef, unregisterLayerRef } from '../box/box-component';
+import { applyFloatingSizeToDom } from '../box/box-component';
 
 /** 结算延迟（ms）：模糊特效在尺寸停止变化后多久恢复清晰 */
 const DEFAULT_SETTLE_DELAY = 250;
@@ -62,8 +62,9 @@ function useEffectLayerRef(builder) {
   const effectRef = useRef(null);
   useEffect(() => {
     if (!builder._isFloatingViewport) return;
-    registerLayerRef(builder._path, 'effect', effectRef);
-    return () => unregisterLayerRef(builder._path, 'effect');
+    const rt = builder.runtime;
+    rt.registerLayerRef(builder._path, 'effect', effectRef);
+    return () => rt.unregisterLayerRef(builder._path, 'effect');
   }, [builder]);
   return effectRef;
 }
