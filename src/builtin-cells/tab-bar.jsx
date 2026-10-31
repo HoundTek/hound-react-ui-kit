@@ -17,6 +17,11 @@ import { MenuImpl } from './menu';
 /**
  * 页标签栏实现组件（组装自 MenuImpl 横向变体）：均分标签项，激活项
  * primary 变体高亮，点击回调切换。
+ * 键盘可达（WAI-ARIA tabs 模式）：容器 role=tablist，标签项 role=tab +
+ * aria-selected + roving tabindex（激活项 0，其余 -1），经 MenuImpl 角色
+ * 覆盖实现；ArrowLeft/ArrowRight（含 Home/End）移动焦点并即时切换激活项
+ * （自动激活，与鼠标点击同一 onChange 路径），Enter/Space 经原生按钮
+ * click 激活。
  * @param {Object} props
  * @param {Array<{id: string, title: string, icon?: string}>} props.items 标签项
  * @param {string} props.activeId 当前激活项 id
@@ -25,7 +30,14 @@ import { MenuImpl } from './menu';
  */
 function TabBarImpl({ items, activeId, onChange }) {
   return (
-    <MenuImpl items={items} activeId={activeId} direction="horizontal" onSelect={onChange} />
+    <MenuImpl
+      items={items}
+      activeId={activeId}
+      direction="horizontal"
+      onSelect={onChange}
+      role="tablist"
+      itemRole="tab"
+    />
   );
 }
 

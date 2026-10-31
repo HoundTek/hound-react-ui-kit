@@ -21,6 +21,13 @@
 > Esc 关闭（closable 或模态窗口）/模态窗口 Tab 焦点陷阱；Dialog/Confirm/Drawer/Modal 预设默认 `operable()`
 > （模态语义：遮罩 + Esc + 焦点循环，浏览器验证通过）。
 > 附带发现：demo 顶部导航"工作台"切换实际工作正常（先前冒烟 FAIL 为自动化代理点击定位误差，已实证排除）。
+> **a11y 第二批已落地（同日）**：MenuImpl 增加 role/itemRole 参数化（menu/tablist/listbox 复用）+
+> roving tabindex + 方向键环绕导航 + Home/End（横向自动激活、纵向 Enter 激活，与鼠标同路径）；
+> TabBarImpl 接入 tablist/tab/aria-selected；SelectImpl 触发器 aria-haspopup/aria-expanded +
+> Enter/Space/ArrowDown 展开移入选中项 + Esc 收起回焦 + 选中回焦触发器；TreeCell 容器 role=tree +
+> treeitem/aria-expanded/aria-selected + 上下遍历、右展开入子、左收起回父（WAI-ARIA tree 模式）、Enter 选中。
+> 组件测试基建：jsdom + @testing-library/react，新增 menu/tree 键盘 9 项断言（全套 43 项通过）；
+> 浏览器定点探测证实 tab-bar 键盘切换与 select 展开焦点正常（此前 FAIL 为程序化 click 不移动焦点的探测误差）。
 > 分析范围：`src/` 全量 16,681 行（core / basic-cells / builtin-cells / demo）、`package.json`、构建与文档配置、git 历史。
 > 结论先行：**核心抽象（Cell + DataDag + Box + Theme）有独创价值，但当前形态是一个"以库自居的应用"——不具备可发布的库外壳，缺少生命周期终点（unmount），全局可变单例状态阻断多实例/SSR/测试，无障碍与类型系统接近空白。** 本文给出按阶段可落地的改进路线。
 
