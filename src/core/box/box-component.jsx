@@ -1963,6 +1963,28 @@ function FloatingCloseButton({ builder }) {
 }
 
 /**
+ * 焦点陷阱（a11y，见 docs/improvement-plan.md 阶段 3 第一批）：
+ * Tab / Shift+Tab 在容器内可聚焦元素间循环；容器内无可聚焦元素时焦点回容器自身。
+ * @param {HTMLElement} containerEl 陷阱容器
+ * @param {KeyboardEvent} e Tab 键事件
+ */
+const FOCUSABLE_SELECTOR = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function trapFocus(containerEl, e) {
+  if (!containerEl) return;
+  const items = [...containerEl.querySelectorAll(FOCUSABLE_SELECTOR)]
+    .filter((el) => el.offsetWidth > 0 || el.offsetHeight > 0 || el === document.activeElement);
+  if (items.length === 0) { e.preventDefault(); containerEl.focus(); return; }
+  const first = items[0];
+  const last = items[items.length - 1];
+  const active = document.activeElement;
+  if (e.shiftKey && (active === first || !containerEl.contains(active))) {
+    e.preventDefault(); last.focus();
+  } else if (!e.shiftKey && (active === last || !containerEl.contains(active))) {
+    e.preventDefault(); first.focus();
+  }
+}
+
+/**
  * 单个浮动视口窗口：定位容器（position: fixed）+ 包壳（floating-shell）。
  * 包壳以视觉尺寸渲染、overflow hidden 裁剪边界外内容（edge/corner 拖拽手柄、
  * 投影放大溢出），保证任何内容不"支出"窗口视觉边界。缩放手柄在包壳内（包壳
@@ -1981,11 +2003,17 @@ function FloatingCloseButton({ builder }) {
  */
 function FloatingWindow({ builder, zIndex, focused }) {
   const shellRef = useRef(null);
+  const itemRef = useRef(null);
   useEffect(() => {
     const rt = builder.runtime;
     rt.registerLayerRef(builder._path, 'shell', shellRef);
     return () => rt.unregisterLayerRef(builder._path, 'shell');
   }, [builder]);
+  // a11y：窗口出现（挂载）即获得焦点；键盘可达（tabIndex=-1 可编程聚焦）
+  useEffect(() => {
+    itemRef.current?.focus({ preventScroll: true });
+  }, []);
+  const isOperable = builder.runtime.isOperable(builder);
   const theme = useTheme();
   const visual = getFloatingVisualSize(builder);
   // 包壳圆角随主题形状描述（浮动视口根的层规范/形状），overflow 裁剪与圆角对齐
@@ -2016,7 +2044,26 @@ function FloatingWindow({ builder, zIndex, focused }) {
     ...outerShape,
   };
   return (
-    <div style={itemStyle} onMouseDownCapture={() => builder.runtime.focusFloating(builder)}>
+    <div
+      ref={itemRef}
+      style={itemStyle}
+      role="dialog"
+      aria-modal={isOperable ? true : undefined}
+      tabIndex={-1}
+      onMouseDownCapture={() => {
+        builder.runtime.focusFloating(builder);
+        itemRef.current?.focus({ preventScroll: true });
+      }}
+      onKeyDown={(e) => {
+        // Esc 关闭：closable 窗口或可操作（模态）窗口；非模态面板不响应。
+        // Tab 在可操作（模态）窗口内形成焦点循环
+        if (e.key === 'Escape') {
+          if (builder._closable || isOperable) { e.stopPropagation(); builder.close(); }
+        } else if (e.key === 'Tab' && isOperable) {
+          trapFocus(itemRef.current, e);
+        }
+      }}
+    >
       <div className="floating-shell" ref={shellRef} style={shellStyle}>
         <ResizeEffectViewport builder={builder}>
           <ContentLayer builder={builder} />
@@ -2074,7 +2121,7 @@ const FloatingLayer = ({ runtime = null }) => {
   // 框架样式（边框 + 阴影）按焦点态取 focused* 值，与非焦点窗口区分
   const topPath = order.length > 0 ? order[order.length - 1]._path : null;
   return (
-    <div style={FLOATING_LAYER_STYLE}>
+    <div style={FLOATING_LAYER_STYLE} data-hk-scope="">
       {maskZ !== null && <div style={getFloatingMaskStyle(maskZ, theme)} />}
       {order.map(b => (
         <FloatingWindow key={b._path} builder={b} zIndex={zByPath.get(b._path)} focused={b._path === topPath} />

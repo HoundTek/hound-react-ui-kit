@@ -69,7 +69,8 @@ class DrawerCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.floatingViewport().movable(false).resizable(false)
+    this.floatingViewport().operable()
+      .movable(false).resizable(false)
       .fixedWidth(280).minHeight(320).color('surface').layout('vertical')
       .schema({
         title: { type: 'string', default: '' },

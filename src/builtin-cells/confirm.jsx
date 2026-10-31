@@ -60,7 +60,8 @@ class ConfirmCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.floatingViewport().movable(false).resizable(false)
+    this.floatingViewport().operable()
+      .movable(false).resizable(false)
       .fixedWidth(280).fixedHeight(120).styleRole('window').layout('vertical')
       .schema({
         text: { type: 'string', default: '' },

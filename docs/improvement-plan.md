@@ -14,7 +14,13 @@
 > 测试基建落地：vitest + 4 个回归文件 34 项断言（data-dag 路径/ref/锚点、cell 生命周期、runtime 隔离、reflow 数学、事件 API）；
 > TS 迁移第一步落地：`tsc --emitDeclarationOnly` 从 JSDoc 生成 `dist/types/*.d.ts`（零报错），
 > package.json 接入 `types` 与 `exports.types`，`build` 脚本串接类型生成。
-> 阶段 2 剩余（主题派生/暗色/态层修复 / i18n 补强 / 受控语义糖）与阶段 3（a11y 专项 / 布局性能 / 视觉回归）待后续批次。
+> 阶段 2 剩余（主题派生/暗色 / i18n 补强 / 受控语义糖）与阶段 3（a11y 专项 / 布局性能 / 视觉回归）待后续批次。
+> **批次 4 部分落地（同日）**：态层罩层支持非 hex 色（CSS color-mix + 特性检测，不支持一致降级）；
+> 全局字体样式从 `body` 收敛至 kit 作用域 `[data-hk-scope]`（CellRoot/FloatingLayer 标记），不再改写宿主；
+> a11y 第一批：浮动窗口 `role=dialog`/`aria-modal`（可操作时）/出现即聚焦/mousedown 聚焦/
+> Esc 关闭（closable 或模态窗口）/模态窗口 Tab 焦点陷阱；Dialog/Confirm/Drawer/Modal 预设默认 `operable()`
+> （模态语义：遮罩 + Esc + 焦点循环，浏览器验证通过）。
+> 附带发现：demo 顶部导航"工作台"切换实际工作正常（先前冒烟 FAIL 为自动化代理点击定位误差，已实证排除）。
 > 分析范围：`src/` 全量 16,681 行（core / basic-cells / builtin-cells / demo）、`package.json`、构建与文档配置、git 历史。
 > 结论先行：**核心抽象（Cell + DataDag + Box + Theme）有独创价值，但当前形态是一个"以库自居的应用"——不具备可发布的库外壳，缺少生命周期终点（unmount），全局可变单例状态阻断多实例/SSR/测试，无障碍与类型系统接近空白。** 本文给出按阶段可落地的改进路线。
 

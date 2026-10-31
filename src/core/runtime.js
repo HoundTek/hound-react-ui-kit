@@ -134,6 +134,11 @@ class KitRuntime {
     this.notifyFloatingChange();
   }
 
+  /** 判断某浮动窗口是否在可操作集合中（模态语义：其子树不被遮罩） */
+  isOperable(builder) {
+    return this._operableWindows.has(builder ?? null);
+  }
+
   /**
    * 计算浮动窗口在树中的深度（根级窗口为 0）
    * @param {BoxBuilder} builder

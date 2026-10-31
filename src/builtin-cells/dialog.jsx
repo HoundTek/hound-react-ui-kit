@@ -20,7 +20,8 @@ class DialogCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.floatingViewport().movable(true).resizable(false)
+    this.floatingViewport().operable()
+      .movable(true).resizable(false)
       .fixedWidth(320).fixedHeight(200).styleRole('window').layout('vertical')
       .defineSlot('header', {
         fixedHeight: 40, color: 'surface-muted',

@@ -660,7 +660,7 @@ class ModalCell extends FloatingWindowCellBase {
    */
   constructor(id) {
     super(id);
-    this.floatingViewport()
+    this.floatingViewport().operable()
       .movable(false).resizable(false)
       .fixedWidth(320).fixedHeight(200)
       .styleRole('window').layout('vertical')
