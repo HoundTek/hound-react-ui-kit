@@ -39,7 +39,7 @@ function CellRoot({ cell, mountIndex = 0 }) {
     ? { position: 'relative', width: '100vw', height: '100vh' }
     : { position: 'relative' };
   return (
-    <div style={wrapperStyle}>
+    <div style={wrapperStyle} data-hk-scope="">
       <ResizeEffectViewport builder={box}>
         {box.reactContent()}
         {box.reactEdge()}
