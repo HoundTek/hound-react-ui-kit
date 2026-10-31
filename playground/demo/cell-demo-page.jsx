@@ -38,7 +38,7 @@ import {
   ButtonImpl, InputImpl, SliderTrackImpl,
   AppBarCell, SplitCell, FooterCell, RowCell, BoardCell,
   useThemeColor, useCornerType, cornerStyle, CAPSULE_RADIUS,
-} from '../core/ui-kit';
+} from '../../src/core/ui-kit';
 import { openFloatingDemo, closeFloatingDemo } from './floating-window-demo';
 import { createPageNav } from './page-nav';
 

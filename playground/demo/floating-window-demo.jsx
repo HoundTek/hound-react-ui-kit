@@ -29,7 +29,7 @@ import {
   WindowCell, ModalCell, FloatingWindowCellBase,
   MenuCell, GroupCell, RowCell, GridCell,
   ButtonCell, StatCell, TagCell, ListCell, TextCell,
-} from '../core/ui-kit';
+} from '../../src/core/ui-kit';
 
 /**
  * 复杂布局窗口 Cell：浮动视口（可移动/缩放），继承 FloatingWindowCellBase

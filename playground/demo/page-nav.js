@@ -6,7 +6,7 @@
  * 点击经订阅回调通知 app.jsx 切换页面；两页树模块级常驻，页面切换后
  * 经 syncPageNav 同步全部实例的选中态。
  */
-import { NavBarCell } from '../core/ui-kit';
+import { NavBarCell } from '../../src/core/ui-kit';
 
 /** @type {NavBarCell[]} 已创建的页面导航实例（每页一个） */
 const _instances = [];

@@ -8,7 +8,7 @@ import React, { useEffect, useState } from 'react';
 import CellDemoPage from './demo/cell-demo-page';
 import PresetDemoPage from './demo/preset-demo-page';
 import { onPageNavSelect, syncPageNav } from './demo/page-nav';
-import { I18n, I18nProvider, Theme, ThemeProvider, FloatingLayer } from './core/ui-kit';
+import { I18n, I18nProvider, Theme, ThemeProvider, FloatingLayer } from '../src/core/ui-kit';
 
 /**
  * 语言包：按语言组织的文本资源（key → 文本）。Cell 内容组件通过 useText 引用 key。

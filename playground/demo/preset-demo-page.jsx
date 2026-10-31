@@ -31,7 +31,7 @@ import {
   SplitCell, StatCell, StepperCell, SwitchCell, TabBarCell, TabCell, TableCell, TagCell,
   TextareaCell, TilingCell, TimelineCell, TitleCell, ToastCell, TooltipCell,
   TreeCell, UploadCell,
-} from '../core/ui-kit';
+} from '../../src/core/ui-kit';
 
 // =========================================================================
 //  辅助容器（本页内部布局用）
@@ -367,7 +367,7 @@ function buildPresetDemo() {
         { id: 'b1', title: '首页', icon: '🏠' },
         { id: 'b2', title: '分类', icon: '📂' },
         { id: 'b3', title: '我的', icon: '👤' },
-      ]).setActiveId('b1').onChange(id => console.log('[preset-demo] tabbar:', id)),
+      ]).setActiveId('b1').onSelect(id => console.log('[preset-demo] tabbar:', id)),
     ]),
   ]);
 
