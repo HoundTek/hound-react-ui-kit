@@ -173,7 +173,7 @@ class SelectCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(40).color('surface')
+    this.fixedHeight(40)
       .schema({
         options: { type: 'array', default: [] },
         value: { type: 'string', default: '' },

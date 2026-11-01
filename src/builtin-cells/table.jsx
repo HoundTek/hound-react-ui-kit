@@ -14,6 +14,7 @@ import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor } from '../core/theme/theme-react';
+import { TABULAR_NUMS } from '../core/theme/state-layer';
 
 /**
  * 表头单元格：接收普通 props（不在 map 内调 hooks），title 经 useText 渲染。
@@ -57,15 +58,14 @@ function TableCellView({ column, row }) {
  */
 function TableRowView({ cell, row, columns, selected }) {
   const primarySoft = useThemeColor('primary-soft', '#e8f0fa');
-  const surface = useThemeColor('surface', '#ffffff');
   const border = useThemeColor('border', '#eee');
   return (
     <div
       onClick={() => cell.setSelectedRow(row.id)}
       style={{
         display: 'flex', alignItems: 'center', height: 32, fontSize: 12,
-        cursor: 'pointer', userSelect: 'none', boxSizing: 'border-box',
-        backgroundColor: selected ? primarySoft : surface,
+        cursor: 'pointer', userSelect: 'none', boxSizing: 'border-box', ...TABULAR_NUMS,
+        backgroundColor: selected ? primarySoft : 'transparent',
         borderBottom: `1px solid ${border}`,
       }}
     >
@@ -92,7 +92,7 @@ function TableAssembledView({ cell }) {
     <div style={{ width: '100%', height: '100%' }}>
       <div style={{
         display: 'flex', alignItems: 'center', height: 32, fontSize: 12,
-        fontWeight: 'bold', color: text, backgroundColor: surfaceMuted,
+        fontWeight: 'bold', color: text, backgroundColor: surfaceMuted, ...TABULAR_NUMS,
         boxSizing: 'border-box',
         borderBottom: `1px solid ${border}`,
       }}>
@@ -122,7 +122,7 @@ class TableCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveY(true).layout('vertical').color('surface')
+    this.moveY(true).layout('vertical')
       .schema({
         columns: { type: 'array', default: [] },
         rows: { type: 'array', default: [] },

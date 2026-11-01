@@ -77,6 +77,15 @@
 
 其中 SwitchCell 附带组件级重写示例：`registerCellImpl('switch', 'md3-switch', Md3SwitchImpl)`（MD3 风格 52×32 胶囊开关），演示主题经 `components: { switch: 'md3-switch' }` 启用。
 
+### 离散取值族（直接点选）
+
+**RateCell 评分不走滑块轨道**：评分是离散选择，拖拽轨道在语义与手感上都不直观。
+组装 fallback 为一排 SVG 五角星（固定几何，不用 ★/☆ 文本字形，避免浏览器
+回退字体的尺寸/粗细差异），每颗星是独立 `button`（`aria-label` + `aria-pressed`，
+28×28 热区）：悬停预览到光标所在星、点击直接写 `value`；键盘走按钮原生
+Enter/Space。Schema 不变（value / count / color / disabled），主题仍可经
+`theme.components.rate` 整体重写。
+
 ### 按钮族（ButtonImpl 多级组装）
 
 ```
@@ -98,8 +107,8 @@ theme.elements 元素级样式表 > 内建默认**（见 docs/theme-shape-design
 | Impl | 来源 | 变体（elements 角色） | 组装props（要点） |
 |------|------|------------------------|-------------------|
 | TextImpl | core/builtin-cells | size 语义档：title-large / title / body / label | text / size / color（支持角色名）/ bold / align |
-| ButtonImpl | basic-cells/button | filled / tonal / outlined / text（button） | label / icon / variant / type(兼容) / size / disabled / block / align / color(数据色) / onPress |
-| SliderTrackImpl | basic-cells/slider | md3 / classic（slider） | min / max / step / value / interactive / ticks / variant / onChange |
+| ButtonImpl | basic-cells/button | filled / tonal / outlined / text（button）+ size small / default / large / icon | label / icon / variant / type(兼容) / size / disabled / block / align / color(数据色) / onPress |
+| SliderTrackImpl | basic-cells/slider | md3 / classic（slider） | min / max / step / value / interactive / showThumb / ticks / variant / color / trackColor / ariaLabel / onChange |
 | InputImpl | basic-cells/input | outlined / filled（input） | value / placeholder / type(text\|password) / variant / onChange / onSubmit |
 | ListImpl | basic-cells/list | md3(胶囊选中行) / flat（list） | items / selectedId / variant / onSelect |
 | OptionImpl | checkbox | 跟随 ButtonImpl | label / checked / markOn / markOff / onToggle（checkbox、radio 共用） |
@@ -115,7 +124,8 @@ theme.elements 元素级样式表 > 内建默认**（见 docs/theme-shape-design
 按族归类全部预设（✓ = 已接入双实现机制；基础 = 8 种基础 Cell；◆ = 纯 slot 容器，无自有内容视图，Box 结构即实现）：
 
 - **基础（8）**：text✓(core)、media✓、button✓、slider✓、input✓、panel✓、list✓、window✓(core)
-- **滑块族**（SliderTrackImpl）：switch✓、multi-switch✓、progress✓、rate✓（离散一维）、joycon✓（二维 = 两正交一维）
+- **滑块族**（SliderTrackImpl）：switch✓、multi-switch✓、progress✓、joycon✓（二维 = 两正交一维）
+- **离散取值族**（直接点选，无滑块轨道）：rate✓（一排可点击星，悬停预览 + 点击写值）
 - **按钮族**（ButtonImpl）：checkbox✓、radio✓、tag✓、stepper✓、pagination✓、index-bar✓、breadcrumb✓、nav-bar✓、accordion✓、carousel✓、upload✓、login✓
 - **菜单/列表族**（ButtonImpl/ListImpl，多级）：menu✓ → tab-bar✓ / select✓ / picker✓ → tab✓ / table✓ / tree✓ / kanban✓ / order✓ / date-picker✓ / calendar✓
 - **输入族**（InputImpl/TextareaImpl）：textarea✓、editor✓、search✓、chat✓、color-picker✓、login✓
@@ -138,6 +148,38 @@ theme.elements 元素级样式表 > 内建默认**（见 docs/theme-shape-design
    `boxSizing: 'border-box'` 配对；状态切换不得改变 border 宽度（选中/未选、
    有/无）——用恒定宽度（未选 transparent）、outline 或 boxShadow 内环替代。
    focus 反馈一律用 outline（不参与布局，见 core/theme/state-layer.js）。
+
+## 视觉一致性约定
+
+预设 Cell 的外观由主题令牌统一，不在实现组件内自造样式。四条落地规则：
+
+1. **背景归容器，组件不自套底与描边**：预设 Cell 的内容视图一律透明底、无描边，
+   随父容器（`styleRole` / `material` / `color` 声明处）的背景呈现。只有两类例外：
+   浮层（toast / message / tooltip / popover / 各窗口预设）与其底色即是语义一部分的
+   卡片容器（panel / section / card / kanban 列与卡 / chat 气泡 / table 表头）。
+   早期"每个组件自带 surface 底 + 外框"的做法已全量清理——嵌套后层层底色与外框
+   与页面背景不融洽，且让瓦片/卡片的内外层级失真。
+2. **描边用内阴影，不用 border**：描边改 `boxShadow: inset 0 0 0 <w>px` 与既有
+   投影合并，不参与盒模型——边框粗细变化不会再挤压文字（按钮 outlined 变体、
+   notice/alert tonal 描边均如此）。确需 border 时同 style 内配 `boxSizing: 'border-box'`。
+3. **按钮变体与尺寸成体系**：`ButtonImpl` 提供 MD3 四变体——`filled`（主色实底）/
+   `tonal`（同色浅底）/ `outlined`（描边）/ `text`（纯文字），解析优先级
+   `props.variant > theme.elements.button.variant > type 推导（兼容旧接口）`；
+   四尺寸——`small` 24 / `default` 32 / `large` 40 / `icon` 24（水平内边距按档位
+   10/16/16/4 递减，不再一律 16px）。同一思路适用于其他带按钮的预设：密度高的
+   格子（日历日格、翻页页码、图标位）用 `size="icon"`，工具栏用 `small/default`，
+   主操作才用 `large`。数据色经 `color` 传入时按变体落地（实底/浅底/描边/文字）。
+4. **数字一律等宽**：所有会变化的数值与对齐比较用的数字（滑块值、进度百分比、
+   badge 计数、stat 值/涨跌、stepper 值、金额列、表头与表格数字、图表轴标签、
+   时间轴时间、日期年月、页码、日历日格）必须用 `TABULAR_NUMS`
+   （`fontVariantNumeric: 'tabular-nums'`，core/theme/state-layer.js，等价工具类
+   `.hk-num`）。否则数字宽度随字形变化，滚动/增减时文本抖动、列不对齐。
+5. **滑块色条分体几何**（MD3）：滑块两端的色条是**两条独立胶囊**（各自
+   `border-radius`），以滑块中心为界，两侧各让出 `滑块半宽 + 4px` 的断口与滑块
+   保持间距；已填充段宽 `max(0px, calc(中心 - 断口))`、未填充段
+   `left: min(calc(中心 + 断口), 100%)`。滑块与档位刻点的中心位置一律用
+   `clamp()` 钳制到轨道内（`[半宽, 100% - 半宽]`），保证取值为 0% / 100% 时
+   滑块与两端刻点**完整包含在色条内部**，不出界、不被裁切。
 
 ## 跨浏览器一致性约定
 
@@ -172,10 +214,16 @@ theme.elements 元素级样式表 > 内建默认**（见 docs/theme-shape-design
   实际移动才 preventDefault，到尽头放行保持滚动链）
 - **滚动阻尼**：内容层的滚轮滚动带阻尼（scroll-damping.js）：wheel 增量
   拦截后累积为滚动目标位置，经 rAF 指数衰减平滑逼近，覆盖层经 scroll
-  镜像天然跟随，无需额外同步。滚动链语义不变——目标位置到边界后该方向
-  增量不消费、放行冒泡到外层可滚容器；外部滚动源（浮动滚动条拖拽、
-  键盘、程序化写入）经 scroll 事件检测后动画目标立即对齐实际位置，
-  不与外部写入拉扯
+  镜像天然跟随，无需额外同步。外部滚动源（浮动滚动条拖拽、键盘、程序化
+  写入）经 scroll 事件检测后动画目标立即对齐实际位置，不与外部写入拉扯
+- **嵌套滚动手势路由**（scroll-damping.js 的 `routeWheel`）：**以光标所在的
+  最内层可滚容器为准**，一次连续手势（相邻 wheel 间隔 < `GESTURE_GAP_MS` =
+  280ms 且方向不变）只服务一个容器、只滚动一层。该容器在当前方向上已到边界
+  时，本轮手势的剩余增量（含惯性）一律 `preventDefault + stopPropagation`
+  吞掉，**不连锁滚动外层**；用户停顿（间隔超过阈值）后重新滚动的**新一轮手势**
+  才允许上移一层到下一个可滚容器。手势 owner 与方向记录在模块级共享对象，
+  同一原生事件在冒泡链路中经 `lastEvent` 去重，只判定一次归属——因此内层
+  放行、外层接管的判定对每一层都是一致的
 
 ## 解耦边界
 

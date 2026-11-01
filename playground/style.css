@@ -19,3 +19,37 @@ html, body {
 button, input, textarea, select {
   font-family: inherit;
 }
+
+/* 文档页（非 Cell 体系）与 kit 共用同一套焦点环规范：各浏览器 UA 的
+   高亮边框（颜色/宽度/偏移）不一致，这里统一为 2px 描边 + 2px 偏移，
+   颜色取页面声明的 --hk-focus（由主题主色注入） */
+.hk-docs :focus-visible {
+  outline: 2px solid var(--hk-focus, currentColor);
+  outline-offset: 2px;
+}
+
+/* 文档页动效：搜索框聚焦/悬停、返回按钮按压（列表项过渡由 hk-state 提供） */
+.hk-docs-search {
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.hk-docs-search:hover {
+  border-color: var(--hk-focus, currentColor);
+}
+.hk-docs-search:focus-visible {
+  border-color: var(--hk-focus, currentColor);
+}
+.hk-press {
+  transition: transform .12s ease;
+}
+.hk-press:active:not(:disabled) {
+  transform: scale(.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hk-docs-search, .hk-press {
+    transition: none;
+  }
+  .hk-press:active:not(:disabled) {
+    transform: none;
+  }
+}

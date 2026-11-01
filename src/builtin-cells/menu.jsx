@@ -149,7 +149,7 @@ class MenuCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.layout('vertical').moveY(true).color('surface')
+    this.layout('vertical').moveY(true)
       .schema({
         items: { type: 'array', default: [] },
         selected: { type: 'string', default: '' },

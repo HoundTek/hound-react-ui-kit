@@ -24,7 +24,9 @@ function ProfileAssembledView({ cell }) {
   const name = useText(useCellData(cell, 'name'));
   const role = useText(useCellData(cell, 'role'));
   const description = useText(useCellData(cell, 'description'));
-  const color = useCellData(cell, 'color');
+  // 数据色可传颜色角色名（如 'primary'），未定义角色按裸色值使用
+  const colorRole = useCellData(cell, 'color');
+  const color = useThemeColor(colorRole, colorRole);
   const corner = useCornerType();
   const onPrimaryColor = useThemeColor('on-primary', '#fff');
   const nameColor = useThemeColor('text', '#333');
@@ -64,7 +66,7 @@ class ProfileCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(88).color('surface')
+    this.fixedHeight(88)
       .schema({
         name: { type: 'string', default: '' },
         role: { type: 'string', default: '' },

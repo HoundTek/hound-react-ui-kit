@@ -15,28 +15,36 @@ import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor } from '../core/theme/theme-react';
+import { stateLayerProps } from '../core/theme/state-layer';
 
 /**
  * 导航项视图：接收普通 props（不在 map 内调 hooks），title 经 useText 渲染
- *（可传 i18n key 或纯文本）。
+ *（可传 i18n key 或纯文本）。以原生 button 承载：键盘可聚焦 + 统一焦点环
+ *（hk-focus），hover/active 叠加 MD3 态层（hk-state）。
  * @param {{item: object, active: boolean, onSelect: Function, onPrimary: string}} props 组件属性
  * @returns {JSX.Element} 导航项元素
  */
 function NavItemView({ item, active, onSelect, onPrimary }) {
   const title = useText(item.title);
+  const state = stateLayerProps(onPrimary, { '--hk-focus': onPrimary });
   return (
-    <div
+    <button
+      type="button"
       onClick={() => onSelect(item.id)}
+      className={`${state.className} hk-focus`}
       style={{
-        height: '100%', display: 'flex', alignItems: 'center', padding: '0 10px',
+        height: '100%', display: 'flex', alignItems: 'center', padding: '0 12px',
         boxSizing: 'border-box', cursor: 'pointer', userSelect: 'none', fontSize: 13,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        border: 'none', background: 'transparent',
         borderBottom: active ? `2px solid ${onPrimary}` : '2px solid transparent',
         color: active ? onPrimary : 'rgba(255,255,255,0.85)',
+        fontFamily: 'inherit',
+        ...state.style,
       }}
     >
       <span style={{ minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{title}</span>
-    </div>
+    </button>
   );
 }
 

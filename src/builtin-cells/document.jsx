@@ -47,7 +47,7 @@ class DocumentCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveY(true).minHeight(120).defaultWidth(300).color('surface')
+    this.moveY(true).minHeight(120).defaultWidth(300)
       .schema({ content: { type: 'string', default: '' } })
       .renderContent(DocumentDispatcher);
   }

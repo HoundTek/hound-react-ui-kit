@@ -96,7 +96,7 @@ class KanbanCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveX(true).minHeight(120).color('surface')
+    this.moveX(true).minHeight(120)
       .schema({
         columns: { type: 'array', default: [] },
         selectedItem: { type: 'string', default: '' },

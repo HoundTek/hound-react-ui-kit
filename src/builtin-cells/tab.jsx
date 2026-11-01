@@ -80,7 +80,7 @@ class TabCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(120).moveY(true).layout('vertical').color('surface')
+    this.fixedHeight(120).moveY(true).layout('vertical')
       .schema({
         tabs: { type: 'array', default: [] },
         activeId: { type: 'string', default: '' },

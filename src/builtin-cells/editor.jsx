@@ -24,11 +24,10 @@ import { TextImpl } from '../basic-cells';
 function EditorAssembledView({ cell }) {
   const content = useCellData(cell, 'content');
   const placeholder = useCellData(cell, 'placeholder');
-  const surfaceColor = useThemeColor('surface', '#ffffff');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
-      backgroundColor: surfaceColor, overflow: 'hidden',
+      overflow: 'hidden',
     }}>
       <TextareaImpl
         value={content}
@@ -56,7 +55,7 @@ class EditorCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.layout('vertical').minHeight(120).defaultWidth(280).color('surface')
+    this.layout('vertical').minHeight(120).defaultWidth(280)
       .schema({
         content: { type: 'string', default: '' },
         placeholder: { type: 'string', default: '' },

@@ -1,11 +1,11 @@
 /**
- * @file 应用根组件。以 I18nProvider 包裹 Cell 演示页，提供国际化实例；
+ * @file 应用根组件。以 I18nProvider 包裹演示页，提供国际化实例；
  *        ThemeProvider 注入主题系统，演示尺寸变化特效（页面窗口 resize /
  *        浮动窗口拖拽缩放时，视口内容按主题声明的特效呈现）。
- *        语言切换控件本身也是 Cell（LanguageSwitchCell），纳入 header 布局。
+ *        页面导航为 UI Kit 体系内的 NavBarCell（预设展示台 / 文档），
+ *        文档页另提供返回展示台的退出入口。
  */
 import React, { useEffect, useState } from 'react';
-import CellDemoPage from './demo/cell-demo-page';
 import PresetDemoPage from './demo/preset-demo-page';
 import DocsPage from './docs-page';
 import { onPageNavSelect, syncPageNav } from './demo/page-nav';
@@ -20,74 +20,14 @@ const messages = {
   'zh-CN': {
     'app.title': 'Hound UI Kit',
     'nav.presets': '预设展示台',
-    'nav.workbench': '工作台',
-    'nav.home': '首页',
     'nav.docs': '文档',
-    'nav.demo': '示例',
-    'nav.about': '关于',
-    'menu.default': '菜单项',
-    'menu.dashboard': '仪表盘',
-    'menu.projects': '项目列表',
-    'menu.settings': '设置',
-    'title.default': '标题',
-    'panel.workspace': '工作台',
-    'card.default': '卡片',
-    'stat.todo': '待办任务',
-    'stat.messages': '消息中心',
-    'stat.storage': '存储空间',
-    'stat.clickCount': '点击次数：',
-    'stat.increment': '+1',
-    'task.empty': '未选择任务',
-    'input.label': '实时输入演示：',
-    'input.current': '当前输入：{value}',
-    'toggle.label': '启用通知',
-    'toggle.on': '已开启',
-    'toggle.off': '已关闭',
-    'demo.openWindow': '打开窗口',
-    'window.title': '窗口',
-    'profile.switch': '切换',
-    'demo.boundPrefix': '绑定字段 → ',
-    'demo.refPrefix': '引用节点 → ',
-    'demo.instanceRefPrefix': '实例引用 → 角色：',
-    'footer.copyright': '© {year} Hound UI Kit · 中文版',
-    'lang.switchTo': 'EN',
     'dlg.ok': '知道了',
   },
   'en': {
     'app.title': 'Hound UI Kit',
     'nav.presets': 'Preset Gallery',
-    'nav.workbench': 'Workbench',
-    'nav.home': 'Home',
     'nav.docs': 'Docs',
-    'nav.demo': 'Demo',
-    'nav.about': 'About',
-    'menu.default': 'Menu Item',
-    'menu.dashboard': 'Dashboard',
-    'menu.projects': 'Projects',
-    'menu.settings': 'Settings',
-    'title.default': 'Title',
-    'panel.workspace': 'Workspace',
-    'card.default': 'Card',
-    'stat.todo': 'Todo',
-    'stat.messages': 'Messages',
-    'stat.storage': 'Storage',
-    'stat.clickCount': 'Clicks: ',
-    'stat.increment': '+1',
-    'task.empty': 'No task selected',
-    'input.label': 'Live input demo:',
-    'input.current': 'Current: {value}',
-    'toggle.label': 'Notifications',
-    'toggle.on': 'On',
-    'toggle.off': 'Off',
-    'demo.openWindow': 'Open Window',
     'dlg.ok': 'Got it',
-    'window.title': 'Window',
-    'profile.switch': 'Switch',
-    'demo.boundPrefix': 'Bound → ',
-    'demo.refPrefix': 'Ref → ',
-    'demo.instanceRefPrefix': 'Instance Ref → Role: ',
-    'footer.copyright': '© {year} Hound UI Kit · English',
-    'lang.switchTo': '中',
   },
 };
 
@@ -222,12 +162,12 @@ const darkTheme = Theme.fromSeed({
  * - 主题经 ThemeProvider 注入；亮/暗切换只替换 theme 实例（种子派生 dark），
  *   context 变化驱动 useTheme/useThemeColor 等订阅方重新呈现，Cell 树不重建；
  *   本主题不声明尺寸变化特效，Box 视口根尺寸变化走静态更新
- * - FloatingLayer 在页面上层统一渲染全部浮动视口 Cell（浮动窗口演示见
- *   demo/floating-window-demo.jsx，独立窗口 + 子窗口 + 模态遮罩；
+ * - FloatingLayer 在页面上层统一渲染全部浮动视口 Cell（浮层预设见
+ *   demo/preset-demo-page.jsx 的"浮层与弹窗"分区；
  *   层级由系统管理：后聚焦/出现居上 + 模态序排列）
  * - 页面入口二选一（默认预设展示台）：PresetDemoPage 为 80 个预设 Cell 的分类
- *   速览，CellDemoPage 为数据驱动工作台；页面切换由 UI Kit 体系内的页面导航
- *   （page-nav，NavBarCell）驱动，无体系外控件
+ *   速览；页面切换由 UI Kit 体系内的页面导航（page-nav，NavBarCell）驱动，
+ *   无体系外控件；文档页顶部另有返回展示台的退出按钮（onExit 注入）
  * @returns {JSX.Element} 应用根节点
  */
 const App = () => {
@@ -239,7 +179,7 @@ const App = () => {
   return (
     <I18nProvider i18n={i18n}>
       <ThemeProvider theme={dark ? darkTheme : theme}>
-        {page === 'presets' ? <PresetDemoPage /> : page === 'docs' ? <DocsPage /> : <CellDemoPage />}
+        {page === 'docs' ? <DocsPage onExit={() => setPage('presets')} /> : <PresetDemoPage />}
         <FloatingLayer />
       </ThemeProvider>
     </I18nProvider>

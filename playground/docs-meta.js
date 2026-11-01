@@ -14,7 +14,7 @@ import {
   DataDag, createRuntime,
   TextCell, TitleCell, IconCell, MediaCell, DividerCell, RowCell, GridCell, SplitCell,
   PanelCell, CardCell, SectionCell, FooterCell, PageCell, GroupCell,
-  ButtonCell, ToggleCell, SliderCell, InputCell, ListCell,
+  ButtonCell, SliderCell, InputCell, ListCell,
   AvatarCell, BadgeCell, TagCell, StatCell, TableCell, TimelineCell, CalendarCell,
   ChartCell, BarCell, ProgressCell, SkeletonCell, LoadingCell, TreeCell,
   CheckboxCell, RadioCell, SwitchCell, MultiSwitchCell, RateCell, SearchCell,
@@ -80,7 +80,7 @@ export const ENTRIES = [
   { name: 'SwitchCell', cls: SwitchCell, cat: '表单与输入', desc: '开关（role=switch，Enter/Space 切换）。主题可重写为 md3-switch。' },
   { name: 'MultiSwitchCell', cls: MultiSwitchCell, cat: '表单与输入', desc: '多段开关。', events: [E('onChange', 'change', '选中段变更')] },
   { name: 'SliderCell', cls: SliderCell, cat: '表单与输入', desc: '滑块（基础 Cell），拖拽写回 value。' },
-  { name: 'RateCell', cls: RateCell, cat: '表单与输入', desc: '评分星级，键盘方向调节。', events: [E('onChange', 'change', '评分变更')] },
+  { name: 'RateCell', cls: RateCell, cat: '表单与输入', desc: '评分星级：悬停预览、直接点击星星取值（离散点选，无滑块）。', events: [E('onChange', 'change', '评分变更')] },
   { name: 'SearchCell', cls: SearchCell, cat: '表单与输入', desc: '搜索框：Enter/按钮触发。', events: [E('onSearch', 'search', '提交搜索（携带 value）')] },
   { name: 'StepperCell', cls: StepperCell, cat: '表单与输入', desc: '步进器（+/- 调整数值）。' },
   { name: 'UploadCell', cls: UploadCell, cat: '表单与输入', desc: '上传入口 + 文件列表（模拟）。', events: [E('onUpload', 'upload', '追加文件')] },
@@ -119,8 +119,7 @@ export const ENTRIES = [
   { name: 'ModalCell', cls: ModalCell, cat: '反馈与浮层', desc: '模态窗口基座（operable 由页面声明）。' },
 
   // ---------- 交互 ----------
-  { name: 'ButtonCell', cls: ButtonCell, cat: '表单与输入', desc: '按钮（基础 Cell）：type/size/disabled，pressed 数据。', events: [E('onPress', 'press', '点击动作')] },
-  { name: 'ToggleCell', cls: ToggleCell, cat: '表单与输入', desc: '开/关切换（核心预设，i18n 文案联动）。' },
+  { name: 'ButtonCell', cls: ButtonCell, cat: '表单与输入', desc: '按钮（基础 Cell）：variant(filled/tonal/outlined/text) + size + disabled，pressed 数据。', events: [E('onPress', 'press', '点击动作')] },
   { name: 'JoyConCell', cls: JoyConCell, cat: '导航', desc: '虚拟摇杆（方向写入 direction）。', events: [E('onMove', 'move', '方向变更')] },
   { name: 'CarouselCell', cls: CarouselCell, cat: '数据展示', desc: '轮播（箭头切换 + 圆点指示）。' },
   { name: 'ControlCell', cls: ControlCell, cat: '业务预设', desc: '控件聚合面板。' },

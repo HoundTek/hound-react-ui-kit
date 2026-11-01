@@ -10,7 +10,7 @@
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect, useContext } from 'react';
 import { getDefaultRuntime } from '../runtime';
 import FloatingScrollbar from './floating-scrollbar';
-import { attachScrollDamping, getScrollDamping } from './scroll-damping';
+import { attachScrollDamping, routeWheel } from './scroll-damping';
 import { useHoveredEdges } from './hovered-edges-context';
 import { resolveContainerDrag, getDraggableEdgeId, commitContainerRatios, makeEdgeId } from './drag-resize';
 import { ResizeEffectViewport } from '../theme/resize-effects';
@@ -42,6 +42,18 @@ const styleSheet = `
   body.box-resizing-ns, body.box-resizing-ns * { cursor: ns-resize !important; }
   body.box-resizing-nwse, body.box-resizing-nwse * { cursor: nwse-resize !important; }
   body.box-resizing-nesw, body.box-resizing-nesw * { cursor: nesw-resize !important; }
+  /* 浮动窗口入场动效（打开时淡入 + 轻微缩放）；窗口框架随焦点切换过渡。
+     仅动 opacity/transform/box-shadow，不触碰尺寸与布局属性，避免干扰 reflow */
+  @keyframes hk-floating-in {
+    from { opacity: 0; transform: scale(.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .floating-shell { animation: hk-floating-in .16s ease-out; }
+  .floating-window { transition: box-shadow .18s ease, border-color .18s ease; }
+  @media (prefers-reduced-motion: reduce) {
+    .floating-shell { animation: none; }
+    .floating-window { transition: none; }
+  }
 `;
 
 if (typeof document !== 'undefined' && !document.getElementById('box-drag-styles')) {
@@ -371,6 +383,9 @@ function computeBuilderLayout(builder) {
   const style = {
     display: 'flex',
     flexDirection,
+    // 描边材质（material('outlined')）会给本层加 1px border；统一 border-box，
+    // 让描边从尺寸内侧让位，不把内容挤出或撑大盒体（三层尺寸口径保持一致）
+    boxSizing: 'border-box',
     backgroundColor: builder._backgroundColor,
     width: computedWidth,
     height: computedHeight,
@@ -403,18 +418,14 @@ function computeBuilderLayout(builder) {
   const gap = builder._gap || 0;
 
   const getChildStyle = (child, index) => {
-    // 主轴方向：横向容器的子项宽度、纵向容器的子项高度由 reflow 精确分配。
-    // 只要子项携带 reflow 分配的主轴尺寸，就禁止 flex 收缩（flex-shrink: 0）——
-    // 否则自由滚动/未锁定容器溢出或容器变小时，content 层子项会被 flex 压缩，
-    // 而 edge/corner 覆盖层子项是 absolute 定位保持显式尺寸，两层错位。
-    const isMainAxisX = isHorizontal;
-    const hasExplicitMainSize = isMainAxisX
-      ? child._layoutWidth !== undefined
-      : child._layoutHeight !== undefined;
+    // 尺寸一律由 reflow 精确分配，子项永远不许 flex 收缩：任何主轴/交叉轴
+    // 收缩都会让 content 层子项小于 edge/corner 覆盖层（绝对定位，保持显式
+    // 尺寸）而产生两层错位，同时把组件内容压扁。溢出应交给容器的滚动，
+    // 而不是让子项变小。
     const s = {
       position: 'relative',
       flex: (builder._moveX === false && isHorizontal) || isGrid ? 'none' : undefined,
-      flexShrink: hasExplicitMainSize ? 0 : undefined,
+      flexShrink: 0,
       width: child._layoutWidth ? `${child._layoutWidth}px` : undefined,
       height: child._layoutHeight ? `${child._layoutHeight}px` : undefined,
     };
@@ -440,6 +451,26 @@ function computeBuilderLayout(builder) {
     flexDirection,
     position: 'relative',
   };
+  // 浮动视口缩放期内容锚定（见 startFloatingResize）：把内容对齐到"所调整边缘
+  // 的对边"（拖 W/N 时对侧为静止边），使主轴分配/取整产生的余量留在被调整的
+  // 一侧，减少静止边在连续缩放中的抖动。布局方向决定主轴/交叉轴映射；交叉轴
+  // 仅在所有子项都有显式交叉尺寸时切换（否则会由 stretch 退化为按内容收缩）。
+  if (builder._isFloatingViewport && builder._resizeAnchor) {
+    const { x, y } = builder._resizeAnchor;
+    const toAlign = (v) => (v === 'end' ? 'flex-end' : v === 'start' ? 'flex-start' : undefined);
+    const alignX = toAlign(x);
+    const alignY = toAlign(y);
+    const crossExplicit = builder._children.every(child => (flexDirection === 'column'
+      ? child._layoutWidth != null
+      : child._layoutHeight != null));
+    if (flexDirection === 'column') {
+      if (alignY) innerStyle.justifyContent = alignY;
+      if (alignX && crossExplicit) innerStyle.alignItems = alignX;
+    } else if (flexDirection === 'row') {
+      if (alignX) innerStyle.justifyContent = alignX;
+      if (alignY && crossExplicit) innerStyle.alignItems = alignY;
+    }
+  }
   // Grid：单元格按 gridMetrics 绝对定位（见 ContentLayer），不用 flex-wrap——
   // 浏览器的换行决策会与 reflow 过渡态（容器尺寸与 gridMetrics 短暂不一致）
   // 叠加产生闪烁。inner 尺寸撑到内容大小（含格间 gap 与两侧 padding），
@@ -809,10 +840,9 @@ function useBoxOverlayScroll(layerRef, builder) {
   }, [builder._path, layerRef]);
 
   // wheel 转发：覆盖层不可滚，悬停 handle（pointer-events:auto）时滚轮转发给
-  // 内容层。优先路由到内容层的滚动阻尼控制器（增量进阻尼目标，平滑滚动）；
-  // 控制器未挂接时回退为直写。内容层实际可滚才 preventDefault（已到尽头/
-  // 该方向不可滚则放行，保持向祖先的滚动链）。deltaMode 归一：Firefox 可能
-  // 按行（1）/按页（2）给增量
+  // 内容层。路由统一交给 routeWheel（见 scroll-damping.js）：一轮连续手势只
+  // 服务一个可滚容器，到边界后原地吞掉，用户停顿后新手势才上移一层。
+  // deltaMode 归一：Firefox 可能按行（1）/按页（2）给增量
   useEffect(() => {
     const contentRefObj = builder.runtime.getContentRef(builder._path);
     if (!contentRefObj?.current || !layerRef.current) return;
@@ -822,25 +852,7 @@ function useBoxOverlayScroll(layerRef, builder) {
     const onWheel = (e) => {
       if (e.ctrlKey) return; // 触控板捏合缩放等手势放行
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? contentEl.clientHeight : 1;
-      const dx = e.deltaX * unit;
-      const dy = e.deltaY * unit;
-      const damping = getScrollDamping(contentEl);
-      let consumed;
-      if (damping) {
-        consumed = damping.addDelta(dx, dy);
-      } else {
-        const beforeTop = contentEl.scrollTop;
-        const beforeLeft = contentEl.scrollLeft;
-        contentEl.scrollTop += dy;
-        contentEl.scrollLeft += dx;
-        consumed = contentEl.scrollTop !== beforeTop || contentEl.scrollLeft !== beforeLeft;
-      }
-      if (consumed) {
-        // 已消费：阻断默认行为与冒泡（事件冒泡会穿过外层覆盖层，
-        // 不阻断则嵌套可滚盒被外层重复转发——滚动链只认最内层）
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      routeWheel(contentEl, e.deltaX * unit, e.deltaY * unit, e);
     };
     layerEl.addEventListener('wheel', onWheel, { passive: false });
     return () => layerEl.removeEventListener('wheel', onWheel);
@@ -1506,8 +1518,9 @@ const FLOAT_RESIZE_MIN = 24;
  * @param {Object} opts 会话配置
  * @param {string} opts.cursorClass 会话期间 body 光标锁定类（box-dragging-xy / box-resizing-*）
  * @param {(ev: MouseEvent) => void} opts.onMove 移动回调（原生 mousemove 事件）
+ * @param {() => void} [opts.onEnd] 结束回调（恢复光标后调用，用于清理会话期状态）
  */
-function startFloatingDragSession({ cursorClass, onMove }) {
+function startFloatingDragSession({ cursorClass, onMove, onEnd }) {
   const unlockBody = lockBodyForDrag(cursorClass);
   const handleMove = (ev) => {
     // 同 startDragSession：逐事件 preventDefault，阻止 Firefox/Safari 原生
@@ -1519,6 +1532,7 @@ function startFloatingDragSession({ cursorClass, onMove }) {
     document.removeEventListener('mousemove', handleMove);
     document.removeEventListener('mouseup', handleUp);
     unlockBody();
+    onEnd?.();
   };
   document.addEventListener('mousemove', handleMove);
   document.addEventListener('mouseup', handleUp);
@@ -1761,6 +1775,15 @@ function startFloatingResize(root, dir, event) {
       : moveW || moveE
         ? 'box-resizing-ew'
         : 'box-resizing-ns';
+  // 缩放期间内容对齐锚点：所调整边缘的对边是静止边——拖 W/N 时把内容对齐到
+  // E/S（flex-end），拖 E/S 时对齐到 W/N（flex-start），使静边区吸附内容、
+  // 余量落在被拖拽的一侧，减少对边因连续缩放产生的抖动（布局层见
+  // computeBuilderLayout 的 _resizeAnchor 处理）。会话结束清除并重渲染。
+  root._resizeAnchor = {
+    x: moveW ? 'end' : moveE ? 'start' : null,
+    y: moveN ? 'end' : moveS ? 'start' : null,
+  };
+  root.runtime.notifyFloatingChange();
   startFloatingDragSession({
     cursorClass: resizeDirClass,
     onMove: (ev) => {
@@ -1793,6 +1816,11 @@ function startFloatingResize(root, dir, event) {
       applyFloatingPositionToDom(root);
       // 容器尺寸同步更新并立即 reflow（不依赖异步调度），布局数据即时就绪
       syncFloatingSizeToBuilder(root, w, h);
+    },
+    onEnd: () => {
+      // 缩放结束：清除内容对齐锚点，恢复默认对齐并触发重渲染
+      root._resizeAnchor = null;
+      root.runtime.notifyFloatingChange();
     },
   });
 }
@@ -2046,6 +2074,7 @@ function FloatingWindow({ builder, zIndex, focused }) {
   return (
     <div
       ref={itemRef}
+      className="floating-window"
       style={itemStyle}
       role="dialog"
       aria-modal={isOperable ? true : undefined}

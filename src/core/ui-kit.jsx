@@ -22,9 +22,9 @@ import { deriveColorRoles, contrastRatio, relativeLuminance, hslToHex } from './
 import { ThemeProvider, ThemeContext, useTheme, useThemeColor, useCornerType, useShapeRadius, useElementStyle } from './theme/theme-react';
 import { resizeEffectRegistry, resolveResizeEffect } from './theme/resize-effects';
 import { cornerStyle, CAPSULE_RADIUS, ELEVATIONS, elevationStyle, resolveElementRadius } from './theme/shape';
-import { ensureStateLayerStyle, stateLayerProps, FONT_STACK } from './theme/state-layer';
+import { ensureStateLayerStyle, stateLayerProps, FONT_STACK, TABULAR_NUMS } from './theme/state-layer';
 import {
-  TextCell, ToggleCell,
+  TextCell,
   CloseButtonCell,
   NotificationCell, FloatingWindowCellBase, ModalCell, WindowCell,
 } from './builtin-cells/builtin-cells';
@@ -56,6 +56,13 @@ import {
   TabCell, TableCell, TagCell, TextareaCell, TilingCell, TimelineCell, TitleCell,
   ToastCell, TooltipCell, TreeCell, UploadCell,
 } from '../builtin-cells';
+
+/**
+ * @deprecated ToggleCell 与 SwitchCell 的 schema 与呈现完全重复（历史遗留的
+ * 同义预设），这里保留为等价别名以避免破坏既有页面；新代码请直接使用
+ * SwitchCell（支持主题实现重写、disabled、MD3 呈现）。
+ */
+const ToggleCell = SwitchCell;
 
 export {
   CellBaseBuilder,
@@ -102,6 +109,7 @@ export {
   ensureStateLayerStyle,
   stateLayerProps,
   FONT_STACK,
+  TABULAR_NUMS,
   // 核心预设（框架自带构件；TextCell / WindowCell 兼为基础 Cell）
   TextCell,
   ToggleCell,

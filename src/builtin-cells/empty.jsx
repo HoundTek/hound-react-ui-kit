@@ -23,14 +23,13 @@ function EmptyAssembledView({ cell }) {
   const glyph = useCellData(cell, 'glyph');
   const text = useText(useCellData(cell, 'text'));
   const desc = useText(useCellData(cell, 'desc'));
-  const surface = useThemeColor('surface', '#ffffff');
   const glyphColor = useThemeColor('text-muted', '#bbb');
   const textColor = useThemeColor('text-secondary', '#666');
   const descColor = useThemeColor('text-muted', '#999');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      gap: 6, width: '100%', height: '100%', backgroundColor: surface,
+      gap: 6, width: '100%', height: '100%',
       padding: 8, boxSizing: 'border-box', textAlign: 'center',
     }}>
       <div style={{ fontSize: 32, lineHeight: 1, color: glyphColor, userSelect: 'none' }}>{glyph}</div>
@@ -54,7 +53,7 @@ class EmptyCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.defaultHeight(140).moveY(true).color('surface')
+    this.defaultHeight(140).moveY(true)
       .schema({
         glyph: { type: 'string', default: '□' },
         text: { type: 'string', default: '' },

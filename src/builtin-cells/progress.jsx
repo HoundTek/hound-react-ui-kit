@@ -14,6 +14,7 @@ import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor } from '../core/theme/theme-react';
 import { SliderTrackImpl } from '../basic-cells/slider';
+import { TABULAR_NUMS } from '../core/theme/state-layer';
 
 /**
  * 进度条组装视图（fallback）：只读滑块轨道 + 百分比文本。
@@ -50,7 +51,7 @@ function ProgressAssembledView({ cell }) {
         />
       </div>
       {showText ? (
-        <span style={{ fontSize: 12, color: textSecondary, minWidth: 36, textAlign: 'right' }}>{clamped}%</span>
+        <span style={{ fontSize: 12, color: textSecondary, minWidth: 36, textAlign: 'right', ...TABULAR_NUMS }}>{clamped}%</span>
       ) : null}
     </div>
   );

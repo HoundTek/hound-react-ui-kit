@@ -63,7 +63,7 @@ class SkeletonCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(32).color('surface')
+    this.fixedHeight(32)
       .schema({
         type: { type: 'string', default: 'line' },
         height: { type: 'number', default: 16 },

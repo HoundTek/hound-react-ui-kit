@@ -13,6 +13,7 @@ import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor, useCornerType } from '../core/theme/theme-react';
 import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
+import { TABULAR_NUMS } from '../core/theme/state-layer';
 
 /**
  * 徽标组装视图（fallback）：按 dot/text/count 三种模式渲染；visible 为 false 时不渲染。
@@ -25,7 +26,9 @@ function BadgeAssembledView({ cell }) {
   const text = useText(useCellData(cell, 'text'));
   const count = useCellData(cell, 'count');
   const max = useCellData(cell, 'max');
-  const color = useCellData(cell, 'color');
+  // 数据色可传颜色角色名（如 'danger'），未定义角色按裸色值使用
+  const colorRole = useCellData(cell, 'color');
+  const color = useThemeColor(colorRole, colorRole);
   const corner = useCornerType();
   const onPrimary = useThemeColor('on-primary', '#fff');
   if (!visible) return null;
@@ -40,7 +43,7 @@ function BadgeAssembledView({ cell }) {
           minWidth: 18, height: 18, padding: '0 5px', ...cornerStyle(corner, CAPSULE_RADIUS),
           backgroundColor: color, color: onPrimary, fontSize: 11,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontWeight: 'bold', lineHeight: 1, whiteSpace: 'nowrap',
+          fontWeight: 'bold', lineHeight: 1, whiteSpace: 'nowrap', ...TABULAR_NUMS,
         }}>
           {content}
         </div>

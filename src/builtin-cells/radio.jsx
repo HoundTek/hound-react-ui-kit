@@ -47,7 +47,7 @@ class RadioCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(40).color('surface')
+    this.fixedHeight(40)
       .schema({
         label: { type: 'string', default: '' },
         value: { type: 'string', default: '' },

@@ -10,7 +10,7 @@
  *
  * Schema（数据契约，两种实现共用）：label / enabled / disabled。
  */
-import React, { useRef } from 'react';
+import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { registerCellImpl } from '../core/cell/implementations';
@@ -30,7 +30,6 @@ function SwitchAssembledView({ cell }) {
   const enabled = useCellData(cell, 'enabled');
   const disabled = useCellData(cell, 'disabled');
   const text = useThemeColor('text', '#333');
-  const trackWrapRef = useRef(null);
   return (
     <div
       role="switch"
@@ -42,9 +41,7 @@ function SwitchAssembledView({ cell }) {
         if (disabled) return;
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cell.setEnabled(!enabled); }
       }}
-      onClick={(e) => {
-        if (!disabled && !trackWrapRef.current?.contains(e.target)) cell.setEnabled(!enabled);
-      }}
+      onClick={() => { if (!disabled) cell.setEnabled(!enabled); }}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
         padding: '0 12px', width: '100%', height: '100%', boxSizing: 'border-box',
@@ -53,15 +50,9 @@ function SwitchAssembledView({ cell }) {
       }}
     >
       <span>{label}</span>
-      <div ref={trackWrapRef} style={{ width: 56, flexShrink: 0 }}>
-        <SliderTrackImpl
-          min={0}
-          max={1}
-          step={1}
-          value={enabled ? 1 : 0}
-          disabled={disabled}
-          onChange={v => cell.setEnabled(v >= 1)}
-        />
+      {/* 纯指示轨道：交互由外层 role="switch" 承担，避免嵌套可交互元素 */}
+      <div style={{ width: 56, flexShrink: 0 }}>
+        <SliderTrackImpl min={0} max={1} step={1} value={enabled ? 1 : 0} interactive={false} />
       </div>
     </div>
   );
@@ -140,7 +131,7 @@ class SwitchCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(44).color('surface-muted')
+    this.fixedHeight(44)
       .schema({
         label: { type: 'string', default: '' },
         enabled: { type: 'boolean', default: true },

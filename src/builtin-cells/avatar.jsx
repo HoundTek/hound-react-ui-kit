@@ -24,7 +24,10 @@ function AvatarAssembledView({ cell }) {
   const src = useCellData(cell, 'src');
   const size = useCellData(cell, 'size');
   const shape = useCellData(cell, 'shape');
-  const color = useCellData(cell, 'color');
+  // 数据色可传颜色角色名（如 'primary'），经主题解析后落到具体色值；
+  // 未定义角色时按裸色值使用（保持既有接口的硬编码色兼容）
+  const colorRole = useCellData(cell, 'color');
+  const color = useThemeColor(colorRole, colorRole);
   const corner = useCornerType();
   const overlayR = useShapeRadius('overlay', 6);
   const onPrimary = useThemeColor('on-primary', '#fff');
@@ -64,7 +67,7 @@ class AvatarCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(48).defaultWidth(48).color('surface-muted')
+    this.fixedHeight(48).defaultWidth(48)
       .schema({
         name: { type: 'string', default: '' },
         src: { type: 'string', default: '' },

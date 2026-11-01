@@ -59,7 +59,7 @@ class MediaCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.minHeight(120).color('surface')
+    this.minHeight(120)
       .schema({
         type: { type: 'string', default: 'image' },
         src: { type: 'string', default: '' },

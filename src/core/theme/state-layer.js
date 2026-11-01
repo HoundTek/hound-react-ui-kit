@@ -22,15 +22,40 @@ const STYLE_ID = 'hk-state-layer';
 /** 无衬线系统字体栈（跨浏览器统一文档字体） */
 const FONT_STACK = "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif";
 
+/**
+ * 等宽数字样式片段：数值、时间、计数、页码等需要纵向对齐且变化时不跳动
+ * 的文本统一展开本片段（tabular-nums 让各数字字形同宽）。
+ */
+const TABULAR_NUMS = { fontVariantNumeric: 'tabular-nums' };
+
 /** 注入的全局样式（字体规则限定 [data-hk-scope] 作用域，不改写宿主 body） */
 const GLOBAL_CSS = `
 [data-hk-scope] { font-family: ${FONT_STACK}; font-size: 14px; }
 [data-hk-scope] button, [data-hk-scope] input, [data-hk-scope] textarea, [data-hk-scope] select { font-family: inherit; }
-.hk-state { transition: background-color .15s, box-shadow .15s, color .15s; }
+.hk-state { transition: background-color .15s ease, box-shadow .15s ease, color .15s ease, border-color .15s ease; }
 .hk-state:hover { background-image: linear-gradient(var(--hk-hover, transparent), var(--hk-hover, transparent)); }
 .hk-state:active { background-image: linear-gradient(var(--hk-active, transparent), var(--hk-active, transparent)); }
-.hk-focus:focus-visible { outline: 2px solid var(--hk-focus, currentColor); outline-offset: 1px; }
+.hk-press { transition: transform .12s ease; }
+.hk-press:active:not(:disabled) { transform: scale(.97); }
+/* 键盘焦点环统一：kit 作用域内全部可交互元素取同一描边宽度/偏移/颜色
+   （--hk-focus 由元素或祖先声明），不再依赖各浏览器 UA 高亮样式 */
+[data-hk-scope] button:focus-visible,
+[data-hk-scope] a[href]:focus-visible,
+[data-hk-scope] input:focus-visible,
+[data-hk-scope] textarea:focus-visible,
+[data-hk-scope] select:focus-visible,
+[data-hk-scope] [tabindex="0"]:focus-visible {
+  outline: 2px solid var(--hk-focus, currentColor);
+  outline-offset: 2px;
+}
+.hk-focus:focus-visible { outline: 2px solid var(--hk-focus, currentColor); outline-offset: 2px; }
 .hk-focus::placeholder { color: var(--hk-placeholder, inherit); opacity: 1; }
+/* 等宽数字工具类（与 TABULAR_NUMS 同口径） */
+.hk-num { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) {
+  .hk-state, .hk-press { transition: none; }
+  .hk-press:active:not(:disabled) { transform: none; }
+}
 `;
 
 /**
@@ -83,4 +108,4 @@ function stateLayerProps(onColor, extraStyle) {
   return { className: 'hk-state', style };
 }
 
-export { ensureStateLayerStyle, stateLayerProps, FONT_STACK, supportsColorMix };
+export { ensureStateLayerStyle, stateLayerProps, FONT_STACK, TABULAR_NUMS, supportsColorMix };

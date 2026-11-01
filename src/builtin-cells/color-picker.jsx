@@ -20,7 +20,6 @@ const DEFAULT_SWATCHES = ['#4a90d9', '#1a8a4a', '#c03a2a', '#c07a1a', '#8a6fd9',
 function ColorPickerAssembledView({ cell }) {
   const swatches = useCellData(cell, 'swatches') || [];
   const color = useCellData(cell, 'color');
-  const surface = useThemeColor('surface', '#ffffff');
   const text = useThemeColor('text', '#333333');
   const corner = useCornerType();
   const controlR = useShapeRadius('control', 4);
@@ -28,7 +27,7 @@ function ColorPickerAssembledView({ cell }) {
     <div style={{
       display: 'flex', flexDirection: 'column', gap: 8,
       width: '100%', height: '100%', padding: 8, boxSizing: 'border-box',
-      backgroundColor: surface,
+      
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {swatches.map((sw, i) => (
@@ -69,7 +68,7 @@ class ColorPickerCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(64).defaultWidth(200).color('surface')
+    this.fixedHeight(64).defaultWidth(200)
       .schema({
         swatches: { type: 'array', default: DEFAULT_SWATCHES },
         color: { type: 'string', default: '#4a90d9' },

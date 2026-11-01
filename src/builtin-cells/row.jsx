@@ -21,7 +21,7 @@ class RowCell extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.layout('horizontal').moveX(false).moveY(false)
-      .color('surface');
+      ;
   }
 }
 

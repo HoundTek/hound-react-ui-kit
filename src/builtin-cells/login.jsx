@@ -75,7 +75,7 @@ class LoginCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(170).color('surface').layout('vertical')
+    this.fixedHeight(170).layout('vertical')
       .schema({
         username: { type: 'string', default: '' },
         password: { type: 'string', default: '' },

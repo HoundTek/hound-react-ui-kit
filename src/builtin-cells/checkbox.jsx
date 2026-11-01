@@ -96,7 +96,7 @@ class CheckboxCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(40).color('surface')
+    this.fixedHeight(40)
       .schema({
         label: { type: 'string', default: '' },
         checked: { type: 'boolean', default: false },

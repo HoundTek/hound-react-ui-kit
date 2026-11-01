@@ -64,7 +64,6 @@ function ChatMessageView({ msg }) {
 function ChatAssembledView({ cell }) {
   const messages = useCellData(cell, 'messages') || [];
   const inputValue = useCellData(cell, 'inputValue');
-  const surfaceColor = useThemeColor('surface', '#ffffff');
   const borderColor = useThemeColor('border', '#eeeeee');
   const send = () => {
     if (!inputValue) return;
@@ -72,7 +71,7 @@ function ChatAssembledView({ cell }) {
     cell.setInputValue('');
   };
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', backgroundColor: surfaceColor }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
       {/* 消息区为有意设计的内部滚动子区域（输入行固定），经 ViewScrollArea
           获得与 Box 层一致的浮动滚动条与滚轮阻尼 */}
       <ViewScrollArea
@@ -112,7 +111,7 @@ class ChatCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveY(true).layout('vertical').color('surface')
+    this.moveY(true).layout('vertical')
       .schema({
         messages: { type: 'array', default: [] },
         inputValue: { type: 'string', default: '' },

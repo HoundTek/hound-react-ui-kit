@@ -19,7 +19,7 @@ class GroupCell extends CellBaseBuilder {
   constructor(id) {
     super(id);
     this.layout('vertical').defaultWidth(260).minHeight(80)
-      .color('surface');
+      ;
   }
 }
 

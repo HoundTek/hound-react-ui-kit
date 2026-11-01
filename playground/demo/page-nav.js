@@ -2,8 +2,8 @@
  * @file page-nav.js —— 页面级导航（UI Kit 体系内的页面切换）
  *
  * 替代原 app.jsx 右下角的原生 <button>（不属于 UI Kit 体系的控件）。
- * 每个演示页树顶部各挂一个 NavBarCell 实例（预设展示台 / 工作台两项），
- * 点击经订阅回调通知 app.jsx 切换页面；两页树模块级常驻，页面切换后
+ * 每个演示页树顶部各挂一个 NavBarCell 实例（预设展示台 / 文档两项），
+ * 点击经订阅回调通知 app.jsx 切换页面；展示台树模块级常驻，页面切换后
  * 经 syncPageNav 同步全部实例的选中态。
  */
 import { NavBarCell } from '../../src/core/ui-kit';
@@ -16,7 +16,7 @@ const _listeners = new Set();
 
 /**
  * 创建一个页面导航 NavBarCell（title 与导航项均为 i18n key，经 useText 翻译）。
- * @param {string} activePage 所在页面标识（'presets' | 'workbench'）
+ * @param {'presets'|'docs'} activePage 所在页面标识
  * @returns {NavBarCell} 页面导航实例
  */
 function createPageNav(activePage) {
@@ -24,7 +24,6 @@ function createPageNav(activePage) {
   nav.setTitle('app.title');
   nav.setItems([
     { id: 'presets', title: 'nav.presets' },
-    { id: 'workbench', title: 'nav.workbench' },
     { id: 'docs', title: 'nav.docs' },
   ]);
   nav.setActiveId(activePage);

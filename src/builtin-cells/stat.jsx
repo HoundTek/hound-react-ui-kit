@@ -13,6 +13,7 @@ import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor } from '../core/theme/theme-react';
 import { GlyphTriangle } from '../basic-cells/glyphs';
+import { TABULAR_NUMS } from '../core/theme/state-layer';
 
 /**
  * 统计指标组装视图（fallback）：订阅 label/value/prefix/suffix/trend/color，纵向排布。
@@ -25,8 +26,9 @@ function StatAssembledView({ cell }) {
   const prefix = useText(useCellData(cell, 'prefix'));
   const suffix = useText(useCellData(cell, 'suffix'));
   const trend = useCellData(cell, 'trend');
-  const color = useCellData(cell, 'color');
-  const surface = useThemeColor('surface', '#fff');
+  // 数据色可传颜色角色名（如 'primary'），未定义角色按裸色值使用
+  const colorRole = useCellData(cell, 'color');
+  const color = useThemeColor(colorRole, colorRole);
   const textMuted = useThemeColor('text-muted', '#888');
   const success = useThemeColor('success', '#1a8a4a');
   const danger = useThemeColor('danger', '#c03a2a');
@@ -34,14 +36,14 @@ function StatAssembledView({ cell }) {
     <div style={{
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       padding: '0 16px', width: '100%', height: '100%', boxSizing: 'border-box',
-      backgroundColor: surface,
+      
     }}>
       <div style={{ fontSize: 12, color: textMuted }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 'bold', color, lineHeight: 1.4 }}>
+      <div style={{ fontSize: 24, fontWeight: 'bold', color, lineHeight: 1.4, ...TABULAR_NUMS }}>
         {prefix}{value}{suffix}
       </div>
       {trend != null ? (
-        <div style={{ fontSize: 12, color: trend >= 0 ? success : danger, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ fontSize: 12, color: trend >= 0 ? success : danger, display: 'flex', alignItems: 'center', gap: 4, ...TABULAR_NUMS }}>
           <GlyphTriangle dir={trend >= 0 ? 'up' : 'down'} size={10} />
           {Math.abs(trend)}%
         </div>
@@ -64,7 +66,7 @@ class StatCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(76).color('surface')
+    this.fixedHeight(76)
       .schema({
         label: { type: 'string', default: '' },
         value: { type: 'number', default: 0 },

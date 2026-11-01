@@ -81,7 +81,7 @@ class PaginationCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(36).color('surface')
+    this.fixedHeight(36)
       .schema({
         total: { type: 'number', default: 0 },
         pageSize: { type: 'number', default: 10 },

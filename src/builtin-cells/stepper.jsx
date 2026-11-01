@@ -15,6 +15,7 @@ import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor } from '../core/theme/theme-react';
 import { ButtonImpl, TextImpl } from '../basic-cells';
 import { GlyphMinus, GlyphPlus } from '../basic-cells/glyphs';
+import { TABULAR_NUMS } from '../core/theme/state-layer';
 
 /**
  * 步进器组装视图（fallback）：label + −/+ 按钮 + TextImpl 值回显。
@@ -43,7 +44,7 @@ function StepperAssembledView({ cell }) {
         disabled={value <= min}
         onPress={() => cell.setValue(Math.max(min, value - step))}
       />
-      <div style={{ flexShrink: 0, width: 44, height: 24 }}>
+      <div style={{ flexShrink: 0, width: 44, height: 24, ...TABULAR_NUMS }}>
         <TextImpl text={String(value)} size={13} align="center" color="text" />
       </div>
       <ButtonImpl
@@ -72,7 +73,7 @@ class StepperCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(40).color('surface')
+    this.fixedHeight(40)
       .schema({
         label: { type: 'string', default: '' },
         value: { type: 'number', default: 0 },

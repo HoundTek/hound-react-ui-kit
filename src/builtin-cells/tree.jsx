@@ -230,7 +230,7 @@ class TreeCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveY(true).layout('vertical').color('surface')
+    this.moveY(true).layout('vertical')
       .schema({
         nodes: { type: 'array', default: [] },
         expanded: { type: 'array', default: [] },

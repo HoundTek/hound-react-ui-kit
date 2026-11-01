@@ -4,7 +4,7 @@
  *
  * 分类：
  * - 基础构件：TextCell（文本）、ButtonCell（按钮）、InputCell（输入框）、
- *   ToggleCell（开关）、ListCell（列表选择）
+ *   ListCell（列表选择）
  * - 浮层构件（Cell × 浮动视口）：NotificationCell（通知条，定时自动关闭）、
  *   ModalCell（模态对话框）、WindowCell（独立窗口，可移动/缩放/关闭）
  *
@@ -31,7 +31,7 @@ import { useCellData } from '../cell/cell-react';
 import { useText } from '../i18n/i18n-react';
 import { FloatingCloseButton } from '../box/box-component';
 import { useTheme, useThemeColor, useShapeRadius, useCornerType, useElementStyle } from '../theme/theme-react';
-import { cornerStyle, CAPSULE_RADIUS } from '../theme/shape';
+import { cornerStyle } from '../theme/shape';
 import { GlyphMinus, GlyphMaximize, GlyphRestore, GlyphClose } from '../../basic-cells/glyphs';
 
 // =========================================================================
@@ -236,65 +236,6 @@ class InputCell extends CellBaseBuilder {
         value: { type: 'string', default: '' },
       })
       .renderContent(InputView);
-  }
-}
-
-/**
- * 开关视图：订阅 label/enabled，点击切换开/关状态。
- * @param {{cell: CellBaseBuilder}} props 组件属性
- * @returns {JSX.Element} 视图元素
- */
-function ToggleView({ cell }) {
-  const label = useText(useCellData(cell, 'label'));
-  const enabled = useCellData(cell, 'enabled');
-  const theme = useTheme();
-  const corner = theme?.getCornerType() || 'g1';
-  const trackOn = theme?.resolveColor('primary') ?? '#4a90d9';
-  const trackOff = theme?.resolveColor('border') ?? '#ccc';
-  const knob = theme?.resolveColor('surface') ?? '#fff';
-  return (
-    <div
-      onClick={() => cell.setEnabled(!enabled)}
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 12px', width: '100%', height: '100%',
-        cursor: 'pointer', userSelect: 'none', fontSize: 13,
-        color: theme?.resolveColor('text') ?? '#333',
-      }}
-    >
-      <span>{label}</span>
-      {/* 轨道为胶囊形（短轴全圆角），圆角品质随主题圆角类型 */}
-      <div style={{
-        width: 36, height: 20, position: 'relative', flexShrink: 0,
-        ...cornerStyle(corner, CAPSULE_RADIUS),
-        backgroundColor: enabled ? trackOn : trackOff, transition: 'background-color .15s',
-      }}>
-        <div style={{
-          position: 'absolute', top: 2, width: 16, height: 16,
-          ...cornerStyle(corner, CAPSULE_RADIUS),
-          backgroundColor: knob, transition: 'left .15s',
-          left: enabled ? 18 : 2,
-        }} />
-      </div>
-    </div>
-  );
-}
-
-/**
- * ToggleCell：通用开关。label 支持 i18n key 或纯文本，enabled 为开/关状态。
- */
-class ToggleCell extends CellBaseBuilder {
-  /**
-   * @param {string} id Cell 标识
-   */
-  constructor(id) {
-    super(id);
-    this.fixedHeight(48).color('surface-muted')
-      .schema({
-        label: { type: 'string', default: '' },
-        enabled: { type: 'boolean', default: true },
-      })
-      .renderContent(ToggleView);
   }
 }
 
@@ -716,4 +657,4 @@ class WindowCell extends FloatingWindowCellBase {
   }
 }
 
-export { TextCell, TextImpl, ButtonCell, InputCell, ToggleCell, ListCell, CloseButtonCell, NotificationCell, FloatingWindowCellBase, ModalCell, WindowCell };
+export { TextCell, TextImpl, ButtonCell, InputCell, ListCell, CloseButtonCell, NotificationCell, FloatingWindowCellBase, ModalCell, WindowCell };

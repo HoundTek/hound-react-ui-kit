@@ -109,7 +109,7 @@ windowCell.operable();                  // 加入可操作集合（等价 Box �
 
 用户可见的 API 面只有 Cell：主窗口（页面根 Cell）与伪窗口（浮动视口 Cell）
 一致经 Cell 层 API 构建，Box 层 API 由 Cell 基类委托、不直接暴露
-（演示见 src/demo/floating-window-demo.jsx）。
+（演示见 playground/demo/preset-demo-page.jsx 的「浮层与弹窗」分区）。
 
 ### 窗口控件结构（chrome）与样式控制
 

@@ -15,6 +15,7 @@ import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor, useCornerType, useShapeRadius } from '../core/theme/theme-react';
 import { cornerStyle } from '../core/theme/shape';
+import { TABULAR_NUMS } from '../core/theme/state-layer';
 
 /**
  * 柱体单元：订阅列 label（i18n key 或纯文本），渲染柱体与底部标注。
@@ -33,7 +34,7 @@ function ChartBarView({ value, label, max, color }) {
         <div style={{ width: 18, height: `${percent}%`, backgroundColor: color, ...cornerStyle(corner, controlR) }} />
       </div>
       <div style={{
-        fontSize: 10, color: labelColor, maxWidth: '100%', paddingTop: 2,
+        fontSize: 10, color: labelColor, maxWidth: '100%', paddingTop: 2, ...TABULAR_NUMS,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {labelText}
@@ -52,7 +53,7 @@ function ChartLineLabelView({ label }) {
   const labelColor = useThemeColor('text-muted', '#888');
   return (
     <div style={{
-      flex: 1, fontSize: 10, color: labelColor, textAlign: 'center',
+      flex: 1, fontSize: 10, color: labelColor, textAlign: 'center', ...TABULAR_NUMS,
       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
     }}>
       {labelText}
@@ -69,14 +70,15 @@ function ChartAssembledView({ cell }) {
   const type = useCellData(cell, 'type');
   const data = useCellData(cell, 'data') || [];
   const labels = useCellData(cell, 'labels') || [];
-  const color = useCellData(cell, 'color');
-  const surfaceColor = useThemeColor('surface', '#ffffff');
+  // 数据色可传颜色角色名（如 'primary'），未定义角色按裸色值使用
+  const colorRole = useCellData(cell, 'color');
+  const color = useThemeColor(colorRole, colorRole);
   const emptyColor = useThemeColor('border', '#ccc');
   if (!data.length) {
     return (
       <div style={{
         width: '100%', height: '100%', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', fontSize: 20, color: emptyColor, backgroundColor: surfaceColor,
+        justifyContent: 'center', fontSize: 20, color: emptyColor,
       }}>
         —
       </div>
@@ -92,7 +94,7 @@ function ChartAssembledView({ cell }) {
     return (
       <div style={{
         display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
-        padding: 8, boxSizing: 'border-box', backgroundColor: surfaceColor,
+        padding: 8, boxSizing: 'border-box',
       }}>
         <svg viewBox="0 0 100 50" preserveAspectRatio="none" style={{ width: '100%', flex: 1, minHeight: 0 }}>
           {n === 1 ? <circle cx={50} cy={y} r={2.5} fill={color} /> : (
@@ -110,7 +112,7 @@ function ChartAssembledView({ cell }) {
   return (
     <div style={{
       display: 'flex', width: '100%', height: '100%',
-      padding: 8, boxSizing: 'border-box', backgroundColor: surfaceColor,
+      padding: 8, boxSizing: 'border-box',
     }}>
       {data.map((v, i) => (
         <ChartBarView key={i} value={v} label={labels[i] || ''} max={max} color={color} />
@@ -133,7 +135,7 @@ class ChartCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.minHeight(120).defaultWidth(240).color('surface')
+    this.minHeight(120).defaultWidth(240)
       .schema({
         type: { type: 'string', default: 'bar' },
         data: { type: 'array', default: [] },

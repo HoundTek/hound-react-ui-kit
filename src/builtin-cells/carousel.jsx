@@ -29,14 +29,13 @@ function CarouselAssembledView({ cell }) {
   const index = count ? ((currentIndex % count) + count) % count : 0;
   const current = count ? items[index] : null;
   const corner = useCornerType();
-  const surfaceColor = useThemeColor('surface', '#ffffff');
   const primaryColor = useThemeColor('primary', '#4a90d9');
   const dotMutedColor = useThemeColor('border', '#d9d9d9');
   const emptyText = useText('hk.carousel.empty');
   const prev = () => { if (count) cell.setCurrentIndex((index - 1 + count) % count); };
   const next = () => { if (count) cell.setCurrentIndex((index + 1) % count); };
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', backgroundColor: surfaceColor }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, height: 60, padding: '0 4px' }}>
         <ButtonImpl label="" icon={<GlyphChevron dir="left" size={12} />} type="default" size="small" onPress={prev} />
         <div style={{ flex: 1, minWidth: 0, height: '100%' }}>
@@ -75,7 +74,7 @@ class CarouselCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(80).color('surface')
+    this.fixedHeight(80)
       .schema({
         items: { type: 'array', default: [] },
         currentIndex: { type: 'number', default: 0 },

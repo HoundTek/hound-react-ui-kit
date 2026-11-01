@@ -18,7 +18,7 @@ class FieldCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.layout('horizontal').moveX(false).moveY(false).fixedHeight(44).color('surface')
+    this.layout('horizontal').moveX(false).moveY(false).fixedHeight(44)
       .defineSlot('label', {
         fixedWidth: 80, layout: 'horizontal', moveX: false, moveY: false,
         single: true, color: 'surface',

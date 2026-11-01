@@ -51,7 +51,7 @@ class SettingsCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(48).color('surface')
+    this.fixedHeight(48)
       .moveY(false).moveX(false).layout('horizontal')
       .schema({
         title: { type: 'string', default: '' },

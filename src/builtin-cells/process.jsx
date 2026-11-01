@@ -85,7 +85,7 @@ class ProcessCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(48).color('surface')
+    this.fixedHeight(48)
       .schema({
         steps: { type: 'array', default: [] },
         current: { type: 'number', default: 0 },

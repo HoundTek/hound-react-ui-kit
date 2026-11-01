@@ -14,8 +14,9 @@ import { useThemeColor } from '../core/theme/theme-react';
 import { ButtonImpl } from '../basic-cells/button';
 
 const WEEK_HEADERS = ['日', '一', '二', '三', '四', '五', '六'];
-const CELL_STYLE = { width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 };
-const HEADER_STYLE = { width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 };
+/** 日期格容器：七列等分网格，格高 28（格内按钮取 icon 尺寸，不溢出相邻格） */
+const CELL_STYLE = { height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const HEADER_STYLE = { height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 };
 
 /** 当月天数。 */
 function daysInMonth(year, month) {
@@ -44,7 +45,6 @@ function dateString(year, month, day) {
  * @returns {JSX.Element} 月历元素
  */
 function CalendarImpl({ year, month, selected, firstDay = 0, onSelect }) {
-  const surfaceColor = useThemeColor('surface', '#ffffff');
   const headerColor = useThemeColor('text-muted', '#888');
   const days = daysInMonth(year, month);
   const offset = firstOffset(year, month, firstDay);
@@ -54,19 +54,25 @@ function CalendarImpl({ year, month, selected, firstDay = 0, onSelect }) {
   for (let d = 1; d <= days; d += 1) {
     const ds = dateString(year, month, d);
     cells.push(
-      <div key={ds} style={{ ...CELL_STYLE, padding: 0 }}>
+      <div key={ds} style={CELL_STYLE}>
         <ButtonImpl
           label={String(d)}
           type={ds === selected ? 'primary' : 'default'}
-          size="small"
+          size="icon"
           onPress={() => onSelect(ds)}
         />
       </div>
     );
   }
   return (
-    <div style={{ width: '100%', height: '100%', backgroundColor: surfaceColor, padding: 8, boxSizing: 'border-box' }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', width: 196 }}>
+    <div style={{
+      width: '100%', height: '100%', padding: 8, boxSizing: 'border-box', overflow: 'hidden',
+    }}>
+      {/* 七列等分网格：表头与日期格共用列宽，格内按钮居中，不会交叠邻居 */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
+        columnGap: 2, rowGap: 2, width: '100%',
+      }}>
         {headers.map(h => <div key={h} style={{ ...HEADER_STYLE, color: headerColor }}>{h}</div>)}
         {cells}
       </div>
@@ -96,7 +102,8 @@ const CalendarDispatcher = createImplDispatcher('calendar', CalendarAssembledVie
  * CalendarCell：月历（高级 Cell，按钮族）。year/month 定位月份（month 1-12），
  * selected 存 'YYYY-MM-DD'，firstDay 指定每周首日（0=周日，默认）；
  * 点击日期写入 selected 并高亮主色底。
- * 呈现实现由 kind 'calendar' 分发（缺省为按钮组装版）。
+ * 呈现实现由 kind 'calendar' 分发（缺省为按钮组装版）；底色不在此声明，
+ * 月历随父容器背景呈现。
  */
 class CalendarCell extends CellBaseBuilder {
   /**
@@ -104,7 +111,7 @@ class CalendarCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveY(true).defaultWidth(196).color('surface')
+    this.moveY(true).defaultWidth(196)
       .schema({
         year: { type: 'number', default: 2026 },
         month: { type: 'number', default: 1 },

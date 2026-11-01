@@ -268,8 +268,17 @@ const win = new BoxBuilder('@float/win')
 - `TextCell`：文本展示（text 存 i18n key 或纯文本；size/color/bold/align 排版字段）
 - `ButtonCell`：按钮（label/disabled；点击写入 pressed 并触发 `onPress(fn)` 注入的动作）
 - `InputCell`：输入框（label/placeholder/value 实时写入数据）
-- `ToggleCell`：开关（label/enabled 点击切换）
+- `ToggleCell`：开关（`SwitchCell` 的等价别名——同一实现、同一 Schema，仅为兼容
+  旧导出保留；新代码请用 `SwitchCell`。开关的轨道/滑块语义见 switch.jsx，`ToggleCell`
+  不再有独立实现）
 - `ListCell`：选择列表（items=[{id,title}] 业务数据 + selected 点击高亮）
+
+按钮与开关类预设的样式档位（`ButtonImpl`，checkbox/radio/日历/翻页等组装场景复用）：
+- 变体 `variant`：`filled` / `tonal` / `outlined` / `text`（MD3 四变体；解析顺序
+  为 props > `theme.elements.button.variant` > 旧 `type` 推导；`type` 保留兼容）
+- 尺寸 `size`：`small`(24) / `default`(32) / `large`(40) / `icon`(24，水平内边距 4，
+  用于日历日格、页码、图标位等密度高的格子)
+- 描边走内阴影（`boxShadow: inset`），不占盒模型，边框粗细不会挤压文字
 
 **浮层构件**（Cell × 浮动视口，展示 Cell 与 Box 浮动能力的结合）：
 - `NotificationCell`：通知条（浮动视口，可关闭；`duration` 非空时定时 `close()` 自动消失）

@@ -65,7 +65,7 @@ class ResultCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.defaultHeight(160).color('surface')
+    this.defaultHeight(160)
       .schema({
         status: { type: 'string', default: 'info' },
         title: { type: 'string', default: '' },

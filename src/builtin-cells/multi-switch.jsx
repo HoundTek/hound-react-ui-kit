@@ -71,7 +71,7 @@ class MultiSwitchCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(56).color('surface-muted')
+    this.fixedHeight(56)
       .schema({
         label: { type: 'string', default: '' },
         options: { type: 'array', default: ['低', '中', '高'] },

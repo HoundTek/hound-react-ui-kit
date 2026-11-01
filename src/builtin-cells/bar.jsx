@@ -14,6 +14,7 @@ import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor, useCornerType } from '../core/theme/theme-react';
 import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
+import { TABULAR_NUMS } from '../core/theme/state-layer';
 
 /**
  * 条形图单行：label + 轨道 + 填充条（宽度按 maxValue 归一化）+ 可选数值。
@@ -40,7 +41,7 @@ function BarRow({ item, color, showValue, maxValue }) {
         <div style={{ width: `${pct}%`, height: '100%', ...cornerStyle(corner, CAPSULE_RADIUS), backgroundColor: color }} />
       </div>
       {showValue ? (
-        <span style={{ fontSize: 11, color: valueColor, paddingLeft: 6, flexShrink: 0 }}>{value}</span>
+        <span style={{ fontSize: 11, color: valueColor, paddingLeft: 6, flexShrink: 0, ...TABULAR_NUMS }}>{value}</span>
       ) : null}
     </div>
   );
@@ -53,7 +54,9 @@ function BarRow({ item, color, showValue, maxValue }) {
  */
 function BarAssembledView({ cell }) {
   const items = useCellData(cell, 'items') || [];
-  const color = useCellData(cell, 'color');
+  // 数据色可传颜色角色名（如 'primary'），未定义角色按裸色值使用
+  const colorRole = useCellData(cell, 'color');
+  const color = useThemeColor(colorRole, colorRole);
   const showValue = useCellData(cell, 'showValue');
   const maxValue = Math.max(0, ...items.map(i => i.value || 0)) || 1;
   return (

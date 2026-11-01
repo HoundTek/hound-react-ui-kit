@@ -24,12 +24,11 @@ import { ButtonImpl } from '../basic-cells';
 function IndexBarAssembledView({ cell }) {
   const indexes = useCellData(cell, 'indexes') || [];
   const activeIndex = useCellData(cell, 'activeIndex');
-  const surface = useThemeColor('surface', '#ffffff');
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       width: '100%', height: '100%', overflow: 'hidden',
-      backgroundColor: surface, padding: '4px 0', boxSizing: 'border-box',
+      padding: '4px 0', boxSizing: 'border-box',
     }}>
       {indexes.map(letter => (
         <div key={letter} style={{ flexShrink: 0 }}>
@@ -59,7 +58,7 @@ class IndexBarCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedWidth(24).moveY(true).layout('vertical').color('surface')
+    this.fixedWidth(24).moveY(true).layout('vertical')
       .schema({
         indexes: { type: 'array', default: ['A', 'B', 'C', 'D', 'E'] },
         activeIndex: { type: 'string', default: '' },

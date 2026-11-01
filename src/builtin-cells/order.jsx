@@ -15,6 +15,7 @@ import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { useThemeColor } from '../core/theme/theme-react';
 import { ButtonImpl } from '../basic-cells/button';
 import { GlyphTriangle } from '../basic-cells/glyphs';
+import { TABULAR_NUMS } from '../core/theme/state-layer';
 
 /**
  * 排序列表组装视图（fallback）：订阅 items/sortField/sortDir，
@@ -88,7 +89,7 @@ function OrderAssembledView({ cell }) {
           </div>
           <div style={{
             width: 90, flexShrink: 0, height: 30, display: 'flex', alignItems: 'center',
-            justifyContent: 'flex-end', padding: '0 10px', fontSize: 13, color: text,
+            justifyContent: 'flex-end', padding: '0 10px', fontSize: 13, color: text, ...TABULAR_NUMS,
           }}>
             {item.amount}
           </div>
@@ -112,7 +113,7 @@ class OrderCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.minHeight(100).moveY(true).color('surface')
+    this.minHeight(100).moveY(true)
       .schema({
         items: { type: 'array', default: [] },
         sortField: { type: 'string', default: '' },

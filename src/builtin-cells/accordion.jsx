@@ -57,9 +57,8 @@ function AccordionItemView({ cell, item, active }) {
 function AccordionAssembledView({ cell }) {
   const items = useCellData(cell, 'items') || [];
   const activeId = useCellData(cell, 'activeId');
-  const surfaceColor = useThemeColor('surface', '#ffffff');
   return (
-    <div style={{ width: '100%', height: '100%', backgroundColor: surfaceColor }}>
+    <div style={{ width: '100%', height: '100%' }}>
       {items.map(item => (
         <AccordionItemView key={item.id} cell={cell} item={item} active={item.id === activeId} />
       ))}
@@ -81,7 +80,7 @@ class AccordionCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveY(true).layout('vertical').color('surface')
+    this.moveY(true).layout('vertical')
       .schema({
         items: { type: 'array', default: [] },
         activeId: { type: 'string', default: '' },

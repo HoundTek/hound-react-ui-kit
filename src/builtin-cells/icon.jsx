@@ -11,6 +11,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { useThemeColor } from '../core/theme/theme-react';
 
 /**
  * 内建命名图标（SVG path，24×24 viewBox）：以固定几何绘制，
@@ -30,7 +31,9 @@ const BUILTIN_GLYPHS = {
 function IconAssembledView({ cell }) {
   const glyph = useCellData(cell, 'glyph');
   const size = useCellData(cell, 'size');
-  const color = useCellData(cell, 'color');
+  // 数据色可传颜色角色名（如 'warning'），未定义角色按裸色值使用
+  const colorRole = useCellData(cell, 'color');
+  const color = useThemeColor(colorRole, colorRole);
   const path = BUILTIN_GLYPHS[glyph];
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

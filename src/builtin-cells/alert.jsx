@@ -2,10 +2,11 @@
  * @file alert.jsx —— AlertCell（警示条）高级 Cell
  *
  * 浮层族：警示条 = NoticeImpl（族内共享公告条实现，见 docs/basic-cell-design.md）
- * 的内联形态（非胶囊、无投影）。type 决定配色与字形（info/success/warning/error），
+ * 的内联形态（非胶囊、无投影，tonal 配色：语义色浅底 + 语义色文字 + 细描边）。
+ * type 决定配色与字形（info/success/warning/error），
  * text 存 i18n key 或纯文本；closable 时右侧 ✕ 可关闭（visible=false 后不再渲染）。
  * 主题可经 theme.components.alert 整体重写呈现实现。
- * 固定高度 40，常用于页面顶部或表单上方的提示区域。
+ * 固定高度 40（与 NoticeCell 一致），常用于页面顶部或表单上方的提示区域。
  *
  * Schema（数据契约，与旧版一致）：type / text / closable / visible。
  */
@@ -26,7 +27,7 @@ function AlertAssembledView({ cell }) {
   const closable = useCellData(cell, 'closable');
   const visible = useCellData(cell, 'visible');
   if (!visible) return null;
-  return <NoticeImpl text={text} type={type} closable={closable} onClose={() => cell.setVisible(false)} />;
+  return <NoticeImpl text={text} type={type} variant="tonal" closable={closable} onClose={() => cell.setVisible(false)} />;
 }
 
 /** kind 'alert' 的实现分发视图 */

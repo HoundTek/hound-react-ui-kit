@@ -76,7 +76,7 @@ class UploadCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.defaultWidth(240).moveY(true).layout('vertical').color('surface')
+    this.defaultWidth(240).moveY(true).layout('vertical')
       .schema({
         text: { type: 'string', default: 'hk.upload.text' },
         fileList: { type: 'array', default: [] },

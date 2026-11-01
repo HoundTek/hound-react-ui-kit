@@ -18,6 +18,7 @@ import { useThemeColor } from '../core/theme/theme-react';
 import { ButtonImpl } from '../basic-cells/button';
 import { GlyphChevron } from '../basic-cells/glyphs';
 import { CalendarImpl } from './calendar';
+import { TABULAR_NUMS } from '../core/theme/state-layer';
 
 /**
  * 日期选择组装视图（fallback）：订阅 value/year/month/open/placeholder。
@@ -32,7 +33,6 @@ function DatePickerAssembledView({ cell }) {
   const month = useCellData(cell, 'month');
   const open = useCellData(cell, 'open');
   const placeholder = useText(useCellData(cell, 'placeholder'));
-  const surface = useThemeColor('surface', '#ffffff');
   const text = useThemeColor('text', '#333');
   // 切月：跨年自动进位
   const prevMonth = () => {
@@ -46,7 +46,7 @@ function DatePickerAssembledView({ cell }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
-      backgroundColor: surface, fontSize: 13, color: text, overflow: 'hidden',
+      fontSize: 13, color: text, overflow: 'hidden',
     }}>
       {/* 顶部输入条：只读展示，点击切换展开 */}
       <div style={{ margin: 6, flexShrink: 0 }}>
@@ -64,7 +64,7 @@ function DatePickerAssembledView({ cell }) {
         <div style={{ padding: '0 6px 6px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 4px 4px' }}>
             <ButtonImpl label="" icon={<GlyphChevron dir="left" size={12} />} type="default" size="small" onPress={prevMonth} />
-            <span style={{ fontSize: 13, fontWeight: 'bold' }}>{year} 年 {month} 月</span>
+            <span style={{ fontSize: 13, fontWeight: 'bold', ...TABULAR_NUMS }}>{year} 年 {month} 月</span>
             <ButtonImpl label="" icon={<GlyphChevron dir="right" size={12} />} type="default" size="small" onPress={nextMonth} />
           </div>
           <CalendarImpl
@@ -94,7 +94,7 @@ class DatePickerCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.moveY(true).layout('vertical').defaultWidth(240).color('surface')
+    this.moveY(true).layout('vertical').defaultWidth(240)
       .schema({
         value: { type: 'string', default: '' },
         year: { type: 'number', default: 2026 },

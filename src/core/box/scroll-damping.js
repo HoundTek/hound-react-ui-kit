@@ -15,9 +15,116 @@
 const DAMPING_FACTOR = 0.28;
 /** 收敛阈值（px）：与目标的剩余距离小于该值时吸附到目标并停止动画 */
 const SETTLE_EPSILON = 0.5;
+/**
+ * 手势间隔（ms）：两次 wheel 事件间隔超过该时长视为新手势。
+ * 嵌套滚动链的语义：一次连续手势只服务一个可滚容器；容器滚到边界后
+ * 继续滚动（含惯性）只在原地吞掉，不冒泡到外层；用户停顿后重新滚动的
+ * 新一轮手势才允许上移一层——每轮手势最多滚动一个区域。
+ */
+const GESTURE_GAP_MS = 280;
 
 /** @type {WeakMap<HTMLElement, {addDelta: Function, dispose: Function}>} 各滚动容器的阻尼控制器 */
 const _controllers = new WeakMap();
+
+/**
+ * 当前滚动手势（模块级共享，所有滚动容器与覆盖层转发共用一份）。
+ * owner 为本轮手势唯一服务的容器；lastEvent 用于同一原生事件在冒泡链路中
+ * 只判定一次手势归属。
+ */
+const _gesture = { owner: null, axis: null, dir: 0, lastTime: 0, lastEvent: null };
+
+/**
+ * 容器在指定轴上朝 dir 方向是否还能滚动（1px 容差吸收取整差异）。
+ * @param {HTMLElement} el 容器
+ * @param {'x'|'y'} axis 轴
+ * @param {number} dir 方向：1 向后（下/右）、-1 向前（上/左）
+ * @returns {boolean} 是否可滚
+ */
+function canScroll(el, axis, dir) {
+  if (!el || el.nodeType !== 1) return false;
+  const max = axis === 'y'
+    ? el.scrollHeight - el.clientHeight
+    : el.scrollWidth - el.clientWidth;
+  if (max <= 1) return false;
+  const pos = axis === 'y' ? el.scrollTop : el.scrollLeft;
+  return dir > 0 ? pos < max - 1 : pos > 1;
+}
+
+/**
+ * 从 start 沿父链向上查找最近的可滚容器（只找到第一个，保证"一层滚动"）。
+ * @param {HTMLElement|null} start 起点（不含自身之前已判定过的容器）
+ * @param {'x'|'y'} axis 轴
+ * @param {number} dir 方向
+ * @returns {HTMLElement|null} 最近的可滚容器；没有返回 null
+ */
+function findScrollable(start, axis, dir) {
+  let node = start;
+  while (node && node.nodeType === 1) {
+    if (_controllers.has(node) && canScroll(node, axis, dir)) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+/**
+ * 滚轮手势路由（内容层与覆盖层转发共用）。语义：
+ * - 以光标所在的最内层可滚容器为准；该层在当前方向上已到边界时，本轮手势
+ *   只上移一层（滚动下一个外层容器），且只滚动这一个区域
+ * - 一轮手势（相邻 wheel 事件间隔 < GESTURE_GAP_MS 且方向不变）始终服务同一
+ *   容器；该容器滚到边界后的剩余增量全部吞掉（preventDefault + stopPropagation），
+ *   不会在同一轮手势里连锁滚动外层
+ * - 用户停顿后重新滚动，才开始新一轮手势，允许再上移一层
+ * @param {HTMLElement} el 收到事件的滚动容器（或覆盖层转发到的内容容器）
+ * @param {number} dx 水平增量（px，已归一化）
+ * @param {number} dy 垂直增量（px，已归一化）
+ * @param {WheelEvent} event 原生事件
+ * @returns {boolean} 是否消费该增量（调用方无需再处理事件）
+ */
+export function routeWheel(el, dx, dy, event) {
+  if (!el || !event || !dx && !dy) return false;
+  const axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+  const delta = axis === 'x' ? dx : dy;
+  if (!delta) return false;
+  const dir = delta > 0 ? 1 : -1;
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+  // 同一原生事件在冒泡链路上只判定一次手势归属（lastEvent 去重）
+  if (_gesture.lastEvent !== event) {
+    _gesture.lastEvent = event;
+    const fresh = !_gesture.owner
+      || now - _gesture.lastTime > GESTURE_GAP_MS
+      || _gesture.axis !== axis
+      || _gesture.dir !== dir;
+    if (fresh) {
+      _gesture.owner = canScroll(el, axis, dir) ? el : findScrollable(el.parentElement, axis, dir);
+      _gesture.axis = axis;
+      _gesture.dir = dir;
+    }
+    _gesture.lastTime = now;
+  }
+
+  const owner = _gesture.owner;
+  // 本轮手势只服务 owner 一层；链路中的其他容器放行（让事件继续冒泡到 owner）
+  if (!owner || owner !== el) return false;
+  if (!canScroll(el, axis, dir)) {
+    // 已到边界：吞掉剩余增量，阻断浏览器原生滚动链，等待用户停顿后新手势
+    event.preventDefault();
+    event.stopPropagation();
+    return true;
+  }
+  const damping = _controllers.get(el);
+  if (!damping) return false;
+  if (!damping.addDelta(dx, dy)) {
+    // 阻尼目标已顶到边界（实测位置仍在收敛途中）：同样吞掉剩余增量，
+    // 否则事件冒泡会让浏览器原生滚动链跳跃多层
+    event.preventDefault();
+    event.stopPropagation();
+    return true;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  return true;
+}
 
 /**
  * 为滚动容器创建阻尼控制器
@@ -97,12 +204,9 @@ function createController(el) {
   const onWheel = (e) => {
     if (e.ctrlKey) return; // 触控板捏合缩放等手势放行
     const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1;
-    if (addDelta(e.deltaX * unit, e.deltaY * unit)) {
-      // 已消费：阻断默认滚动与冒泡（事件冒泡会穿过外层容器，不阻断则
-      // 嵌套可滚盒被外层重复消费——滚动链只认最内层可滚容器）
-      e.preventDefault();
-      e.stopPropagation();
-    }
+    // 手势路由（见 routeWheel）：一次连续手势只服务一个可滚容器，
+    // 到边界后原地吞掉，用户停顿后的新手势才允许上移一层
+    routeWheel(el, e.deltaX * unit, e.deltaY * unit, e);
   };
 
   el.addEventListener('wheel', onWheel, { passive: false });

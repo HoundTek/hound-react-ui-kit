@@ -105,7 +105,7 @@ class TextareaCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(88).color('surface')
+    this.fixedHeight(88)
       .schema({
         label: { type: 'string', default: '' },
         placeholder: { type: 'string', default: '' },

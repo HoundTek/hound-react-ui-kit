@@ -24,7 +24,6 @@ import { InputImpl, ButtonImpl } from '../basic-cells';
 function SearchAssembledView({ cell }) {
   const placeholder = useText(useCellData(cell, 'placeholder'));
   const value = useCellData(cell, 'value') || '';
-  const surface = useThemeColor('surface', '#fff');
   const searchLabel = useText('hk.search.button');
   const doSearch = () => {
     cell.emit('search', value);
@@ -32,7 +31,7 @@ function SearchAssembledView({ cell }) {
   return (
     <div style={{
       width: '100%', height: '100%', display: 'flex', alignItems: 'center',
-      padding: '0 8px', gap: 8, backgroundColor: surface, boxSizing: 'border-box',
+      padding: '0 8px', gap: 8, boxSizing: 'border-box',
     }}>
       <div style={{ flex: 1, minWidth: 0, height: 28 }}>
         <InputImpl
@@ -63,7 +62,7 @@ class SearchCell extends CellBaseBuilder {
    */
   constructor(id) {
     super(id);
-    this.fixedHeight(40).color('surface')
+    this.fixedHeight(40)
       .schema({
         placeholder: { type: 'string', default: 'hk.search.placeholder' },
         value: { type: 'string', default: '' },
