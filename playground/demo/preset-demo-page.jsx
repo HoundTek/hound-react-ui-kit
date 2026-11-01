@@ -16,8 +16,10 @@
  */
 import React from 'react';
 import { createPageNav } from './page-nav';
+import { toggleThemeMode } from './theme-mode';
 import {
   CellBaseBuilder, DataDag, TextCell, ToggleCell, ButtonCell,
+  ButtonImpl, useCellData,
   AccordionCell, AlertCell, AppBarCell, AvatarCell, BadgeCell, BarCell, BoardCell, BreadcrumbCell,
   CalendarCell, CardCell, CarouselCell, ChartCell, ChatCell, CheckboxCell,
   ColorPickerCell, ConfirmCell, ControlCell, DashboardCell, DatePickerCell,
@@ -36,6 +38,42 @@ import {
 // =========================================================================
 //  辅助容器（本页内部布局用）
 // =========================================================================
+
+/**
+ * 亮/暗切换按钮视图：点击经 theme-mode 桥广播模式变化，App 切换
+ * ThemeProvider 的 theme 实例（种子派生 dark 主题），全树重新呈现；
+ * 按钮文字随当前模式更新。
+ * @param {{cell: CellBaseBuilder}} props 组件属性
+ * @returns {JSX.Element} 视图元素
+ */
+function ThemeSwitchView({ cell }) {
+  const label = useCellData(cell, 'label');
+  return (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <ButtonImpl
+        label={label}
+        size="small"
+        onPress={() => {
+          const dark = toggleThemeMode();
+          cell.setLabel(dark ? '☀ 切至浅色' : '🌙 切至深色');
+        }}
+      />
+    </div>
+  );
+}
+
+/** ThemeSwitchCell：亮/暗模式切换控件（置于 hero） */
+class ThemeSwitchCell extends CellBaseBuilder {
+  /**
+   * @param {string} id Cell 标识
+   */
+  constructor(id) {
+    super(id);
+    this.fixedHeight(32)
+      .schema({ label: { type: 'string', default: '🌙 切至深色' } })
+      .renderContent(ThemeSwitchView);
+  }
+}
 
 /**
  * 展示行：横向排列、双轴锁定、固定高（由调用方显式指定）。
@@ -191,6 +229,7 @@ function buildPresetDemo() {
     new TextCell('heroTitle').setText('Hound UI-Kit 预设 Cell 展示台').setSize(20).setBold(true).setColor('on-primary'),
     new TextCell('heroDesc').setText('80 个扩展预设 Cell 分类速览：展示 · 指标 · 表单 · 交互 · 列表 · 导航 · 反馈 · 浮层 · 业务 · 容器')
       .setSize(12).setColor('rgba(255,255,255,0.85)'),
+    new ThemeSwitchCell('themeSwitch'),
   ]);
 
   // ---------- 1. 文本与展示（32 + 62 + 70 = 164） ----------

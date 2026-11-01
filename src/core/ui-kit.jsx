@@ -17,6 +17,8 @@ import { DataDag, DataNode } from './data-dag/data-dag';
 import I18n from './i18n/i18n';
 import { I18nProvider, I18nContext, useText, useI18n } from './i18n/i18n-react';
 import Theme from './theme/theme';
+import { createSeedThemePair } from './theme/theme';
+import { deriveColorRoles, contrastRatio, relativeLuminance, hslToHex } from './theme/palette';
 import { ThemeProvider, ThemeContext, useTheme, useThemeColor, useCornerType, useShapeRadius, useElementStyle } from './theme/theme-react';
 import { resizeEffectRegistry, resolveResizeEffect } from './theme/resize-effects';
 import { cornerStyle, CAPSULE_RADIUS, ELEVATIONS, elevationStyle, resolveElementRadius } from './theme/shape';
@@ -76,6 +78,11 @@ export {
   useText,
   useI18n,
   Theme,
+  createSeedThemePair,
+  deriveColorRoles,
+  contrastRatio,
+  relativeLuminance,
+  hslToHex,
   ThemeProvider,
   ThemeContext,
   useTheme,

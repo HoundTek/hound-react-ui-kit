@@ -28,6 +28,13 @@
 > treeitem/aria-expanded/aria-selected + 上下遍历、右展开入子、左收起回父（WAI-ARIA tree 模式）、Enter 选中。
 > 组件测试基建：jsdom + @testing-library/react，新增 menu/tree 键盘 9 项断言（全套 43 项通过）；
 > 浏览器定点探测证实 tab-bar 键盘切换与 select 展开焦点正常（此前 FAIL 为程序化 click 不移动焦点的探测误差）。
+> **主题派生/暗色成对切换已落地（同日）**：新增 `src/core/theme/palette.js`（HSL 色调模型派生
+> MD3 角色表，light/dark 两套取色 + 中性/次要饱和度收缩 + 兼容别名同值双写 + WCAG 亮度/对比度工具）；
+> `Theme.fromSeed` 种子工厂与 `createSeedThemePair` 配对生成器；playground 接入 hero 内
+> ThemeSwitchCell（theme-mode 桥广播 → App 换 ThemeProvider 实例，Cell 树不重建），
+> 浏览器实测亮/暗双向切换色值正确（254,247,255 ↔ 25,24,27）；palette/fromSeed 12 项断言，全套 55 项通过。
+> 阶段 2 剩余（i18n 补强 / 受控语义糖）与阶段 3 剩余（a11y 第三批 aria-live/对比度审计、
+> 布局脏区优化、视觉回归矩阵、core TS 改写、文档站）待后续批次。
 > 分析范围：`src/` 全量 16,681 行（core / basic-cells / builtin-cells / demo）、`package.json`、构建与文档配置、git 历史。
 > 结论先行：**核心抽象（Cell + DataDag + Box + Theme）有独创价值，但当前形态是一个"以库自居的应用"——不具备可发布的库外壳，缺少生命周期终点（unmount），全局可变单例状态阻断多实例/SSR/测试，无障碍与类型系统接近空白。** 本文给出按阶段可落地的改进路线。
 

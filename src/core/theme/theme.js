@@ -7,7 +7,13 @@
  *
  *        与 Cell/Box 解耦：Theme 只持有声明式描述，不依赖任何 Cell/Box 类型；
  *        Cell/Box 只通过注入机制读取当前主题的声明，不感知具体主题包。
+ *
+ *        种子派生入口：Theme.fromSeed / createSeedThemePair（见 palette.js）——
+ *        从单个种子色生成 light/dark 颜色角色表，暗色切换 = 向 ThemeProvider
+ *        传入配对的另一实例（context value 变化驱动订阅方重新呈现）。
  */
+import { deriveColorRoles } from './palette';
+
 class Theme {
   /**
    * @param {Object} [options] 主题配置
@@ -180,6 +186,56 @@ class Theme {
   getElementStyle(role) {
     return (role && this._elements[role]) || this._elements.default || null;
   }
+
+  /**
+   * 种子色派生主题：从单个 seed 色生成 MD3 风格颜色角色表（palette.js），
+   * 与其余主题配置合并（materials.colors 中的显式声明优先于派生值）。
+   * @param {Object} options
+   * @param {string} options.seed 种子色（hex）
+   * @param {boolean} [options.dark=false] 取 dark 方案
+   * @param {string} [options.name] 主题名；缺省 `seed-{light|dark}`
+   * @param {Object} [options.effects] 动态属性层（同构造参数）
+   * @param {Object} [options.shape] 形状描述（同构造参数）
+   * @param {Object} [options.materials] 除 colors 外的材质/遮罩等；
+   *   materials.colors 作为覆盖层合入派生角色表
+   * @param {Object} [options.styles] 角色样式默认值表
+   * @param {Object} [options.components] 组件级重写声明
+   * @param {Object} [options.elements] 元素级样式表
+   * @returns {Theme}
+   */
+  static fromSeed({ seed, dark = false, name, effects, shape, materials = {}, styles, components, elements }) {
+    const colors = deriveColorRoles({
+      seed,
+      dark,
+      overrides: materials.colors || {},
+    });
+    return new Theme({
+      name: name || `seed-${dark ? 'dark' : 'light'}`,
+      effects,
+      shape,
+      materials: { ...materials, colors },
+      styles,
+      components,
+      elements,
+    });
+  }
+}
+
+/**
+ * 生成 light/dark 成对主题（同一形状/材质/角色表，色板按种子分别派生）。
+ * 用法：应用持有 pair 实例，暗色切换即向 ThemeProvider 传入 pair.dark——
+ * context value 变化驱动全部 useTheme 订阅方重新呈现，无需重建 Cell 树。
+ * @param {Object} options 同 Theme.fromSeed（seed 必填）；
+ *   另支持 lightOverrides / darkOverrides 分别覆盖两套颜色角色表
+ * @returns {{light: Theme, dark: Theme}}
+ */
+function createSeedThemePair({ seed, name, effects, shape, materials = {}, styles, components, elements, lightOverrides = {}, darkOverrides = {} } = {}) {
+  const base = { seed, effects, shape, materials, styles, components, elements };
+  return {
+    light: Theme.fromSeed({ ...base, name: name ? `${name}-light` : undefined, dark: false, materials: { ...materials, colors: lightOverrides } }),
+    dark: Theme.fromSeed({ ...base, name: name ? `${name}-dark` : undefined, dark: true, materials: { ...materials, colors: darkOverrides } }),
+  };
 }
 
 export default Theme;
+export { createSeedThemePair };

@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 import CellDemoPage from './demo/cell-demo-page';
 import PresetDemoPage from './demo/preset-demo-page';
 import { onPageNavSelect, syncPageNav } from './demo/page-nav';
+import { onThemeModeChange } from './demo/theme-mode';
 import { I18n, I18nProvider, Theme, ThemeProvider, FloatingLayer } from '../src/core/ui-kit';
 
 /**
@@ -113,9 +114,9 @@ const i18n = new I18n(messages, 'zh-CN');
  * - 动态属性：无尺寸变化特效——实测投影+追赶的过渡呈现不如静态更新稳定
  *   （拖拽缩放直接同步 reflow 上屏，接近 Safari 的表现），故不声明
  *   effects.resize；特效系统保留，主题可按需声明（见 theme-i18n-design.md）
- * @type {Theme}
+ * @type {Object} Theme 构造配置（浅色）
  */
-const theme = new Theme({
+const themeConfig = {
   name: 'hound-md3-light',
   shape: {
     corner: 'g1',
@@ -186,13 +187,38 @@ const theme = new Theme({
     list: { variant: 'md3' },
   },
   components: { switch: 'md3-switch' },
+};
+
+/** 浅色主题：手写完整设计令牌（保持既有视觉不变） */
+const theme = new Theme(themeConfig);
+
+/**
+ * 暗色主题：由种子色派生（Theme.fromSeed，见 src/core/theme/palette.js）——
+ * 同一形状/材质/角色表，颜色角色表按 MD3 dark 方案从 #6750A4 重新派生。
+ * hero 的 ThemeSwitchCell 经 theme-mode 桥切换 ThemeProvider 的实例。
+ */
+const darkTheme = Theme.fromSeed({
+  seed: '#6750A4',
+  dark: true,
+  name: 'hound-md3-dark',
+  shape: themeConfig.shape,
+  materials: {
+    material: themeConfig.materials.material,
+    mask: themeConfig.materials.mask,
+    edgeIndicator: themeConfig.materials.edgeIndicator,
+    windowFrame: themeConfig.materials.windowFrame,
+  },
+  styles: themeConfig.styles,
+  elements: themeConfig.elements,
+  components: themeConfig.components,
 });
 
 /**
  * 应用根组件。I18nProvider 与 ThemeProvider 并列包裹演示页：
  * - 语言切换经 I18nProvider 注入，Cell 内容组件用 useText 订阅
- * - 主题经 ThemeProvider 注入；本主题不声明尺寸变化特效，Box 视口根
- *   （页面/浮动窗口）尺寸变化走静态更新（同步 reflow 直接上屏）
+ * - 主题经 ThemeProvider 注入；亮/暗切换只替换 theme 实例（种子派生 dark），
+ *   context 变化驱动 useTheme/useThemeColor 等订阅方重新呈现，Cell 树不重建；
+ *   本主题不声明尺寸变化特效，Box 视口根尺寸变化走静态更新
  * - FloatingLayer 在页面上层统一渲染全部浮动视口 Cell（浮动窗口演示见
  *   demo/floating-window-demo.jsx，独立窗口 + 子窗口 + 模态遮罩；
  *   层级由系统管理：后聚焦/出现居上 + 模态序排列）
@@ -203,11 +229,13 @@ const theme = new Theme({
  */
 const App = () => {
   const [page, setPage] = useState('presets');
+  const [dark, setDark] = useState(false);
   useEffect(() => onPageNavSelect(setPage), []);
+  useEffect(() => onThemeModeChange(setDark), []);
   useEffect(() => syncPageNav(page), [page]);
   return (
     <I18nProvider i18n={i18n}>
-      <ThemeProvider theme={theme}>
+      <ThemeProvider theme={dark ? darkTheme : theme}>
         {page === 'presets' ? <PresetDemoPage /> : <CellDemoPage />}
         <FloatingLayer />
       </ThemeProvider>
