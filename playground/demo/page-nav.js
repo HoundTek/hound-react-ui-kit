@@ -25,6 +25,7 @@ function createPageNav(activePage) {
   nav.setItems([
     { id: 'presets', title: 'nav.presets' },
     { id: 'workbench', title: 'nav.workbench' },
+    { id: 'docs', title: 'nav.docs' },
   ]);
   nav.setActiveId(activePage);
   nav.onSelect((id) => _listeners.forEach(cb => cb(id)));

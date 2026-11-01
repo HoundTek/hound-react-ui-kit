@@ -7,6 +7,7 @@
 import React, { useEffect, useState } from 'react';
 import CellDemoPage from './demo/cell-demo-page';
 import PresetDemoPage from './demo/preset-demo-page';
+import DocsPage from './docs-page';
 import { onPageNavSelect, syncPageNav } from './demo/page-nav';
 import { onThemeModeChange } from './demo/theme-mode';
 import { I18n, I18nProvider, Theme, ThemeProvider, FloatingLayer } from '../src/core/ui-kit';
@@ -238,7 +239,7 @@ const App = () => {
   return (
     <I18nProvider i18n={i18n}>
       <ThemeProvider theme={dark ? darkTheme : theme}>
-        {page === 'presets' ? <PresetDemoPage /> : <CellDemoPage />}
+        {page === 'presets' ? <PresetDemoPage /> : page === 'docs' ? <DocsPage /> : <CellDemoPage />}
         <FloatingLayer />
       </ThemeProvider>
     </I18nProvider>
