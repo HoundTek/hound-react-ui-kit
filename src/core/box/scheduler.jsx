@@ -9,11 +9,16 @@ import { getDefaultRuntime } from '../runtime';
 const REFLOW_INTERVAL = 250;
 
 /**
- * Reflow 调度器。收集所有 reflow 根节点，按 REFLOW_INTERVAL 节流，
- * 到点后统一调用各根节点的 _performReflow。
+ * Reflow 调度器。收集所有 reflow 根节点，按最小间隔节流，
+ * 到点后统一调用各根节点的 _performReflow。间隔可注入（默认 250ms），
+ * 供不同 runtime 按交互需求调参（如动画密集场景缩短间隔）。
  */
 class ReflowScheduler {
-  constructor() {
+  /**
+   * @param {number} [interval] 最小调度间隔（ms），缺省 REFLOW_INTERVAL
+   */
+  constructor(interval = REFLOW_INTERVAL) {
+    this._interval = interval;
     this._roots = new Set();
     this._scheduled = false;
     this._timerId = null;
@@ -49,7 +54,7 @@ class ReflowScheduler {
     this._scheduled = true;
 
     const elapsed = performance.now() - this._lastReflowTime;
-    const delay = Math.max(0, REFLOW_INTERVAL - elapsed);
+    const delay = Math.max(0, this._interval - elapsed);
 
     this._timerId = setTimeout(() => {
       this._scheduled = false;

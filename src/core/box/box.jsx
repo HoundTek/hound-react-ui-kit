@@ -916,7 +916,8 @@ class BoxBuilder extends Reflowable {
       return { sizes, isValid: true };
     }
 
-    const LAMBDA_EPSILON = 1;
+    // λ 二分收敛精度 0.5px：亚像素分配（合计守恒误差 ≤ 子项数 px 级 → 半 px 级）
+    const LAMBDA_EPSILON = 0.5;
 
     while (lambdaMax - lambdaMin > LAMBDA_EPSILON) {
       const lamMid = (lambdaMin + lambdaMax) / 2;
@@ -1136,7 +1137,8 @@ class BoxBuilder extends Reflowable {
       // 继承父级容器尺寸——否则固定高度子项（如浮动窗口标题栏 fixedHeight 36）会以
       // 父级高度（整个窗口 200）作为内部 reflow 的容器高，其子项被分配错误高度
       //（200 而非 36）。与 CSS 口径一致：元素自身显式尺寸优先于 flex 拉伸。
-      child._containerSize = {
+      const prev = child._containerSize;
+      const next = {
         width: (child._layoutWidth || child._defaultWidth)
           ?? (child._minWidth === child._maxWidth && child._minWidth > 0 ? child._minWidth : null)
           ?? width,
@@ -1144,15 +1146,17 @@ class BoxBuilder extends Reflowable {
           ?? (child._minHeight === child._maxHeight && child._minHeight > 0 ? child._minHeight : null)
           ?? height,
       };
-      // 父级 reflow 可能改变了子项的容器尺寸（_layoutWidth/_layoutHeight），
-      // 必须强制子项按新尺寸重新 reflow。子项自身的 _needsReflow 可能是 false：
-      // 初始化阶段子层先于父层以自己的 DOM 实测尺寸 reflow 过（如浮窗 workspace
-      // 测到 auto 撑开的自然高度），_needsReflow 已被清掉；若沿用旧标记跳过，
-      // 子项子树停留在"父层 reflow 前"的旧布局，外层已收敛而内层仍是自然尺寸
-      // ——即"逐层渲染"的首帧中间态。强制重算保证任一子项容器尺寸被改写后
-      // 整棵子树立即跟随，reflow 完全算完后一次性上屏。
-      child._needsReflow = true;
-      child._performReflow();
+      child._containerSize = next;
+      // 脏区优化：子树重算仅发生在「容器尺寸实际变化」或「子项自身待重排」时。
+      // 尺寸不变且子项不脏 → 子树布局输入未变，上次输出仍有效，整棵子树跳过
+      //（O(全树) → O(脏子树)）。尺寸变化时必须强制重算：初始化阶段子层可能先于
+      // 父层以 DOM 实测尺寸 reflow 过（_needsReflow 已清），若沿用旧标记跳过会
+      // 停留在"父层 reflow 前"的旧布局——sizeChanged 判定覆盖了该场景。
+      // 拖拽路径（markNeedsReflow 全树标记）与约束变更路径（_requestReflow 沿
+      // 祖先链置脏）均经由 self-dirty 条件正常重算。
+      const sizeChanged = !prev || prev.width !== next.width || prev.height !== next.height;
+      if (sizeChanged) child._needsReflow = true;
+      if (child._needsReflow) child._performReflow();
     });
 
     this._notifyReflowComplete();

@@ -66,6 +66,13 @@
 > 1% 像素容差，本地复跑零抖动），CI 增 macos visual-regression job（与 darwin 基线
 > 同平台可比，失败上传 diff 产物）。阶段 2 全部完成；阶段 3 剩余：reflow 脏区优化、
 > core TS 改写、文档站。
+> **reflow 脏区优化已落地（同日）**：_performReflow 子树重算条件从「无条件全树强制」
+> 改为「容器尺寸实际变化 || 子项自身待重排」——尺寸不变且干净的子树整体跳过
+> （O(全树)→O(脏子树)，拖拽全树标记与 _requestReflow 祖先链置脏路径不受影响）；
+> λ 二分收敛精度 1px→0.5px（亚像素分配）；reflow 节流间隔经 KitRuntime
+> 构造参数 reflowInterval 可注入（缺省 250 不变）。验证：新增 6 项脏区哨兵断言
+> （跳过/传播/self-dirty/旁支保留），全套 98 项通过；**视觉回归 4 基线像素一致，
+> 布局结果零漂移**。阶段 3 剩余：core TS 改写、文档站。
 > 分析范围：`src/` 全量 16,681 行（core / basic-cells / builtin-cells / demo）、`package.json`、构建与文档配置、git 历史。
 > 结论先行：**核心抽象（Cell + DataDag + Box + Theme）有独创价值，但当前形态是一个"以库自居的应用"——不具备可发布的库外壳，缺少生命周期终点（unmount），全局可变单例状态阻断多实例/SSR/测试，无障碍与类型系统接近空白。** 本文给出按阶段可落地的改进路线。
 

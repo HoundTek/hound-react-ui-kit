@@ -21,9 +21,13 @@ import { ReflowScheduler } from './box/scheduler';
  * 容器 ref 注册表、拖拽会话槽、Cell 实现注册表与结构变更订阅。
  */
 class KitRuntime {
-  constructor() {
+  /**
+   * @param {Object} [options]
+   * @param {number} [options.reflowInterval] reflow 节流间隔（ms），缺省 250
+   */
+  constructor({ reflowInterval } = {}) {
     /** @type {ReflowScheduler} 本实例专属的 reflow 调度器 */
-    this.scheduler = new ReflowScheduler();
+    this.scheduler = new ReflowScheduler(reflowInterval);
 
     // === 浮动窗口树（见 floating-window-tree-design.md）===
     /** @type {Map<BoxBuilder|null, BoxBuilder[]>} 父窗口 → 有序子窗口列表（null = 根 viewport） */
@@ -274,10 +278,11 @@ let _defaultRuntime = null;
 
 /**
  * 创建一个完全隔离的运行时实例（多实例 / 测试 / SSR 场景）。
+ * @param {Object} [options] KitRuntime 构造选项（如 reflowInterval）
  * @returns {KitRuntime}
  */
-function createRuntime() {
-  return new KitRuntime();
+function createRuntime(options = {}) {
+  return new KitRuntime(options);
 }
 
 /**
