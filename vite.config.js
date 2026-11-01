@@ -9,6 +9,10 @@ import react from '@vitejs/plugin-react';
  */
 export default defineConfig({
   plugins: [react()],
+  // vitest 配置段：e2e/ 由 Playwright 执行，vitest 排除避免误捡 *.spec.js
+  test: {
+    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
+  },
   build: {
     lib: {
       entry: 'src/index.jsx',

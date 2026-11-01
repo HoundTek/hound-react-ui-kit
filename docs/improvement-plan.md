@@ -59,6 +59,13 @@
 > 审计抓到并修复真实问题：progressbar 缺可达名称（新增 hk.progress.label + aria-label）。
 > 全套 87 项断言通过。剩余：受控语义糖、视觉回归矩阵（playwright）、reflow 脏区优化、
 > core TS 改写、文档站。
+> **受控语义糖 + 视觉回归矩阵已落地（同日）**：`CellBaseBuilder#controlled`——
+> 外部值注入 + 内部变更 onCommit 回写（同值回灌无循环、重复调用覆盖、destroy 释放，
+> 两参/三参签名以回调位置判别），5 项断言；Playwright 视觉回归矩阵
+> （light/dark × 预设/工作台 4 基线，系统 Chrome channel、animations disabled、
+> 1% 像素容差，本地复跑零抖动），CI 增 macos visual-regression job（与 darwin 基线
+> 同平台可比，失败上传 diff 产物）。阶段 2 全部完成；阶段 3 剩余：reflow 脏区优化、
+> core TS 改写、文档站。
 > 分析范围：`src/` 全量 16,681 行（core / basic-cells / builtin-cells / demo）、`package.json`、构建与文档配置、git 历史。
 > 结论先行：**核心抽象（Cell + DataDag + Box + Theme）有独创价值，但当前形态是一个"以库自居的应用"——不具备可发布的库外壳，缺少生命周期终点（unmount），全局可变单例状态阻断多实例/SSR/测试，无障碍与类型系统接近空白。** 本文给出按阶段可落地的改进路线。
 

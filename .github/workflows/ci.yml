@@ -22,3 +22,22 @@ jobs:
         run: yarn test
       - name: Build library + type declarations
         run: yarn build
+
+  # 视觉回归：macos runner 与本地 darwin 基线同平台同 Chrome，直接可比
+  visual-regression:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: yarn install --non-interactive
+      - name: Playwright visual regression (system Chrome)
+        run: yarn test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: visual-diff
+          path: test-results/
+          retention-days: 5
