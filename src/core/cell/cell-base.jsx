@@ -558,6 +558,54 @@ class CellBaseBuilder {
   }
 
   /**
+   * 受控语义糖：外部值注入 + 内部变更回写回调。DataNode 仍是唯一状态源——
+   * 本方法把 value 写入字段并订阅该字段：Cell 内部交互（或外部其他写入）
+   * 改变了值时调用 onCommit(newValue)，由外部决定是否再次 controlled 回灌
+   * （回灌值与当前值相同则不触发，无循环）。重复调用同 key 覆盖上一次受控
+   * 关系；destroy 时随数据节点一并释放。需先 mount。
+   *
+   * 两种签名：
+   * - controlled(key, value, onCommit)：指定字段
+   * - controlled(value, onCommit)：默认 'value' 字段（输入类预设通用；
+   *   以第二参为函数判别，被控值为函数时请用三参签名）
+   * @param {string|*} keyOrValue 字段名或受控值
+   * @param {*} valueOrCommit 受控值或回写回调
+   * @param {Function} [maybeCommit] 回写回调
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  controlled(keyOrValue, valueOrCommit, maybeCommit) {
+    let key = keyOrValue;
+    let value = valueOrCommit;
+    let onCommit = maybeCommit;
+    if (typeof valueOrCommit === 'function' && maybeCommit === undefined) {
+      key = 'value';
+      value = keyOrValue;
+      onCommit = valueOrCommit;
+    }
+    if (!this._dataNode) {
+      devWarn('[Cell]', `controlled("${key}") 需先 mount（订阅依赖数据节点），已忽略（cell: ${this._id}）`);
+      return this;
+    }
+    if (typeof onCommit !== 'function') {
+      devWarn('[Cell]', `controlled("${key}") 的 onCommit 不是函数，已忽略（cell: ${this._id}）`);
+      return this;
+    }
+    // 覆盖上一次同 key 的受控订阅
+    this._controlled ??= new Map();
+    this._controlled.get(key)?.unsub?.();
+    this.setData(key, value);
+    const rec = { value };
+    rec.unsub = this.subscribe(({ node, key: changed, value: next }) => {
+      if (node !== this._dataNode || changed !== key) return;
+      if (Object.is(next, rec.value)) return;
+      rec.value = next;
+      onCommit(next);
+    });
+    this._controlled.set(key, rec);
+    return this;
+  }
+
+  /**
    * 按路径解析本 Cell 数据子树中的节点。路径语法同 DataNode.resolve：
    * 绝对路径（`@/foo`）、相对路径（`./foo`、`../foo`）与命名锚点（`@name`）。
    * @param {string} path 路径字符串
@@ -898,6 +946,7 @@ class CellBaseBuilder {
     if (this._dataNode) this._dataNode.destroy();
     this._dataNode = null;
     this._pendingData = null;
+    this._controlled?.clear();
     this._callbacks.clear();
     if (runtime) runtime.notifyStructural();
   }
