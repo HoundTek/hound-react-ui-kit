@@ -1,15 +1,24 @@
 /**
  * @file I18n 国际化核心。纯 JS 实现，与 React 解耦。
  *
- *        - I18n 实例持有按语言组织的文本资源与当前语言
- *        - t(key, vars) 查找文本并做变量插值
+ *        - I18n 实例持有按语言组织的文本资源与当前语言；内置 hk.* 语言包
+ *          （zh-CN/en，预设 Cell 内部文案）自动合并，应用同名 key 可覆盖
+ *        - t(key, vars) 查找文本并做变量插值；vars 含 count 时按
+ *          Intl.PluralRules 类别取 `<key>.<category>` 复数变体（回退 .other → 原 key）
+ *        - n(value, options) / dt(value, options)：Intl 数字/日期格式化（当前语言）
  *        - setLocale 切换语言，通知订阅方重新呈现
  *        - fallback：key 在当前语言缺失时，依次回退到 fallbackLocale、最后回退到 key 本身
  *
  *        与 Cell/Box 解耦：I18n 只管理文本资源与语言切换，
  *        不依赖任何 Cell 类型；Cell 内部组件通过注入层（i18n-react）获取译文。
  */
+import zhCN from './locales/zh-CN';
+import en from './locales/en';
+
 const DEFAULT_FALLBACK = 'en';
+
+/** 内置语言包（按 locale）；应用 messages 同名 key 优先覆盖 */
+const BUILT_IN_MESSAGES = { 'zh-CN': zhCN, en };
 
 /**
  * I18n 国际化实例。
@@ -20,12 +29,26 @@ class I18n {
    * @param {string} locale 初始语言
    * @param {Object} [options]
    * @param {string} [options.fallbackLocale='en'] 回退语言；当前语言缺失某 key 时回退
+   * @param {boolean} [options.builtIn=true] 是否合并内置 hk.* 语言包
    */
   constructor(messages, locale, options = {}) {
-    this._messages = messages;
+    const { builtIn = true } = options;
+    // 深合并：内置语言包为底，应用 messages 同名 key 覆盖
+    const merged = {};
+    if (builtIn) {
+      for (const [loc, dict] of Object.entries(BUILT_IN_MESSAGES)) {
+        merged[loc] = { ...dict };
+      }
+    }
+    for (const [loc, dict] of Object.entries(messages || {})) {
+      merged[loc] = { ...(merged[loc] || {}), ...dict };
+    }
+    this._messages = merged;
     this._locale = locale;
     this._fallbackLocale = options.fallbackLocale || DEFAULT_FALLBACK;
     this._subscribers = new Set();
+    /** @type {Map<string, Intl.PluralRules>} 按 locale 缓存的复数规则 */
+    this._pluralRules = new Map();
   }
 
   /** 当前语言 */
@@ -50,17 +73,72 @@ class I18n {
   }
 
   /**
-   * 翻译文本。查找顺序：当前语言 → fallback 语言 → key 本身。
+   * 翻译文本。vars 含数值 count 时优先查找复数变体 key（`<key>.<category>`，
+   * category 由 Intl.PluralRules 按当前语言判定；缺失回退 `<key>.other` → 原 key）。
+   * 其余查找顺序：当前语言 → fallback 语言 → key 本身。
    * 找到文本后若提供 vars，进行 `{name}` 形式的变量插值。
    * @param {string} key 文本资源标识
-   * @param {Object} [vars] 插值变量
+   * @param {Object} [vars] 插值变量（含 count 时触发复数选择）
    * @returns {string} 译文
    */
   t(key, vars) {
-    const text = this._lookup(key, this._locale)
-      ?? this._lookup(key, this._fallbackLocale)
-      ?? key;
+    let lookupKey = key;
+    if (vars && typeof vars.count === 'number') {
+      const category = this._pluralCategory(vars.count);
+      const pluralKey = `${key}.${category}`;
+      if (this._has(pluralKey)) lookupKey = pluralKey;
+      else if (this._has(`${key}.other`)) lookupKey = `${key}.other`;
+    }
+    const text = this._lookup(lookupKey, this._locale)
+      ?? this._lookup(lookupKey, this._fallbackLocale)
+      ?? lookupKey;
     return vars ? this._interpolate(text, vars) : text;
+  }
+
+  /**
+   * 数字格式化（Intl.NumberFormat，当前语言）。
+   * @param {number} value 数值
+   * @param {Intl.NumberFormatOptions} [options] 格式化选项（currency/percent/小数位等）
+   * @returns {string} 当前语言习惯的数字文本
+   */
+  n(value, options) {
+    return new Intl.NumberFormat(this._locale, options).format(value);
+  }
+
+  /**
+   * 日期格式化（Intl.DateTimeFormat，当前语言）。
+   * @param {Date|number|string} value 可被 Date 解析的值
+   * @param {Intl.DateTimeFormatOptions} [options] 格式化选项
+   * @returns {string} 当前语言习惯的日期文本
+   */
+  dt(value, options) {
+    return new Intl.DateTimeFormat(this._locale, options).format(value);
+  }
+
+  /**
+   * 按当前语言判定数值复数类别（Intl.PluralRules，按 locale 缓存）。
+   * @param {number} count
+   * @returns {string} zero|one|two|few|many|other
+   * @private
+   */
+  _pluralCategory(count) {
+    let rules = this._pluralRules.get(this._locale);
+    if (!rules) {
+      rules = new Intl.PluralRules(this._locale);
+      this._pluralRules.set(this._locale, rules);
+    }
+    return rules.select(count);
+  }
+
+  /**
+   * key 在任一可用语言字典中是否存在（含 fallback）。
+   * @param {string} key
+   * @returns {boolean}
+   * @private
+   */
+  _has(key) {
+    return typeof this._lookup(key, this._locale) === 'string'
+      || typeof this._lookup(key, this._fallbackLocale) === 'string';
   }
 
   /**

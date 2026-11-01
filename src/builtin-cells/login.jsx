@@ -12,6 +12,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { useText } from '../core/i18n/i18n-react';
 import { InputImpl, ButtonImpl } from '../basic-cells';
 
 /**
@@ -23,7 +24,9 @@ import { InputImpl, ButtonImpl } from '../basic-cells';
 function LoginAssembledView({ cell }) {
   const username = useCellData(cell, 'username');
   const password = useCellData(cell, 'password');
-  const submitText = useCellData(cell, 'submitText');
+  const submitText = useText(useCellData(cell, 'submitText'));
+  const usernamePh = useText('hk.login.username');
+  const passwordPh = useText('hk.login.password');
   const submit = () => {
     cell.setSubmitted(true);
     cell.emit('submit', { username, password });
@@ -36,7 +39,7 @@ function LoginAssembledView({ cell }) {
       <div style={{ height: 30, flexShrink: 0 }}>
         <InputImpl
           value={username}
-          placeholder="用户名"
+          placeholder={usernamePh}
           fontSize={13}
           onChange={v => cell.setUsername(v)}
         />
@@ -45,7 +48,7 @@ function LoginAssembledView({ cell }) {
         <InputImpl
           type="password"
           value={password}
-          placeholder="密码"
+          placeholder={passwordPh}
           fontSize={13}
           onChange={v => cell.setPassword(v)}
           onSubmit={submit}
@@ -76,7 +79,7 @@ class LoginCell extends CellBaseBuilder {
       .schema({
         username: { type: 'string', default: '' },
         password: { type: 'string', default: '' },
-        submitText: { type: 'string', default: '登录' },
+        submitText: { type: 'string', default: 'hk.login.submit' },
         submitted: { type: 'boolean', default: false },
       })
       .renderContent(LoginDispatcher);

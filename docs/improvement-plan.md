@@ -42,6 +42,15 @@
 > role=checkbox/radio + aria-checked/disabled 同步到原生按钮（键盘天然可达）；
 > Loading role=status + aria-busy。新增 a11y 角色回归 6 项，全套 61 项通过。
 > 剩余：对比度自动审计（axe-core 进 CI）、布局脏区优化、视觉回归矩阵、core TS 改写、文档站。
+> **i18n 补强已落地（同日）**：I18n 自动合并内置 hk.* 语言包（locales/zh-CN|en.js，
+> 应用同名 key 可覆盖、builtIn:false 可关闭）；t() 支持 Intl.PluralRules 复数变体
+> （`<key>.<category>` → `.other` → 原 key）；新增 n()/dt() Intl 数字/日期格式化与
+> useNumber/useDate 订阅 Hook；9 个预设（confirm/upload/search/loading/picker/date-picker/
+> login/carousel）内部文案全部改走 hk.* key + useText，随语言切换即时刷新；
+> demo 不再显式覆盖确认框按钮文案并注册 dlg.ok key。
+> 新增 i18n 13 项断言（合并/覆盖/复数/格式化/回退链 + 确认框默认文案 zh/en 渲染），
+> 全套 74 项通过；浏览器复验中文确认框与 Esc 关闭正常。
+> 阶段 2 至此仅剩受控语义糖；阶段 3 剩余同上行。
 > 分析范围：`src/` 全量 16,681 行（core / basic-cells / builtin-cells / demo）、`package.json`、构建与文档配置、git 历史。
 > 结论先行：**核心抽象（Cell + DataDag + Box + Theme）有独创价值，但当前形态是一个"以库自居的应用"——不具备可发布的库外壳，缺少生命周期终点（unmount），全局可变单例状态阻断多实例/SSR/测试，无障碍与类型系统接近空白。** 本文给出按阶段可落地的改进路线。
 

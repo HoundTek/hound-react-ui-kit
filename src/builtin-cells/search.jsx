@@ -11,6 +11,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor } from '../core/theme/theme-react';
 import { InputImpl, ButtonImpl } from '../basic-cells';
 
@@ -21,9 +22,10 @@ import { InputImpl, ButtonImpl } from '../basic-cells';
  * @returns {JSX.Element} 视图元素
  */
 function SearchAssembledView({ cell }) {
-  const placeholder = useCellData(cell, 'placeholder');
+  const placeholder = useText(useCellData(cell, 'placeholder'));
   const value = useCellData(cell, 'value') || '';
   const surface = useThemeColor('surface', '#fff');
+  const searchLabel = useText('hk.search.button');
   const doSearch = () => {
     cell.emit('search', value);
   };
@@ -41,7 +43,7 @@ function SearchAssembledView({ cell }) {
           onSubmit={doSearch}
         />
       </div>
-      <ButtonImpl label="搜索" size="small" onPress={doSearch} />
+      <ButtonImpl label={searchLabel} size="small" onPress={doSearch} />
     </div>
   );
 }
@@ -63,7 +65,7 @@ class SearchCell extends CellBaseBuilder {
     super(id);
     this.fixedHeight(40).color('surface')
       .schema({
-        placeholder: { type: 'string', default: '搜索…' },
+        placeholder: { type: 'string', default: 'hk.search.placeholder' },
         value: { type: 'string', default: '' },
       })
       .renderContent(SearchDispatcher);

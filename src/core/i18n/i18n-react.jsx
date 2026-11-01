@@ -3,6 +3,7 @@
  *        - I18nContext 持有当前 I18n 实例
  *        - I18nProvider 提供实例，通常在应用根部包裹一次
  *        - useText(key, vars) 订阅语言切换并返回当前译文
+ *        - useNumber / useDate：Intl 数字/日期格式化订阅 Hook
  *        - useI18n() 取当前 I18n 实例，用于需要调用 setLocale 等方法的场景
  *
  *        与 Cell/Box 解耦：组件不依赖具体语言包，仅引用 i18n key。
@@ -49,4 +50,36 @@ function useText(key, vars) {
   return i18n ? i18n.t(key, vars) : key;
 }
 
-export { I18nProvider, I18nContext, useText, useI18n };
+/**
+ * 订阅数字格式化结果（I18n#n），语言切换时自动重新渲染。
+ * @param {number} value 数值
+ * @param {Intl.NumberFormatOptions} [options] 格式化选项
+ * @returns {string} 当前语言的数字文本；未在 Provider 内时回退 String(value)
+ */
+function useNumber(value, options) {
+  const i18n = useContext(I18nContext);
+  const [, force] = useReducer(x => x + 1, 0);
+  useEffect(() => {
+    if (!i18n) return;
+    return i18n.subscribe(force);
+  }, [i18n]);
+  return i18n ? i18n.n(value, options) : String(value);
+}
+
+/**
+ * 订阅日期格式化结果（I18n#dt），语言切换时自动重新渲染。
+ * @param {Date|number|string} value 日期值
+ * @param {Intl.DateTimeFormatOptions} [options] 格式化选项
+ * @returns {string} 当前语言的日期文本；未在 Provider 内时回退 toLocaleString
+ */
+function useDate(value, options) {
+  const i18n = useContext(I18nContext);
+  const [, force] = useReducer(x => x + 1, 0);
+  useEffect(() => {
+    if (!i18n) return;
+    return i18n.subscribe(force);
+  }, [i18n]);
+  return i18n ? i18n.dt(value, options) : new Date(value).toLocaleString();
+}
+
+export { I18nProvider, I18nContext, useText, useNumber, useDate, useI18n };

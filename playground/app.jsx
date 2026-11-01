@@ -50,6 +50,7 @@ const messages = {
     'demo.instanceRefPrefix': '实例引用 → 角色：',
     'footer.copyright': '© {year} Hound UI Kit · 中文版',
     'lang.switchTo': 'EN',
+    'dlg.ok': '知道了',
   },
   'en': {
     'app.title': 'Hound UI Kit',
@@ -78,6 +79,7 @@ const messages = {
     'toggle.on': 'On',
     'toggle.off': 'Off',
     'demo.openWindow': 'Open Window',
+    'dlg.ok': 'Got it',
     'window.title': 'Window',
     'profile.switch': 'Switch',
     'demo.boundPrefix': 'Bound → ',

@@ -55,7 +55,7 @@ class PickerCell extends CellBaseBuilder {
       .schema({
         options: { type: 'array', default: [] },
         value: { type: 'string', default: '' },
-        placeholder: { type: 'string', default: '请选择' },
+        placeholder: { type: 'string', default: 'hk.picker.placeholder' },
         open: { type: 'boolean', default: false },
       })
       .renderContent(PickerDispatcher);

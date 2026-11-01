@@ -200,14 +200,14 @@ function buildPresetDemo() {
   const popoverCell = new PopoverCell('popover')
     .setTitle('气泡卡片').setText('Popover 内容说明。').posX(520).posY(120);
   const confirmCell = new ConfirmCell('confirm')
-    .setText('确定要删除这条数据吗？').setOkText('确定').setCancelText('取消')
+    .setText('确定要删除这条数据吗？')
     .posX(260).posY(260)
     .onOk(() => toastCell.open());
   const dialogCell = new DialogCell('dialog')
     .fill('header', new TextCell('dlgTitle').setText('操作确认').setSize(13).setBold(true).setColor('text'))
     .fill('body', [
       new TextCell('dlgBody').setText('对话框容器：header 单插槽 + body 列表插槽。').setSize(12).setColor('text-secondary'),
-      new ButtonCell('dlgOk').setLabel('知道了').onPress(() => dialogCell.close()),
+      new ButtonCell('dlgOk').setLabel('dlg.ok').onPress(() => dialogCell.close()),
     ]);
   const drawerCell = new DrawerCell('drawer')
     .setTitle('侧滑抽屉').setText('抽屉正文内容，可经 posX/posY 贴屏幕右缘展示。')

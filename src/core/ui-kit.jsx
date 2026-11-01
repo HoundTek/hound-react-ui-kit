@@ -15,7 +15,7 @@ import { registerCellImpl, getCellImpl, hasCellImpl } from './cell/implementatio
 import { KitRuntime, createRuntime, getDefaultRuntime } from './runtime';
 import { DataDag, DataNode } from './data-dag/data-dag';
 import I18n from './i18n/i18n';
-import { I18nProvider, I18nContext, useText, useI18n } from './i18n/i18n-react';
+import { I18nProvider, I18nContext, useText, useNumber, useDate, useI18n } from './i18n/i18n-react';
 import Theme from './theme/theme';
 import { createSeedThemePair } from './theme/theme';
 import { deriveColorRoles, contrastRatio, relativeLuminance, hslToHex } from './theme/palette';
@@ -76,6 +76,8 @@ export {
   I18nProvider,
   I18nContext,
   useText,
+  useNumber,
+  useDate,
   useI18n,
   Theme,
   createSeedThemePair,

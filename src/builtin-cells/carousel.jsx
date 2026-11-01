@@ -11,6 +11,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor, useCornerType } from '../core/theme/theme-react';
 import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 import { ButtonImpl, TextImpl } from '../basic-cells';
@@ -31,6 +32,7 @@ function CarouselAssembledView({ cell }) {
   const surfaceColor = useThemeColor('surface', '#ffffff');
   const primaryColor = useThemeColor('primary', '#4a90d9');
   const dotMutedColor = useThemeColor('border', '#d9d9d9');
+  const emptyText = useText('hk.carousel.empty');
   const prev = () => { if (count) cell.setCurrentIndex((index - 1 + count) % count); };
   const next = () => { if (count) cell.setCurrentIndex((index + 1) % count); };
   return (
@@ -38,7 +40,7 @@ function CarouselAssembledView({ cell }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, height: 60, padding: '0 4px' }}>
         <ButtonImpl label="" icon={<GlyphChevron dir="left" size={12} />} type="default" size="small" onPress={prev} />
         <div style={{ flex: 1, minWidth: 0, height: '100%' }}>
-          <TextImpl text={current ? current.text : '暂无内容'} size={13} align="center" color="text" />
+          <TextImpl text={current ? current.text : emptyText} size={13} align="center" color="text" />
         </div>
         <ButtonImpl label="" icon={<GlyphChevron dir="right" size={12} />} type="default" size="small" onPress={next} />
       </div>

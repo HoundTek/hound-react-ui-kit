@@ -12,6 +12,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { useText } from '../core/i18n/i18n-react';
 import { ButtonImpl, TextImpl } from '../basic-cells';
 
 /**
@@ -22,8 +23,8 @@ import { ButtonImpl, TextImpl } from '../basic-cells';
  */
 function ConfirmAssembledView({ cell }) {
   const text = useCellData(cell, 'text');
-  const okText = useCellData(cell, 'okText');
-  const cancelText = useCellData(cell, 'cancelText');
+  const okText = useText(useCellData(cell, 'okText'));
+  const cancelText = useText(useCellData(cell, 'cancelText'));
   return (
     <div style={{
       display: 'flex', flexDirection: 'column',
@@ -65,8 +66,8 @@ class ConfirmCell extends CellBaseBuilder {
       .fixedWidth(280).fixedHeight(120).styleRole('window').layout('vertical')
       .schema({
         text: { type: 'string', default: '' },
-        okText: { type: 'string', default: '确定' },
-        cancelText: { type: 'string', default: '取消' },
+        okText: { type: 'string', default: 'hk.confirm.ok' },
+        cancelText: { type: 'string', default: 'hk.confirm.cancel' },
       })
       .renderContent(ConfirmDispatcher);
   }

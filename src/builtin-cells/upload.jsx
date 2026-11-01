@@ -12,6 +12,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor } from '../core/theme/theme-react';
 import { ButtonImpl, TextImpl } from '../basic-cells';
 import { GlyphClose } from '../basic-cells/glyphs';
@@ -22,7 +23,7 @@ import { GlyphClose } from '../basic-cells/glyphs';
  * @returns {JSX.Element} 视图元素
  */
 function UploadAssembledView({ cell }) {
-  const text = useCellData(cell, 'text');
+  const text = useText(useCellData(cell, 'text'));
   const fileList = useCellData(cell, 'fileList') || [];
   const borderColor = useThemeColor('border', '#e8e8e8');
   const sizeColor = useThemeColor('text-muted', '#999');
@@ -77,7 +78,7 @@ class UploadCell extends CellBaseBuilder {
     super(id);
     this.defaultWidth(240).moveY(true).layout('vertical').color('surface')
       .schema({
-        text: { type: 'string', default: '选择文件' },
+        text: { type: 'string', default: 'hk.upload.text' },
         fileList: { type: 'array', default: [] },
         accept: { type: 'string', default: '' },
       })

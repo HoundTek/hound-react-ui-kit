@@ -13,6 +13,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor } from '../core/theme/theme-react';
 import { ButtonImpl } from '../basic-cells/button';
 import { GlyphChevron } from '../basic-cells/glyphs';
@@ -30,7 +31,7 @@ function DatePickerAssembledView({ cell }) {
   const year = useCellData(cell, 'year');
   const month = useCellData(cell, 'month');
   const open = useCellData(cell, 'open');
-  const placeholder = useCellData(cell, 'placeholder');
+  const placeholder = useText(useCellData(cell, 'placeholder'));
   const surface = useThemeColor('surface', '#ffffff');
   const text = useThemeColor('text', '#333');
   // 切月：跨年自动进位
@@ -99,7 +100,7 @@ class DatePickerCell extends CellBaseBuilder {
         year: { type: 'number', default: 2026 },
         month: { type: 'number', default: 1 },
         open: { type: 'boolean', default: false },
-        placeholder: { type: 'string', default: '请选择日期' },
+        placeholder: { type: 'string', default: 'hk.datePicker.placeholder' },
       })
       .renderContent(DatePickerDispatcher);
   }

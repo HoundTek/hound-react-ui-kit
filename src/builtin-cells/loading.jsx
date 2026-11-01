@@ -65,7 +65,7 @@ class LoadingCell extends CellBaseBuilder {
     super(id);
     this.fixedHeight(40)
       .schema({
-        text: { type: 'string', default: '加载中…' },
+        text: { type: 'string', default: 'hk.loading.text' },
         size: { type: 'string', default: 'default' },
         color: { type: 'string', default: '#4a90d9' },
       })
