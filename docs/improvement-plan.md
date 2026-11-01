@@ -51,6 +51,14 @@
 > 新增 i18n 13 项断言（合并/覆盖/复数/格式化/回退链 + 确认框默认文案 zh/en 渲染），
 > 全套 74 项通过；浏览器复验中文确认框与 Esc 关闭正常。
 > 阶段 2 至此仅剩受控语义糖；阶段 3 剩余同上行。
+> **CI 与 axe 审计已落地（同日）**：ESLint 扁平配置（正确性 error / 卫生 warn 分级，
+> react-hooks/immutability 按 Cell 架构关闭）存量 0 error；commitlint + husky commit-msg
+> 钩子；GitHub Actions 流水线（install → lint → test → build）+ yarn ci 本地等价命令；
+> jest-axe 结构审计矩阵 13 项（Button/Input/Checkbox/Radio/Switch/Menu/TabBar/Tree/
+> Notice×2/Progress/Confirm/Select，jsdom 无渲染引擎故对比度由 palette WCAG 断言覆盖），
+> 审计抓到并修复真实问题：progressbar 缺可达名称（新增 hk.progress.label + aria-label）。
+> 全套 87 项断言通过。剩余：受控语义糖、视觉回归矩阵（playwright）、reflow 脏区优化、
+> core TS 改写、文档站。
 > 分析范围：`src/` 全量 16,681 行（core / basic-cells / builtin-cells / demo）、`package.json`、构建与文档配置、git 历史。
 > 结论先行：**核心抽象（Cell + DataDag + Box + Theme）有独创价值，但当前形态是一个"以库自居的应用"——不具备可发布的库外壳，缺少生命周期终点（unmount），全局可变单例状态阻断多实例/SSR/测试，无障碍与类型系统接近空白。** 本文给出按阶段可落地的改进路线。
 

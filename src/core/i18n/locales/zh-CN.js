@@ -10,6 +10,7 @@ export default {
   'hk.search.placeholder': '搜索…',
   'hk.search.button': '搜索',
   'hk.loading.text': '加载中…',
+  'hk.progress.label': '进度',
   'hk.picker.placeholder': '请选择',
   'hk.datePicker.placeholder': '请选择日期',
   'hk.login.submit': '登录',

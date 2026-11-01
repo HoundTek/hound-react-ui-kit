@@ -10,6 +10,7 @@ export default {
   'hk.search.placeholder': 'Search…',
   'hk.search.button': 'Search',
   'hk.loading.text': 'Loading…',
+  'hk.progress.label': 'Progress',
   'hk.picker.placeholder': 'Select…',
   'hk.datePicker.placeholder': 'Select date',
   'hk.login.submit': 'Sign In',

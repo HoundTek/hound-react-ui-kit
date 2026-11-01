@@ -11,6 +11,7 @@
 import React from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
+import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor } from '../core/theme/theme-react';
 import { SliderTrackImpl } from '../basic-cells/slider';
 
@@ -29,6 +30,7 @@ function ProgressAssembledView({ cell }) {
   return (
     <div
       role="progressbar"
+      aria-label={useText('hk.progress.label')}
       aria-valuenow={clamped}
       aria-valuemin={0}
       aria-valuemax={100}
