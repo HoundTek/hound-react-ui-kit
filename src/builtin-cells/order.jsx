@@ -39,7 +39,7 @@ function OrderAssembledView({ cell }) {
   };
   const sorted = [...items].sort((a, b) => {
     if (!sortField) return 0;
-    let result = 0;
+    let result;
     if (sortField === 'amount') result = (a.amount || 0) - (b.amount || 0);
     else result = String(a.title).localeCompare(String(b.title));
     return sortDir === 'desc' ? -result : result;

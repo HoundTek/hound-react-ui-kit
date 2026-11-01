@@ -71,7 +71,7 @@ function hslToHex(h, s, l) {
   const c = (1 - Math.abs(2 * ln - 1)) * sn;
   const x = c * (1 - Math.abs(((hn / 60) % 2) - 1));
   const m = ln - c / 2;
-  let r = 0; let g = 0; let b = 0;
+  let r, g, b;
   if (hn < 60) [r, g, b] = [c, x, 0];
   else if (hn < 120) [r, g, b] = [x, c, 0];
   else if (hn < 180) [r, g, b] = [0, c, x];
