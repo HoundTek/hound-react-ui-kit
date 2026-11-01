@@ -33,6 +33,15 @@ function SwitchAssembledView({ cell }) {
   const trackWrapRef = useRef(null);
   return (
     <div
+      role="switch"
+      aria-checked={enabled}
+      aria-disabled={disabled || undefined}
+      tabIndex={disabled ? -1 : 0}
+      className="hk-focus"
+      onKeyDown={(e) => {
+        if (disabled) return;
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cell.setEnabled(!enabled); }
+      }}
       onClick={(e) => {
         if (!disabled && !trackWrapRef.current?.contains(e.target)) cell.setEnabled(!enabled);
       }}
@@ -78,6 +87,15 @@ function Md3SwitchImpl({ cell }) {
   const thumbSize = enabled ? 24 : 16;
   return (
     <div
+      role="switch"
+      aria-checked={enabled}
+      aria-disabled={disabled || undefined}
+      tabIndex={disabled ? -1 : 0}
+      className="hk-focus"
+      onKeyDown={(e) => {
+        if (disabled) return;
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cell.setEnabled(!enabled); }
+      }}
       onClick={() => { if (!disabled) cell.setEnabled(!enabled); }}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',

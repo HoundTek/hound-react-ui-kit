@@ -27,7 +27,14 @@ function ProgressAssembledView({ cell }) {
   const textSecondary = useThemeColor('text-secondary', '#666');
   const clamped = Math.max(0, Math.min(100, percent || 0));
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', boxSizing: 'border-box' }}>
+    <div
+      role="progressbar"
+      aria-valuenow={clamped}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuetext={`${clamped}%`}
+      style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', boxSizing: 'border-box' }}
+    >
       <div style={{ flex: 1, minWidth: 0 }}>
         <SliderTrackImpl
           min={0}

@@ -30,7 +30,10 @@ function LoadingAssembledView({ cell }) {
   const corner = useCornerType();
   const textColor = useThemeColor('text-secondary', '#666666');
   return (
-    <div style={{
+    <div
+      role="status"
+      aria-busy="true"
+      style={{
       width: '100%', height: '100%', display: 'flex', alignItems: 'center',
       justifyContent: 'center', gap: 10,
     }}>

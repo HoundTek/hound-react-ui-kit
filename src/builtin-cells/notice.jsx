@@ -44,8 +44,14 @@ function NoticeImpl({ text, type = 'info', closable = false, capsule = false, el
     error: { color: errorColor, Glyph: GlyphClose },
   };
   const t = typeMap[type] || typeMap.info;
+  // a11y：动态通知语义——error 走 assertive alert，其余走 polite status，
+  // 屏幕阅读器在文本变化（Toast/Notice 出现与更新）时播报
+  const isError = type === 'error';
   return (
-    <div style={{
+    <div
+      role={isError ? 'alert' : 'status'}
+      aria-live={isError ? 'assertive' : 'polite'}
+      style={{
       width: '100%', height: '100%', display: 'flex', alignItems: 'center',
       justifyContent: 'center', gap: 8, padding: '0 12px', boxSizing: 'border-box',
       backgroundColor: t.color, color: onPrimary, fontSize: 12,

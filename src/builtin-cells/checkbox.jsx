@@ -9,7 +9,7 @@
  *
  * Schema（数据契约，与旧版一致）：label / checked / disabled。
  */
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import CellBaseBuilder from '../core/cell/cell-base';
 import { useCellData, createImplDispatcher } from '../core/cell/cell-react';
 import { ButtonImpl } from '../basic-cells/button';
@@ -32,13 +32,24 @@ import { GlyphCheckbox, GlyphRadio } from '../basic-cells/glyphs';
  */
 function OptionImpl({ label, checked, markOn, markOff, shape = 'checkbox', disabled = false, onToggle }) {
   const customMark = markOn != null || markOff != null;
+  const wrapRef = useRef(null);
+  // a11y：ButtonImpl 未透传 aria，渲染后把选择语义同步到内部 <button>
+  // （role=checkbox/radio + aria-checked/aria-disabled；原生按钮自带键盘可达）
+  useEffect(() => {
+    const btn = wrapRef.current?.querySelector('button');
+    if (!btn) return;
+    btn.setAttribute('role', shape);
+    btn.setAttribute('aria-checked', checked ? 'true' : 'false');
+    if (disabled) btn.setAttribute('aria-disabled', 'true');
+    else btn.removeAttribute('aria-disabled');
+  }, [shape, checked, disabled]);
   const icon = customMark
     ? <span style={{ fontSize: 14, fontFamily: 'inherit' }}>{checked ? (markOn ?? '') : (markOff ?? '')}</span>
     : (shape === 'radio'
       ? <GlyphRadio checked={checked} size={16} />
       : <GlyphCheckbox checked={checked} size={16} />);
   return (
-    <div style={{ padding: '4px 12px', width: '100%', height: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center' }}>
+    <div ref={wrapRef} style={{ padding: '4px 12px', width: '100%', height: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center' }}>
       <ButtonImpl
         label={label}
         icon={icon}

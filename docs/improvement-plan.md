@@ -35,6 +35,13 @@
 > 浏览器实测亮/暗双向切换色值正确（254,247,255 ↔ 25,24,27）；palette/fromSeed 12 项断言，全套 55 项通过。
 > 阶段 2 剩余（i18n 补强 / 受控语义糖）与阶段 3 剩余（a11y 第三批 aria-live/对比度审计、
 > 布局脏区优化、视觉回归矩阵、core TS 改写、文档站）待后续批次。
+> **a11y 第三批已落地（同日）**：NoticeImpl（Toast/Notice/Alert 共享）按 type 输出
+> role=alert/assertive 或 role=status/polite 动态播报；Progress 视图 role=progressbar +
+> aria-valuenow/min/max/text；Switch 两视图 role=switch + aria-checked/aria-disabled +
+> tabIndex + Enter/Space 切换 + hk-focus 焦点环；Checkbox/Radio OptionImpl 把
+> role=checkbox/radio + aria-checked/disabled 同步到原生按钮（键盘天然可达）；
+> Loading role=status + aria-busy。新增 a11y 角色回归 6 项，全套 61 项通过。
+> 剩余：对比度自动审计（axe-core 进 CI）、布局脏区优化、视觉回归矩阵、core TS 改写、文档站。
 > 分析范围：`src/` 全量 16,681 行（core / basic-cells / builtin-cells / demo）、`package.json`、构建与文档配置、git 历史。
 > 结论先行：**核心抽象（Cell + DataDag + Box + Theme）有独创价值，但当前形态是一个"以库自居的应用"——不具备可发布的库外壳，缺少生命周期终点（unmount），全局可变单例状态阻断多实例/SSR/测试，无障碍与类型系统接近空白。** 本文给出按阶段可落地的改进路线。
 
