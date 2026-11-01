@@ -1,9 +1,9 @@
 /**
  * @file picker.jsx —— PickerCell（选择器）高级 Cell
  *
- * 菜单/列表族：选择器 = 受控 SelectImpl（ButtonImpl 输入条 + MenuImpl 下拉
- * 菜单，见 docs/basic-cell-design.md）；与 select 的区别在 open 状态由
- * schema 驱动（受控模式），便于外部数据驱动展开/收起。
+ * 菜单/列表族：选择器 = 受控 SelectImpl（ButtonImpl 输入条 + 下拉伪窗口，
+ * 见 docs/basic-cell-design.md）；与 select 的区别在 open 状态由 schema 驱动
+ * （受控模式），便于外部数据驱动展开/收起。
  * 主题可经 theme.components.picker 整体重写呈现实现。
  *
  * Schema（数据契约，与旧版一致）：options / value / placeholder / open。
@@ -30,6 +30,7 @@ function PickerAssembledView({ cell }) {
       value={value}
       placeholder={placeholder}
       open={open}
+      owner={cell}
       onToggle={o => cell.setOpen(o)}
       onChange={id => cell.setValue(id)}
     />

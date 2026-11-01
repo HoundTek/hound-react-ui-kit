@@ -77,6 +77,22 @@
 容器型 Cell 在构造函数声明 `styleRole(role)` 使 Box 级圆角生效；圆形/胶囊元素
 继续使用全圆角，不占用角色尺度。
 
+### 四角独立圆角（并排组件连接处）
+
+统一圆角之外，Box 与 Cell 提供 `corners(corners)`（Cell 层同名委托，ButtonCell
+另经 schema `corners` 传给 `ButtonImpl`）声明**四角独立**的圆角：
+
+```js
+box.corners([16, 4, 4, 16]);                                  // [上左, 上右, 下右, 下左]
+box.corners({ topLeft: 16, topRight: 4, bottomRight: 4, bottomLeft: 16 });
+box.corners({ all: 4, topLeft: 16 });                          // 缺省角落回落 all
+```
+
+取值可为 px 数值、CSS 长度或 `'capsule'`。典型用法是**并排相连的组件组**（分段
+按钮、连接卡片）：连接处取小圆角（如 4），外侧保留大圆角/胶囊，相邻两块看起来
+是一体的。声明最终在 `resolveBoxShape` 末尾覆盖形状/角色层规范给出的统一圆角；
+`cornerStyle(corner, corners)` 同时供元素级（`ButtonImpl`）复用。
+
 ## 普适性配置项
 
 形状之外，主题对组件提供一组**跨主题语义一致**的配置项。配置项的 key 集合是稳定的（契约），取值由主题包给出：

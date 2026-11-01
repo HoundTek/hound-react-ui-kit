@@ -52,8 +52,17 @@ const GLOBAL_CSS = `
 .hk-focus::placeholder { color: var(--hk-placeholder, inherit); opacity: 1; }
 /* 等宽数字工具类（与 TABULAR_NUMS 同口径） */
 .hk-num { font-variant-numeric: tabular-nums; }
+/* 文本选择限制：控件类文本（按钮/开关/选项行等）不参与拖选——用户拖拽交互
+   时不会意外选中标签文字；正文/输入区仍可正常选择。.hk-noselect 供组件在
+   非 button 元素上显式声明同一语义 */
+[data-hk-scope] button,
+[data-hk-scope] [role="option"],
+[data-hk-scope] .hk-noselect { user-select: none; -webkit-user-select: none; }
+/* 滑块/开关的滑块位移动效：轨道内绝对定位滑块的 left/top/尺寸与底色过渡，
+   不影响外层布局（轨道本身尺寸固定） */
+.hk-slide { transition: left .16s ease, top .16s ease, width .16s ease, height .16s ease, background-color .16s ease; }
 @media (prefers-reduced-motion: reduce) {
-  .hk-state, .hk-press { transition: none; }
+  .hk-state, .hk-press, .hk-slide { transition: none; }
   .hk-press:active:not(:disabled) { transform: none; }
 }
 `;

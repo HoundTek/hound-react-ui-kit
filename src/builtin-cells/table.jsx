@@ -59,11 +59,14 @@ function TableCellView({ column, row }) {
 function TableRowView({ cell, row, columns, selected }) {
   const primarySoft = useThemeColor('primary-soft', '#e8f0fa');
   const border = useThemeColor('border', '#eee');
+  // 行文字色显式取主题（不依赖浏览器默认黑）：暗色主题下底色是深色，
+  // 未声明颜色的文本会继承 UA 默认色而不可读
+  const text = useThemeColor('text', '#1D1B20');
   return (
     <div
       onClick={() => cell.setSelectedRow(row.id)}
       style={{
-        display: 'flex', alignItems: 'center', height: 32, fontSize: 12,
+        display: 'flex', alignItems: 'center', height: 32, fontSize: 12, color: text,
         cursor: 'pointer', userSelect: 'none', boxSizing: 'border-box', ...TABULAR_NUMS,
         backgroundColor: selected ? primarySoft : 'transparent',
         borderBottom: `1px solid ${border}`,

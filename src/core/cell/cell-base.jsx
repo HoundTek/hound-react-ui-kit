@@ -728,6 +728,14 @@ class CellBaseBuilder {
    */
   shape(s) { return this._recordBoxOp('shape', [s]); }
   /**
+   * 四角独立圆角（覆盖形状/角色统一的圆角；委托 BoxBuilder#corners）。
+   * 用于并排相连的组件：连接处取小圆角、外侧保留大圆角/胶囊。
+   * @param {Object|Array} corners 四角声明（对象 {topLeft,topRight,bottomRight,bottomLeft,all}
+   *   或数组 [topLeft, topRight, bottomRight, bottomLeft]，值为 px 数值 / CSS 长度 / 'capsule'）
+   * @returns {CellBaseBuilder} self（链式）
+   */
+  corners(corners) { return this._recordBoxOp('corners', [corners]); }
+  /**
    * 声明组件角色：主题包裹层规范的查询键，层数与逐层圆角/间距由主题决定
    *（委托 BoxBuilder#styleRole）
    * @param {string} role 组件角色（如 'button'、'window'）

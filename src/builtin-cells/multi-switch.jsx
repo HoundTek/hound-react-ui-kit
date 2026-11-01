@@ -3,7 +3,16 @@
  *
  * 滑块族：多档开关 = 多档滑块（见 docs/basic-cell-design.md）。
  * 组装 fallback：label + 当前档位文本 + SliderTrackImpl（基础 Cell 滑块的
- * 实现组件，step1、0..n-1、档标记刻点），点击刻点或拖动换档。
+ * 实现组件，step1、0..n-1、档标记刻点），拖动换档。
+ * 中间态（与开关同一套三段动效）：按下时滑块先用 `.hk-slide` 过渡动画**移到
+ * 指针处**（连续位置，不吸附到刻点），进入拖动后去掉过渡逐帧跟手，松手清空
+ * 预览、由档位数据驱动动画吸附到目标刻点。
+ * 短按语义（tapMode='step'）：只是短暂点一下时，不直接跳到点击处对应的档位；
+ * 点按落在**当前档点的邻近区间**（当前档点到左右相邻档点中点之间）时，朝指针
+ * 所在的一侧移动**相邻一档**（避免误触跨档）；落在该区间之外时，直接切到离点击
+ * 位置**最近的状态**（快速点向轨道另一侧即跳到最近档位）。
+ * 只有按住拖动（位移 > 4px）才按指针位置连续换档。
+ * 档标记刻点：两端档点的圆心与色条两端胶囊圆角的圆心重合（内缩 = 轨道高一半）。
  * 主题可经 theme.components['multi-switch'] 整体重写呈现实现。
  *
  * Schema（数据契约）：label / options（档位文本数组）/ index（当前档位）/
@@ -49,6 +58,7 @@ function MultiSwitchAssembledView({ cell }) {
           value={Math.min(index, count - 1)}
           ticks={ticks}
           disabled={disabled}
+          tapMode="step"
           onChange={v => cell.setIndex(v)}
         />
       ) : null}

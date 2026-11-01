@@ -391,6 +391,15 @@ function WindowChromeView({ cell }) {
   useEffect(() => {
     const root = win._mounts[0]?.box;
     if (!root) return;
+    // 最小化只保留标题栏：标题栏以外的插槽整体收起（不参与布局、不渲染），
+    // 否则 body 插槽的最小高度会让卷起后的窗口判定为布局非法。
+    // 先收起再切换窗口状态：随后的 toggleMinimize 内部即按最终结构一次 reflow
+    const slots = win._mounts[0]?.slotBoxes;
+    if (slots) {
+      for (const [name, box] of slots) {
+        box.collapsed(minimized && name !== opts.titleSlot);
+      }
+    }
     if (!!root._maximized !== maximized) root.toggleMaximize();
     if (!!root._minimized !== minimized) root.toggleMinimize(opts.titleBarHeight);
   }, [win, maximized, minimized, opts]);
@@ -442,8 +451,48 @@ class WindowChromeCell extends CellBaseBuilder {
 }
 
 /**
+ * 窗口变体预设表（见 FloatingWindowCellBase#windowVariant）。
+ * 四种变体覆盖「独立窗口 / 浮动面板 / 对话框 / 模态窗口」的常见组合：
+ * - window：可移动可缩放，主色标题栏（拖拽点），最小化 + 最大化 + 关闭
+ * - panel ：可移动可缩放，主色标题栏，最小化 + 关闭（面板不铺满屏，无需最大化）
+ * - dialog：可移动不可缩放，浅灰标题栏，最小化 + 关闭
+ * - modal ：不可移动不可缩放 + 可操作遮罩，浅灰标题栏，仅关闭
+ * 标题栏一律由 chrome（WindowChromeCell）承担，内容一律是 body 插槽。
+ */
+const WINDOW_VARIANTS = {
+  window: {
+    titleSlot: 'title', titleBarHeight: 36, titleBarColor: 'primary',
+    titleColor: 'on-primary', dragHandle: true,
+    movable: true, resizable: true, operable: false,
+    controls: { minimize: true, maximize: true, close: true },
+    bodyMinHeight: 120, bodyPadding: 12, bodyGap: 8,
+  },
+  panel: {
+    titleSlot: 'header', titleBarHeight: 36, titleBarColor: 'primary',
+    titleColor: 'on-primary', dragHandle: true,
+    movable: true, resizable: true, operable: false,
+    controls: { minimize: true, maximize: false, close: true },
+    bodyMinHeight: 80, bodyPadding: 12, bodyGap: 8,
+  },
+  dialog: {
+    titleSlot: 'header', titleBarHeight: 40, titleBarColor: 'surface-muted',
+    titleColor: 'text', dragHandle: true,
+    movable: true, resizable: false, operable: true,
+    controls: { minimize: true, maximize: false, close: true },
+    bodyMinHeight: 100, bodyPadding: 16, bodyGap: 8,
+  },
+  modal: {
+    titleSlot: 'header', titleBarHeight: 44, titleBarColor: 'surface-muted',
+    titleColor: 'text', dragHandle: false,
+    movable: false, resizable: false, operable: true,
+    controls: { minimize: false, maximize: false, close: true },
+    bodyMinHeight: 100, bodyPadding: 16, bodyGap: 8,
+  },
+};
+
+/**
  * 浮动窗口基座（导出供页面作者派生自定义窗口 Cell；core 内置窗口预设
- * WindowCell/ModalCell 同样继承本类）：
+ * WindowCell/ModalCell 与高级 Cell DialogCell/FloatingPanelCell 同样继承本类）：
  * 内建窗口控件结构（chrome）与窗口样式控制 API。
  * - chrome：标题栏插槽（单插槽）预填 WindowChromeCell，含标题文本（schema
  *   title 字段，i18n key 或纯文本）与最小化/最大化/关闭控件
@@ -466,6 +515,46 @@ class FloatingWindowCellBase extends CellBaseBuilder {
   _initChrome(titleSlot, { controls, titleBarHeight, titleColor = null }) {
     this._chrome = { titleSlot, controls: { ...controls }, titleBarHeight, titleColor };
     this.fill(titleSlot, new WindowChromeCell(`${this._id}Chrome`, this));
+  }
+
+  /**
+   * 应用窗口变体预设（window / panel / dialog / modal，见 WINDOW_VARIANTS）：
+   * 一次性声明浮动视口、可移动/可缩放/可操作、标题栏插槽（预填 chrome 控件）
+   * 与 body 内容插槽。**带标题栏的弹窗统一走这里**，不再各自手写页眉——否则
+   * 会出现"有的窗口有最小化/关闭控件、有的只有一个干标题"的不一致。
+   * body 是内容插槽：页面作者用 fill('body', ...) 放窗口内部内容，标题栏保持
+   * 由 chrome 渲染（fill(titleSlot, ...) 可整体替换 chrome，属高级用法）。
+   * @param {'window'|'panel'|'dialog'|'modal'} name 变体名
+   * @param {Object} [options] 覆盖预设项（controls 逐项合并，其余覆盖）
+   * @returns {FloatingWindowCellBase} self（链式）
+   */
+  windowVariant(name, options = {}) {
+    const preset = WINDOW_VARIANTS[name] ?? WINDOW_VARIANTS.window;
+    const cfg = {
+      ...preset,
+      ...options,
+      controls: { ...preset.controls, ...(options.controls || {}) },
+    };
+    this.floatingViewport();
+    if (cfg.operable) this.operable();
+    this.movable(cfg.movable).resizable(cfg.resizable)
+      .styleRole('window').layout('vertical')
+      .defineSlot(cfg.titleSlot, {
+        fixedHeight: cfg.titleBarHeight, color: cfg.titleBarColor,
+        dragHandle: cfg.dragHandle,
+        layout: 'horizontal', moveX: false, moveY: false, single: true,
+      })
+      .defineSlot('body', {
+        minHeight: cfg.bodyMinHeight, moveY: true, layout: 'vertical', color: 'surface',
+        // 内容留白与间距：窗口内容不再与标题栏/边框贴死（bodyPadding/bodyGap 可覆盖）
+        padding: cfg.bodyPadding ?? 12, gap: cfg.bodyGap ?? 8,
+      });
+    this._initChrome(cfg.titleSlot, {
+      controls: cfg.controls,
+      titleBarHeight: cfg.titleBarHeight,
+      titleColor: cfg.titleColor,
+    });
+    return this;
   }
 
   /**
@@ -585,15 +674,14 @@ class NotificationCell extends CellBaseBuilder {
 }
 
 /**
- * ModalCell：子窗口对话框预设（浮动视口）。默认固定位置/尺寸、不可移动/缩放；
- * header（单插槽，页眉栏）内建窗口控件结构（chrome：标题文本 + 关闭控件），
- * fill('header', ...) 可整体替换默认 chrome；body（列表插槽，可滚动）由页面
- * 作者填充内容。
+ * ModalCell：子窗口对话框预设（浮动视口，变体 'modal'）。默认固定位置/尺寸、
+ * 不可移动/缩放；header（单插槽，页眉栏）由 chrome 预填（标题文本 + 关闭控件），
+ * body（列表插槽，可滚动）为窗口**内容插槽**，由页面作者 fill 填充。
  * 父子窗口树模型下（见 docs/floating-window-tree-design.md）：作者用 setParent(windowCell)
  * 声明父窗口（须先挂载父 Cell），需要遮罩时调用父窗口 Cell 的 operable()。
  * 位置/尺寸由页面作者在实例上配置（posX/posY/fixedWidth/... 链式覆盖）。
  *
- * Schema（数据契约）：title（标题文本，i18n key 或纯文本）。
+ * Schema（数据契约）：title / maximized / minimized。
  */
 class ModalCell extends FloatingWindowCellBase {
   /**
@@ -601,21 +689,14 @@ class ModalCell extends FloatingWindowCellBase {
    */
   constructor(id) {
     super(id);
-    this.floatingViewport().operable()
-      .movable(false).resizable(false)
-      .fixedWidth(320).fixedHeight(200)
-      .styleRole('window').layout('vertical')
-      .schema({ title: { type: 'string', default: '' } })
-      .defineSlot('header', {
-        fixedHeight: 44, color: 'surface-muted',
-        layout: 'horizontal', moveX: false, moveY: false, single: true,
+    this.fixedWidth(320).fixedHeight(200)
+      .schema({
+        title: { type: 'string', default: '' },
+        maximized: { type: 'boolean', default: false },
+        minimized: { type: 'boolean', default: false },
       })
-      .defineSlot('body', { minHeight: 100, moveY: true, layout: 'vertical', color: 'surface' });
-    this._initChrome('header', {
-      controls: { minimize: false, maximize: false, close: true },
-      titleBarHeight: 44,
-      titleColor: 'text',
-    });
+      // 变体 'modal'：不可移动/缩放、可操作遮罩、浅灰标题栏 44 高、仅关闭控件
+      .windowVariant('modal');
   }
 }
 
@@ -635,26 +716,18 @@ class WindowCell extends FloatingWindowCellBase {
    */
   constructor(id) {
     super(id);
-    this.floatingViewport()
-      .movable(true).resizable(true)
-      .fixedWidth(320).fixedHeight(200)
-      .styleRole('window').layout('vertical')
+    this.fixedWidth(320).fixedHeight(200)
       .schema({
         title: { type: 'string', default: '' },
         maximized: { type: 'boolean', default: false },
         minimized: { type: 'boolean', default: false },
       })
-      .defineSlot('title', {
-        fixedHeight: 36, color: 'primary', dragHandle: true,
-        layout: 'horizontal', moveX: false, moveY: false, single: true,
-      })
-      .defineSlot('body', { minHeight: 120, moveY: true, layout: 'vertical', color: 'surface' });
-    this._initChrome('title', {
-      controls: { minimize: true, maximize: true, close: true },
-      titleBarHeight: 36,
-      titleColor: 'on-primary',
-    });
+      // 变体 'window'：可移动/缩放、主色标题栏 36 高（拖拽点）、最小化+最大化+关闭
+      .windowVariant('window');
   }
 }
 
-export { TextCell, TextImpl, ButtonCell, InputCell, ListCell, CloseButtonCell, NotificationCell, FloatingWindowCellBase, ModalCell, WindowCell };
+export {
+  TextCell, TextImpl, ButtonCell, InputCell, ListCell, CloseButtonCell,
+  NotificationCell, FloatingWindowCellBase, ModalCell, WindowCell, WINDOW_VARIANTS,
+};

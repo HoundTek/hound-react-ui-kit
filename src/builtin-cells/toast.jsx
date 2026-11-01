@@ -50,6 +50,9 @@ class ToastCell extends CellBaseBuilder {
     this.floatingViewport()
       .movable(false).resizable(false)
       .fixedWidth(240).defaultHeight(40)
+      // 形状声明为胶囊：浮动视口定位容器/包壳的圆角与投影轮廓跟随内容
+      //（NoticeImpl 胶囊），否则矩形轮廓的投影会在胶囊外侧露出一圈"方框"
+      .shape('capsule')
       .schema({
         text: { type: 'string', default: '' },
         type: { type: 'string', default: 'info' },

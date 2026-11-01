@@ -43,16 +43,17 @@ const styleSheet = `
   body.box-resizing-nwse, body.box-resizing-nwse * { cursor: nwse-resize !important; }
   body.box-resizing-nesw, body.box-resizing-nesw * { cursor: nesw-resize !important; }
   /* 浮动窗口入场动效（打开时淡入 + 轻微缩放）；窗口框架随焦点切换过渡。
-     仅动 opacity/transform/box-shadow，不触碰尺寸与布局属性，避免干扰 reflow */
+     动效挂在**定位容器**（.floating-window）而非包壳：边框/阴影画在定位容器上、
+     内容画在包壳内，若只动包壳会先出现一个"空边框"再淡入内容（两段式）。整体
+     淡入保证边框与内容同帧出现。仅动 opacity/transform/box-shadow，不触碰尺寸
+     与布局属性，避免干扰 reflow */
   @keyframes hk-floating-in {
     from { opacity: 0; transform: scale(.96); }
     to { opacity: 1; transform: scale(1); }
   }
-  .floating-shell { animation: hk-floating-in .16s ease-out; }
-  .floating-window { transition: box-shadow .18s ease, border-color .18s ease; }
+  .floating-window { animation: hk-floating-in .16s ease-out; transition: box-shadow .18s ease, border-color .18s ease; }
   @media (prefers-reduced-motion: reduce) {
-    .floating-shell { animation: none; }
-    .floating-window { transition: none; }
+    .floating-window { animation: none; transition: none; }
   }
 `;
 
@@ -67,6 +68,8 @@ if (typeof document !== 'undefined' && !document.getElementById('box-drag-styles
 
 // === 拖拽会话（runtime 级，Edge / Corner 共用）===
 // session.targets: [{ container, dividerIndex, dim, axis, baseSizes }]
+// session.edgeIds: string[] 本会话高亮的边 id（渲染层据此给边套拖拽覆盖样式，
+// 不再依赖 hoveredEdges 维持高亮）
 // axis 为 'x' 时鼠标横向位移驱动（竖直边，调 Width），为 'y' 时反之
 // 会话槽存于 runtime.dragSession（null = 空闲），同一 runtime 内全局互斥
 
@@ -137,7 +140,7 @@ function startDragSession(targets, edgeIds, event, hover) {
     t.baseSizes = t.container._children.map(c => safeNum(c[`_layout${t.dim}`]));
     t.containerSize = safeNum(t.container._containerSize?.[t.dim.toLowerCase()]);
   });
-  runtime.dragSession = { targets };
+  runtime.dragSession = { targets, edgeIds };
   hover.addHoveredEdges(edgeIds);
 
   const startX = event.clientX;
@@ -361,14 +364,21 @@ function computeBuilderLayout(builder) {
       maxHeight = 'none';
       minHeight = '0';
     } else {
-      if (builder._viewWidth != null) {
-        computedWidth = `${builder._viewWidth}px`;
+      // 未缩放的浮动视口：内容层按**视觉尺寸**布局（_viewWidth/_defaultWidth/
+      // fixed/min-max/实测容器尺寸，见 getFloatingVisualSize），而不是只认
+      // _viewWidth。早期只认 _viewWidth（缩放后才有值），fixedWidth/fixedHeight
+      // 声明的窗口内容层仍是 auto：包壳按 320×200 裁剪、内容却按自然高度 68 布局，
+      // 于是"弹出后内容才长到窗口大小"。尺寸未知（真正 auto 的浮层）时保持 auto，
+      // 由包壳随内容撑开。
+      const visual = getFloatingVisualSize(builder);
+      if (visual.width !== undefined) {
+        computedWidth = `${visual.width}px`;
         maxWidth = 'none';
         // min-* 不支持 none（CSS 无效值），用 0 表示不设下限
         minWidth = '0';
       }
-      if (builder._viewHeight != null) {
-        computedHeight = `${builder._viewHeight}px`;
+      if (visual.height !== undefined) {
+        computedHeight = `${visual.height}px`;
         maxHeight = 'none';
         minHeight = '0';
       }
@@ -403,8 +413,6 @@ function computeBuilderLayout(builder) {
   else if (builder._layoutHeight !== undefined) style.alignItems = 'flex-start';
   else if (builder._alignItems !== undefined) style.alignItems = builder._alignItems;
 
-  if (!builder._layoutValid) style.backgroundColor = 'red';
-
   Object.keys(style).forEach(key => {
     if (style[key] === undefined) delete style[key];
   });
@@ -416,8 +424,17 @@ function computeBuilderLayout(builder) {
   // 可滚动溢出区域），覆盖层经下方 offsets 绝对定位对齐，三层口径一致
   const pad = builder._padding || 0;
   const gap = builder._gap || 0;
+  // 参与排列的子项下标（排除收起项，见 BoxBuilder#collapsed）：首/末项与间隙
+  // 位置都按"可见子项"口径计算，收起项不占间隙也不影响末项的尾部内边距
+  const visibleIndexes = builder._children.reduce(
+    (acc, child, i) => { if (!child._collapsed) acc.push(i); return acc; }, [],
+  );
+  const firstVisible = visibleIndexes.length > 0 ? visibleIndexes[0] : -1;
+  const lastVisible = visibleIndexes.length > 0 ? visibleIndexes[visibleIndexes.length - 1] : -1;
 
   const getChildStyle = (child, index) => {
+    // 收起项不渲染、不占位（见 BoxBuilder#collapsed）
+    if (child._collapsed) return { display: 'none' };
     // 尺寸一律由 reflow 精确分配，子项永远不许 flex 收缩：任何主轴/交叉轴
     // 收缩都会让 content 层子项小于 edge/corner 覆盖层（绝对定位，保持显式
     // 尺寸）而产生两层错位，同时把组件内容压扁。溢出应交给容器的滚动，
@@ -430,11 +447,11 @@ function computeBuilderLayout(builder) {
       height: child._layoutHeight ? `${child._layoutHeight}px` : undefined,
     };
     if (!isGrid && (pad || gap)) {
-      const last = index === builder._children.length - 1;
+      const last = index === lastVisible;
       // margin 顺序：上 右 下 左。首项靠前侧 pad、后续项靠前侧 gap，末项补后侧 pad
       s.margin = isHorizontal
-        ? `${pad}px ${last ? pad : 0}px ${pad}px ${index === 0 ? pad : gap}px`
-        : `${index === 0 ? pad : gap}px ${pad}px ${last ? pad : 0}px ${pad}px`;
+        ? `${pad}px ${last ? pad : 0}px ${pad}px ${index === firstVisible ? pad : gap}px`
+        : `${index === firstVisible ? pad : gap}px ${pad}px ${last ? pad : 0}px ${pad}px`;
     }
     Object.keys(s).forEach(key => {
       if (s[key] === undefined) delete s[key];
@@ -444,6 +461,11 @@ function computeBuilderLayout(builder) {
 
   const containerClassName = builder._pathResolved.join('-');
   const innerClassName = "inner-" + containerClassName;
+  // 内层不做任何缩放期对齐锚定：内容恒按布局起点（上/左）排列——拖 W/N 时被
+  // 调整的正是起点侧，内容（标题栏）随窗口边缘一起移动、始终贴住窗口顶边；
+  // 拖 E/S 时起点侧静止，内容不动、余量落在被调整的一侧。曾按"所调整边缘的对边"
+  // 锚定（flex-end），导致 N 向缩放时标题栏脱离窗口顶边、松手瞬间跳回复位
+  //（见 startFloatingResize）。
   const innerStyle = {
     width: "100%",
     height: "100%",
@@ -451,26 +473,6 @@ function computeBuilderLayout(builder) {
     flexDirection,
     position: 'relative',
   };
-  // 浮动视口缩放期内容锚定（见 startFloatingResize）：把内容对齐到"所调整边缘
-  // 的对边"（拖 W/N 时对侧为静止边），使主轴分配/取整产生的余量留在被调整的
-  // 一侧，减少静止边在连续缩放中的抖动。布局方向决定主轴/交叉轴映射；交叉轴
-  // 仅在所有子项都有显式交叉尺寸时切换（否则会由 stretch 退化为按内容收缩）。
-  if (builder._isFloatingViewport && builder._resizeAnchor) {
-    const { x, y } = builder._resizeAnchor;
-    const toAlign = (v) => (v === 'end' ? 'flex-end' : v === 'start' ? 'flex-start' : undefined);
-    const alignX = toAlign(x);
-    const alignY = toAlign(y);
-    const crossExplicit = builder._children.every(child => (flexDirection === 'column'
-      ? child._layoutWidth != null
-      : child._layoutHeight != null));
-    if (flexDirection === 'column') {
-      if (alignY) innerStyle.justifyContent = alignY;
-      if (alignX && crossExplicit) innerStyle.alignItems = alignX;
-    } else if (flexDirection === 'row') {
-      if (alignX) innerStyle.justifyContent = alignX;
-      if (alignY && crossExplicit) innerStyle.alignItems = alignY;
-    }
-  }
   // Grid：单元格按 gridMetrics 绝对定位（见 ContentLayer），不用 flex-wrap——
   // 浏览器的换行决策会与 reflow 过渡态（容器尺寸与 gridMetrics 短暂不一致）
   // 叠加产生闪烁。inner 尺寸撑到内容大小（含格间 gap 与两侧 padding），
@@ -482,20 +484,29 @@ function computeBuilderLayout(builder) {
   }
 
   // 计算子节点偏移量（含容器内边距与子项间距：首项起始于 padding，
-  // 相邻项之间隔 gap；与内容层子项 margin 口径一致）
+  // 相邻项之间隔 gap；与内容层子项 margin 口径一致）。收起项不参与排列，
+  // 其偏移沿用当前累计位置（自身 0 尺寸，渲染时 display:none）
   const offsets = builder._children.map(() => 0);
   let cumulative = pad;
+  let placed = 0;
   builder._children.forEach((child, i) => {
+    if (child._collapsed) {
+      offsets[i] = cumulative;
+      return;
+    }
+    if (placed > 0) cumulative += gap;
     offsets[i] = cumulative;
-    cumulative += (isHorizontal ? safeNum(child._layoutWidth) : safeNum(child._layoutHeight)) + gap;
+    cumulative += isHorizontal ? safeNum(child._layoutWidth) : safeNum(child._layoutHeight);
+    placed++;
   });
+  const visibleCount = placed;
 
   // 覆盖层滚动范围（主轴内容总尺寸）：覆盖层 inner 以此显式尺寸撑开滚动范围，
   // 不依赖"绝对定位子项撑大可滚动溢出区域"——各引擎对绝对定位后代是否计入
   // scrollable overflow 的实现不一致（内容层滚动范围由 in-flow 子项撑开，跨引擎
   // 一致），范围不一致时三层滚动位置相互钳制、分界线随滚动与内容错位。
   // Grid 的 inner 尺寸已在上方显式设置（含 gap/padding），无需此项
-  const mainContentSize = !isGrid && builder._children.length > 0 ? cumulative - gap + pad : 0;
+  const mainContentSize = !isGrid && visibleCount > 0 ? cumulative + pad : 0;
 
   // Grid 子节点的二维位置（供覆盖层递归定位；含格间 gap 与容器 padding）
   const positions = builder._children.map(() => null);
@@ -520,6 +531,8 @@ function computeBuilderLayout(builder) {
     innerClassName,
     innerStyle,
     mainContentSize,
+    // 容器内边距：覆盖层子项定位需要补上（见 getChildPositionStyle）
+    pad,
     computedWidth,
     computedHeight,
   };
@@ -587,14 +600,19 @@ function getOverlayInnerStyle(innerStyle, mainContentSize, isHorizontal) {
 }
 
 /**
- * 计算子项在覆盖层中的绝对定位样式。Grid 用二维 position；其余按主轴 offset 一维排列
+ * 计算子项在覆盖层中的绝对定位样式。Grid 用二维 position；其余按主轴 offset 一维排列。
+ * 交叉轴必须补上容器内边距（pad）：内容层子项靠 `getChildStyle` 的 margin 落在内边距
+ * 内，覆盖层是绝对定位、不吃 flex 的 margin——早期交叉轴写死 0/100%，覆盖层比内容层
+ * 少一层内边距，嵌套后逐层累积（SplitCell 的分界线手柄整体左偏一个内边距，看起来
+ * "SplitCell 位置不正确"）
  * @param {Object} childStyle 子项基础样式（取 width/height）
  * @param {number} offset 主轴累计偏移
  * @param {boolean} isHorizontal 是否水平排列
  * @param {{left: number, top: number}|null} position Grid 二维坐标；非 Grid 时为 null
+ * @param {number} [pad] 容器内边距（px）
  * @returns {Object} 绝对定位样式对象
  */
-function getChildPositionStyle(childStyle, offset, isHorizontal, position) {
+function getChildPositionStyle(childStyle, offset, isHorizontal, position, pad = 0) {
   if (position) {
     return {
       position: 'absolute',
@@ -604,9 +622,24 @@ function getChildPositionStyle(childStyle, offset, isHorizontal, position) {
       height: childStyle.height || 'auto',
     };
   }
-  return isHorizontal
-    ? { position: 'absolute', left: offset, top: 0, width: childStyle.width || 'auto', height: '100%' }
-    : { position: 'absolute', top: offset, left: 0, height: childStyle.height || 'auto', width: '100%' };
+  // 交叉轴默认 stretch（与内容层 alignItems 口径一致）：撑满内边距内的可用尺寸
+  const crossSize = `calc(100% - ${2 * pad}px)`;
+  if (isHorizontal) {
+    return {
+      position: 'absolute',
+      left: offset,
+      top: pad,
+      width: childStyle.width || 'auto',
+      height: childStyle.height || (pad ? crossSize : '100%'),
+    };
+  }
+  return {
+    position: 'absolute',
+    top: offset,
+    left: pad,
+    height: childStyle.height || 'auto',
+    width: childStyle.width || (pad ? crossSize : '100%'),
+  };
 }
 
 /**
@@ -617,12 +650,15 @@ function getChildPositionStyle(childStyle, offset, isHorizontal, position) {
  * @param {boolean} horizontal 所在容器是否水平排列（水平容器的分界线为竖条）
  * @param {{color?: string, width?: number, opacity?: number, inset?: number}} spec 主题规范
  * @param {Theme|null} theme 当前主题
+ * @param {boolean} [active=false] 是否处于拖拽会话（覆盖样式：更饱满的不透明度，
+ *   不依赖 hover 维持高亮；同时略微加宽便于确认当前调整的是哪条边）
  * @returns {Object} 指示条样式
  */
-function buildEdgeIndicatorStyle(horizontal, spec, theme) {
-  const width = spec.width ?? 3;
+function buildEdgeIndicatorStyle(horizontal, spec, theme, active = false) {
+  const baseWidth = spec.width ?? 3;
+  const width = active ? baseWidth + 1 : baseWidth;
   const inset = spec.inset ?? 4;
-  const opacity = spec.opacity ?? 0.9;
+  const opacity = active ? 1 : (spec.opacity ?? 0.9);
   const resolved = theme?.resolveColor?.(spec.color) ?? spec.color
     ?? theme?.resolveColor?.('primary') ?? '#6750A4';
   const base = {
@@ -631,6 +667,7 @@ function buildEdgeIndicatorStyle(horizontal, spec, theme) {
     backgroundColor: resolved,
     opacity,
     pointerEvents: 'none',
+    ...(active ? { boxShadow: `0 0 0 1px ${resolved}` } : {}),
   };
   return horizontal
     ? { ...base, left: '50%', top: inset, bottom: inset, width, transform: 'translateX(-50%)' }
@@ -708,13 +745,21 @@ function useBoxContent(builder) {
   }, [builder._path]);
 
   // 滚动阻尼：wheel 增量累积为滚动目标，经 rAF 指数衰减平滑逼近（见 scroll-damping.js）。
-  // 覆盖层经 scroll 事件镜像 transform，天然跟随阻尼动画；滚动链语义不变
-  //（到边界的方向放行事件，冒泡到外层可滚容器）
+  // 覆盖层经 scroll 事件镜像 transform，天然跟随阻尼动画。滚动链语义为手势级路由：
+  // 一次手势只滚一个归属层（光标所在的最内层可滚层），**滚轮没停就不换层**——
+  // 它到底后继续滚就对它做过滚（位移 = ln(1 + 累积输入)，0 处连续、导数 1，
+  // 触发那一下不跳变），滚轮静止（0.3s 无新 wheel）手势结束并回弹归零；再次滚动
+  // 才重新从光标处选层（已到底的层被跳过、自然交给外层）。
+  // 轴能力由 moveX/moveY 决定（未显式锁定的轴视为可滚）：非滚动方向的输入既不滚
+  // 内容、也不产生过滚位移（双轴锁定的容器如 SplitCell 不会被滚轮拽离原位）
   useEffect(() => {
     if (!containerRef.current) return;
-    const damping = attachScrollDamping(containerRef.current);
+    const damping = attachScrollDamping(containerRef.current, {
+      x: builder._moveX !== false,
+      y: builder._moveY !== false,
+    });
     return () => damping.dispose();
-  }, []);
+  }, [builder, builder._moveX, builder._moveY]);
 
   // window resize 监听
   useEffect(() => {
@@ -840,8 +885,10 @@ function useBoxOverlayScroll(layerRef, builder) {
   }, [builder._path, layerRef]);
 
   // wheel 转发：覆盖层不可滚，悬停 handle（pointer-events:auto）时滚轮转发给
-  // 内容层。路由统一交给 routeWheel（见 scroll-damping.js）：一轮连续手势只
-  // 服务一个可滚容器，到边界后原地吞掉，用户停顿后新手势才上移一层。
+  // 内容层。路由统一交给 routeWheel（见 scroll-damping.js）：以光标所在的最内层
+  // 可滚容器为起点选层，一轮手势只服务当前归属层，**滚轮没停就不换层**——它到底
+  // 后继续滚则转为过滚（对数拉力 + 静止回弹）；滚轮静止（0.3s 无新 wheel）手势结束，
+  // 再次滚动才重新从光标处选层（已到底的层被跳过、交给外层）
   // deltaMode 归一：Firefox 可能按行（1）/按页（2）给增量
   useEffect(() => {
     const contentRefObj = builder.runtime.getContentRef(builder._path);
@@ -883,7 +930,7 @@ function useBoxOverlayScroll(layerRef, builder) {
  * @param {Object} props.innerStyle 内层样式
  * @param {Object} [props.wrapperStyle] 外层包裹样式（提供时多套一层 div）
  * @param {React.ReactNode} props.children 子节点
- * @param {React.ReactNode} [props.extra] 附加节点
+ * @param {React.ReactNode} [props.extra] 附加节点（浮动滚动条；有 wrapper 时挂在 wrapper 内、容器外）
  * @param {Function} [props.onContainerMouseDown] 容器 mousedown 处理器
  * @returns {JSX.Element} 框架元素
  */
@@ -893,10 +940,14 @@ const BoxLayerFrame = ({ containerRef, containerClassName, containerStyle, inner
       <div className={innerClassName} style={{ ...innerStyle }}>
         {children}
       </div>
-      {extra}
+      {wrapperStyle ? null : extra}
     </div>
   );
-  return wrapperStyle ? <div style={wrapperStyle}>{frame}</div> : frame;
+  // 附加节点（浮动滚动条）留在**容器外、wrapper 内**：过滚会给容器写 transform，
+  // 而 transform 会把容器变成其绝对定位后代的包含块——滚动条若在容器内，过滚那
+  // 一下会被重新定位到内容起点（跳到 -scrollTop 处，肉眼即"滚动条消失"）。
+  // wrapper 与容器同框且 position: relative，滚动条位置因此恒定不变
+  return wrapperStyle ? <div style={wrapperStyle}>{frame}{extra}</div> : frame;
 };
 
 // ===========================================================================
@@ -910,6 +961,69 @@ const BoxLayerFrame = ({ containerRef, containerClassName, containerStyle, inner
  * 附加 builder prop（对已有 props 如 Cell 内容组件的 cell 无影响）。
  */
 const ContentBuilderContext = React.createContext(null);
+
+/**
+ * 布局错误字形（警示三角，内联 SVG，不依赖 Cell 层的 glyphs 模块）。
+ * @param {{size: number}} props 组件属性
+ * @returns {JSX.Element} 字形元素
+ */
+const LayoutErrorGlyph = ({ size }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
+    <path
+      d="M12 4.4 3.6 19.6h16.8L12 4.4Zm0 4.3 4.9 8.7H7.1L12 8.7ZM11.2 11v3h1.6v-3h-1.6Zm0 4v2h1.6v-2h-1.6Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+/**
+ * 布局非法占位卡片（柔和错误提示）：浅 danger 底 + 1px 内描边 + 警示字形 +
+ * 标题 + 「需要 / 可用」尺寸。按可用宽高分三档（large / medium / small）调整
+ * 内边距、字号、是否画字形与是否展示明细，既避免极小占位里溢出，也让大占位
+ * 的信息完整可读。
+ * @param {Object} props 组件属性
+ * @param {{axis: string, required: number, available: number}|null} props.error 布局诊断信息
+ * @param {number} props.width 占位可用宽度（px）
+ * @param {number} props.height 占位可用高度（px）
+ * @returns {JSX.Element} 错误卡片元素
+ */
+function LayoutErrorCard({ error, width, height }) {
+  const theme = useTheme();
+  const danger = theme?.resolveColor('danger') ?? '#B3261E';
+  // 柔和底色/描边：danger 8% 填充 + 28% 描边，避免整块高饱和红挤压视觉
+  const soft = hexToRgba(danger, 0.08) ?? 'rgba(179,38,30,0.08)';
+  const ring = hexToRgba(danger, 0.28) ?? 'rgba(179,38,30,0.28)';
+  const text = theme?.resolveColor('text') ?? '#1D1B20';
+  const radius = theme?.getBaseRadius('control') ?? 8;
+  const tier = (width >= 320 && height >= 110) ? 'large' : (width >= 180) ? 'medium' : 'small';
+  const spec = {
+    small: { pad: 4, gap: 2, title: 11, detail: 10, icon: 0, showDetail: width >= 150 && height >= 46 },
+    medium: { pad: 8, gap: 4, title: 12, detail: 11, icon: 14, showDetail: height >= 54 },
+    large: { pad: 12, gap: 6, title: 13, detail: 12, icon: 16, showDetail: true },
+  }[tier];
+  const need = error && typeof error.required === 'number' ? Math.ceil(error.required) : null;
+  const has = error && typeof error.available === 'number' ? Math.floor(error.available) : null;
+  const detail = (need != null && has != null)
+    ? `需要 ${need}px · 可用 ${has}px`
+    : '尺寸约束冲突';
+  const clip = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' };
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      gap: spec.gap, width: '100%', height: '100%', boxSizing: 'border-box', padding: spec.pad,
+      backgroundColor: soft, borderRadius: radius, boxShadow: `inset 0 0 0 1px ${ring}`,
+      color: danger, overflow: 'hidden', textAlign: 'center', userSelect: 'none',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: spec.gap, minWidth: 0, maxWidth: '100%' }}>
+        {spec.icon ? <LayoutErrorGlyph size={spec.icon} /> : null}
+        <span style={{ fontSize: spec.title, fontWeight: 600, ...clip }}>布局错误</span>
+      </div>
+      {spec.showDetail ? (
+        <span style={{ fontSize: spec.detail, color: text, opacity: 0.72, ...clip }}>{detail}</span>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * Box 自定义内容节点：为内容节点附加内容所在 box 的 builder。
@@ -965,7 +1079,11 @@ const ContentLayer = ({ builder }) => {
         innerStyle={innerStyle}
         wrapperStyle={wrapperStyle}
       >
-        <div>错误</div>
+        <LayoutErrorCard
+          error={builder._layoutError}
+          width={builder._layoutError?.available || builder._containerSize?.width || 0}
+          height={builder._containerSize?.height || 0}
+        />
       </BoxLayerFrame>
     );
   }
@@ -1031,7 +1149,7 @@ const EdgeLayer = ({ builder }) => {
   const { hoveredEdges, addHoveredEdge, removeHoveredEdge, addHoveredEdges, removeHoveredEdges } = useHoveredEdges();
   const theme = useTheme();
   const layout = computeBuilderLayout(builder);
-  const { style, isHorizontal, isGrid, offsets, positions, getChildStyle, containerClassName, innerClassName, innerStyle, mainContentSize } = layout;
+  const { style, isHorizontal, isGrid, offsets, positions, getChildStyle, containerClassName, innerClassName, innerStyle, mainContentSize, pad } = layout;
 
   useBoxOverlayScroll(edgeRef, builder);
   // 登记到三层容器注册表（浮动缩放直接写 DOM）
@@ -1088,6 +1206,9 @@ const EdgeLayer = ({ builder }) => {
     if (!resolveMovableDragTarget(builder._root, box, side)) return null;
     const edgeId = makeEdgeId(box, side);
     const isHovered = hoveredEdges.has(edgeId);
+    // 拖拽会话期间以会话成员判定高亮（不再依赖 hover 维持）：拖动中指针会离开
+    // 命中区（或移到相邻边），靠 hover 会导致高亮丢失/串到别的边
+    const isActive = !!builder.runtime.dragSession?.edgeIds?.includes(edgeId);
     const depth = box._pathResolved.length;
     const s = {
       position: 'absolute',
@@ -1096,18 +1217,21 @@ const EdgeLayer = ({ builder }) => {
       // 其条带与 box 右/下边缘重合，zIndex 低于它会吞掉边的按下事件
       zIndex: 1100 - depth,
     };
+    // 命中区**以分界线为中心**（宽 EDGE_SIZE）：start 边前移半个命中区、end 边
+    // 后移半个，指示条（居中于命中区）正好落在真实分界线/盒边界上——早期把命中区
+    // 起点对齐分界线，指示条因此内偏半个宽度，拖拽感知位置与分界线错位
     if (isHorizontal) {
       const w = safeNum(box._layoutWidth);
-      s.left = isStart ? offset : offset + w - EDGE_SIZE / 2;
+      s.left = (isStart ? offset : offset + w) - EDGE_SIZE / 2;
       s.top = 0;
-      s.width = EDGE_SIZE / 2;
+      s.width = EDGE_SIZE;
       s.height = '100%';
     } else {
       const h = safeNum(box._layoutHeight);
-      s.top = isStart ? offset : offset + h - EDGE_SIZE / 2;
+      s.top = (isStart ? offset : offset + h) - EDGE_SIZE / 2;
       s.left = 0;
       s.width = '100%';
-      s.height = EDGE_SIZE / 2;
+      s.height = EDGE_SIZE;
     }
     const dirClass = isHorizontal ? 'drag-handle-horizontal' : 'drag-handle-vertical';
     return (
@@ -1119,8 +1243,8 @@ const EdgeLayer = ({ builder }) => {
         onMouseLeave={() => { if (!builder.runtime.dragSession) removeHoveredEdge(edgeId); }}
         onMouseDown={(e) => handleEdgeMouseDown(box, side, edgeId, e)}
       >
-        {isHovered && edgeIndicator && (
-          <div style={buildEdgeIndicatorStyle(isHorizontal, edgeIndicator, theme)} />
+        {(isHovered || isActive) && edgeIndicator && (
+          <div style={buildEdgeIndicatorStyle(isHorizontal, edgeIndicator, theme, isActive)} />
         )}
       </div>
     );
@@ -1135,6 +1259,8 @@ const EdgeLayer = ({ builder }) => {
   const renderHandle = (box, offset) => {
     const edgeId = makeEdgeId(box, 'handle');
     const isHovered = hoveredEdges.has(edgeId);
+    // 同 renderEdge：拖拽中以会话成员判定高亮，不依赖 hover
+    const isActive = !!builder.runtime.dragSession?.edgeIds?.includes(edgeId);
     const depth = box._pathResolved.length;
     const dirClass = isHorizontal ? 'drag-handle-horizontal' : 'drag-handle-vertical';
     const s = {
@@ -1166,8 +1292,8 @@ const EdgeLayer = ({ builder }) => {
         onMouseLeave={() => { if (!builder.runtime.dragSession) removeHoveredEdge(edgeId); }}
         onMouseDown={(e) => handleEdgeMouseDown(box, 'handle', edgeId, e)}
       >
-        {isHovered && edgeIndicator && (
-          <div style={buildEdgeIndicatorStyle(isHorizontal, edgeIndicator, theme)} />
+        {(isHovered || isActive) && edgeIndicator && (
+          <div style={buildEdgeIndicatorStyle(isHorizontal, edgeIndicator, theme, isActive)} />
         )}
       </div>
     );
@@ -1210,7 +1336,7 @@ const EdgeLayer = ({ builder }) => {
       {builder._children.map((child, index) => {
         if (!showEdges && !subtreeOverlayEnabled(child, '_showEdges')) return null;
         const childStyle = getChildStyle(child);
-        const posStyle = getChildPositionStyle(childStyle, offsets[index], isHorizontal, positions[index]);
+        const posStyle = getChildPositionStyle(childStyle, offsets[index], isHorizontal, positions[index], pad);
         return (
           <div key={`edge-child-${builder._pathResolved.join('-')}-${index}`} style={posStyle}>
             <EdgeLayer builder={child} />
@@ -1238,7 +1364,7 @@ const CornerLayer = ({ builder }) => {
   const cornerRef = useRef(null);
   const { addHoveredEdges, removeHoveredEdges } = useHoveredEdges();
   const layout = computeBuilderLayout(builder);
-  const { style, isHorizontal, isGrid, offsets, positions, getChildStyle, containerClassName, innerClassName, innerStyle, mainContentSize } = layout;
+  const { style, isHorizontal, isGrid, offsets, positions, getChildStyle, containerClassName, innerClassName, innerStyle, mainContentSize, pad } = layout;
 
   useBoxOverlayScroll(cornerRef, builder);
   // 登记到三层容器注册表（浮动缩放直接写 DOM）
@@ -1463,7 +1589,7 @@ const CornerLayer = ({ builder }) => {
       {builder._children.map((child, index) => {
         if (!showEdges && !subtreeOverlayEnabled(child, '_showEdges')) return null;
         const childStyle = getChildStyle(child);
-        const posStyle = getChildPositionStyle(childStyle, offsets[index], isHorizontal, positions[index]);
+        const posStyle = getChildPositionStyle(childStyle, offsets[index], isHorizontal, positions[index], pad);
         return (
           <div key={`corner-child-${builder._pathResolved.join('-')}-${index}`} style={posStyle}>
             <CornerLayer builder={child} />
@@ -1726,6 +1852,9 @@ function startFloatingMove(root, event) {
  *（右侧/下侧边界保持不动；尺寸被 min/max 钳制时位置也停止，避免窗口漂移）。
  * 缩放起始解除 fixed（min === max）的固定上限，使缩放生效。
  * 拖拽期间光标为对应调整方向（水平/垂直/对角），与移动（四向十字）区分。
+ * 内容不做"对边锚定"：恒按布局起点（上/左）排列——拖 W/N 时随窗口边缘移动
+ *（标题栏贴住被拖动的顶边）、拖 E/S 时不动，松手前后一致、不跳变
+ *（见 computeBuilderLayout 的内层样式注释）。
  * @param {BoxBuilder} root 浮动视口 builder
  * @param {string} dir 手柄方向（可组合）：'n'/'s'/'e'/'w'/'ne'/'nw'/'se'/'sw'
  * @param {React.MouseEvent} event 触发事件
@@ -1756,17 +1885,20 @@ function startFloatingResize(root, dir, event) {
   const baseY = root._posY ?? 0;
   const baseW = root._viewWidth != null ? root._viewWidth : safeNum(root._containerSize?.width);
   const baseH = root._viewHeight != null ? root._viewHeight : safeNum(root._containerSize?.height);
+  // 最小化（卷起为标题栏）状态：不允许调整高度——纵向分量整体关闭，
+  // 高度钳死在当前（标题栏）高度；即使从四角手柄拖拽也只改宽度。
+  const minimized = !!root._minimized;
   const moveW = dir.includes('w');
   const moveE = dir.includes('e');
-  const moveN = dir.includes('n');
-  const moveS = dir.includes('s');
+  const moveN = minimized ? false : dir.includes('n');
+  const moveS = minimized ? false : dir.includes('s');
   // 缩放约束：仅"显式设置"的 min/max 参与钳制（_minWidth 构造默认 0、_maxWidth
   // 默认 Infinity，均视为未设置）。未显式设下限时回退 FLOAT_RESIZE_MIN，避免
   // 窗口被缩到 0（消失）；上限未显式设置时为 undefined（不钳制，可无限放大）
   const minW = root._explicitMinWidth && root._minWidth != null ? root._minWidth : FLOAT_RESIZE_MIN;
-  const minH = root._explicitMinHeight && root._minHeight != null ? root._minHeight : FLOAT_RESIZE_MIN;
+  const minH = minimized ? baseH : (root._explicitMinHeight && root._minHeight != null ? root._minHeight : FLOAT_RESIZE_MIN);
   const maxW = root._explicitMaxWidth && root._maxWidth != null ? root._maxWidth : undefined;
-  const maxH = root._explicitMaxHeight && root._maxHeight != null ? root._maxHeight : undefined;
+  const maxH = minimized ? baseH : (root._explicitMaxHeight && root._maxHeight != null ? root._maxHeight : undefined);
   // 缩放光标方向类：水平/垂直/对角（nwse 或 nesw），与移动的四向十字区分。
   // 对角映射：nw/se 角沿 NW-SE 对角线（nwse），ne/sw 角沿 NE-SW 对角线（nesw）
   const resizeDirClass =
@@ -1775,15 +1907,6 @@ function startFloatingResize(root, dir, event) {
       : moveW || moveE
         ? 'box-resizing-ew'
         : 'box-resizing-ns';
-  // 缩放期间内容对齐锚点：所调整边缘的对边是静止边——拖 W/N 时把内容对齐到
-  // E/S（flex-end），拖 E/S 时对齐到 W/N（flex-start），使静边区吸附内容、
-  // 余量落在被拖拽的一侧，减少对边因连续缩放产生的抖动（布局层见
-  // computeBuilderLayout 的 _resizeAnchor 处理）。会话结束清除并重渲染。
-  root._resizeAnchor = {
-    x: moveW ? 'end' : moveE ? 'start' : null,
-    y: moveN ? 'end' : moveS ? 'start' : null,
-  };
-  root.runtime.notifyFloatingChange();
   startFloatingDragSession({
     cursorClass: resizeDirClass,
     onMove: (ev) => {
@@ -1817,11 +1940,6 @@ function startFloatingResize(root, dir, event) {
       // 容器尺寸同步更新并立即 reflow（不依赖异步调度），布局数据即时就绪
       syncFloatingSizeToBuilder(root, w, h);
     },
-    onEnd: () => {
-      // 缩放结束：清除内容对齐锚点，恢复默认对齐并触发重渲染
-      root._resizeAnchor = null;
-      root.runtime.notifyFloatingChange();
-    },
   });
 }
 
@@ -1835,17 +1953,20 @@ function startFloatingResize(root, dir, event) {
  */
 function renderResizeHandles(builder) {
   if (!builder._resizable) return null;
+  // 最小化（卷起为标题栏）时不允许调整高度：去掉上下边手柄，四角手柄
+  // 退化为只调宽度的水平手柄（cursor 同步为 ew-resize）
+  const minimized = !!builder._minimized;
   // 手柄命中区：边 5px（收窄，贴边细条）、角 10px（对角双轴抓取点）
   const handles = [
     { dir: 'n', style: { top: 0, left: 0, width: '100%', height: 5, cursor: 'ns-resize' } },
     { dir: 's', style: { bottom: 0, left: 0, width: '100%', height: 5, cursor: 'ns-resize' } },
     { dir: 'w', style: { top: 0, left: 0, height: '100%', width: 5, cursor: 'ew-resize' } },
     { dir: 'e', style: { top: 0, right: 0, height: '100%', width: 5, cursor: 'ew-resize' } },
-    { dir: 'nw', style: { top: 0, left: 0, width: 10, height: 10, cursor: 'nwse-resize' } },
-    { dir: 'ne', style: { top: 0, right: 0, width: 10, height: 10, cursor: 'nesw-resize' } },
-    { dir: 'sw', style: { bottom: 0, left: 0, width: 10, height: 10, cursor: 'nesw-resize' } },
-    { dir: 'se', style: { bottom: 0, right: 0, width: 10, height: 10, cursor: 'nwse-resize' } },
-  ];
+    { dir: 'nw', style: { top: 0, left: 0, width: 10, height: 10, cursor: minimized ? 'ew-resize' : 'nwse-resize' } },
+    { dir: 'ne', style: { top: 0, right: 0, width: 10, height: 10, cursor: minimized ? 'ew-resize' : 'nesw-resize' } },
+    { dir: 'sw', style: { bottom: 0, left: 0, width: 10, height: 10, cursor: minimized ? 'ew-resize' : 'nesw-resize' } },
+    { dir: 'se', style: { bottom: 0, right: 0, width: 10, height: 10, cursor: minimized ? 'ew-resize' : 'nwse-resize' } },
+  ].filter(h => !(minimized && /^[ns]$/.test(h.dir)));
   return handles.map(h => (
     <div
       key={`float-resize-${h.dir}`}
@@ -1875,8 +1996,8 @@ function getFloatingItemStyle(builder, zIndex) {
 }
 
 /**
- * 取浮动视口的当前视觉尺寸（回退链：显式 _viewWidth/_viewHeight → default →
- * fixed(min===max) → 实际渲染容器尺寸）。渲染期读取：缩放拖拽中 _viewWidth 已
+ * 取浮动视口的当前视觉尺寸（回退链：显式 _viewWidth/_viewHeight →
+ * fixed(min===max) → default → 实际渲染容器尺寸）。渲染期读取：缩放拖拽中 _viewWidth 已
  * 同步写入，FloatingLayer 重渲染即读到最新值；投影期（_frozenViewportSize 已
  * 设置）三层以冻结尺寸布局、特效层 transform 放大到视觉尺寸，包壳须按视觉尺寸
  * 裁剪（scale 放大后的内容正好填满）。
@@ -1884,11 +2005,15 @@ function getFloatingItemStyle(builder, zIndex) {
  * @returns {{width: number|undefined, height: number|undefined}} 视觉尺寸；未知时 undefined（包壳随内容撑开）
  */
 function getFloatingVisualSize(builder) {
-  const width = builder._viewWidth ?? builder._defaultWidth
+  // 显式固定尺寸（min === max）优先于 default：与 reflow 的容器尺寸口径一致，
+  // 否则在预设 default 尺寸上再 fixedWidth/fixedHeight 的窗口包壳与内容层尺寸不符
+  const width = builder._viewWidth
     ?? safeNum(builder._minWidth === builder._maxWidth ? builder._minWidth : null)
+    ?? builder._defaultWidth
     ?? safeNum(builder._containerSize?.width) ?? 0;
-  const height = builder._viewHeight ?? builder._defaultHeight
+  const height = builder._viewHeight
     ?? safeNum(builder._minHeight === builder._maxHeight ? builder._minHeight : null)
+    ?? builder._defaultHeight
     ?? safeNum(builder._containerSize?.height) ?? 0;
   return {
     width: width > 0 ? width : undefined,
@@ -1941,6 +2066,22 @@ function getWindowFrameStyle(theme, focused) {
     ?? (focused ? DEFAULT_FOCUSED_FRAME_COLOR : DEFAULT_FRAME_COLOR);
   const level = focused ? (spec.focusedElevation ?? 3) : (spec.elevation ?? 1);
   return { border: `${width}px solid ${color}`, ...elevationStyle(level) };
+}
+
+/**
+ * 取浮层（非窗口角色）的投影样式：overlay 角色（气泡提示 / 轻提示 / 消息 /
+ * 弹出菜单等）与未声明角色的浮层**只保留投影，不画边框**——它们的内容自带
+ * 配色与圆角（如气泡的反色面、菜单的 surface 面板），外加 1px 边框会在每个浮层
+ * Cell 外多出一层"多余的方框"。
+ * @param {Theme|null} theme 当前主题
+ * @param {boolean} focused 是否为渲染序最顶的浮层
+ * @returns {Object} 投影样式片段（仅 boxShadow）
+ */
+function getOverlayShadowStyle(theme, focused) {
+  const spec = theme?.getWindowFrame?.() ?? {};
+  const level = spec.overlayElevation
+    ?? (focused ? (spec.focusedElevation ?? 3) : (spec.elevation ?? 1));
+  return elevationStyle(level);
 }
 
 /**
@@ -2044,10 +2185,15 @@ function FloatingWindow({ builder, zIndex, focused }) {
   const isOperable = builder.runtime.isOperable(builder);
   const theme = useTheme();
   const visual = getFloatingVisualSize(builder);
+  // 窗口框架（边框 + 阴影）只用于 styleRole('window') 的浮动视口（窗口 / 模态 /
+  // 对话框 / 浮动面板 / 确认框）；overlay 角色（气泡提示 / 轻提示 / 消息 / 弹出
+  // 菜单等）与未声明角色的浮层只保留投影，不画 1px 边框——它们的内容自带配色
+  // 与圆角，外加一层边框就是"浮层里多出来的一层方框"
+  const isWindowRole = builder._styleRole === 'window';
   // 包壳圆角随主题形状描述（浮动视口根的层规范/形状），overflow 裁剪与圆角对齐
   const { selfStyle: shellShape } = resolveBoxShape(builder, theme);
   const outerShape = { ...shellShape };
-  const frameWidth = (theme?.getWindowFrame?.() ?? {}).borderWidth ?? 1;
+  const frameWidth = isWindowRole ? ((theme?.getWindowFrame?.() ?? {}).borderWidth ?? 1) : 0;
   // 同心圆角对齐：定位容器带 borderWidth 边框时，包壳圆角内缩边框宽度——
   // 边框内缘曲线（radius − borderWidth，CSS 自动同心）与包壳裁剪边界贴合，
   // 拐角不错位；胶囊等大半径值（≥1000px）不调整
@@ -2067,10 +2213,27 @@ function FloatingWindow({ builder, zIndex, focused }) {
   };
   const itemStyle = {
     ...getFloatingItemStyle(builder, zIndex),
-    ...getWindowFrameStyle(theme, !!focused),
+    ...(isWindowRole
+      ? getWindowFrameStyle(theme, !!focused)
+      : getOverlayShadowStyle(theme, !!focused)),
     // 定位容器圆角取形状规范原值（外缘曲线），包壳取内缩值（上方已调整）
     ...outerShape,
   };
+  // 首帧布局收敛（paint 前）：包壳已按视觉尺寸裁剪，而内容层的 reflow 尺寸来自
+  // 自身实测（子组件的 layout effect 先于父组件执行）。实测值与视觉尺寸不一致时
+  // 立即按视觉尺寸写回容器尺寸并同步 reflow——保证首帧就是最终布局，不出现
+  // "弹出过程中内容尺寸不正确、弹出完成后才变化"的过渡。
+  useLayoutEffect(() => {
+    const w = visual.width ?? safeNum(builder._containerSize?.width);
+    const h = visual.height ?? safeNum(builder._containerSize?.height);
+    if (!(w > 0 && h > 0)) return;
+    const cur = builder._containerSize;
+    if (cur && cur.width === w && cur.height === h) return;
+    builder._containerSize = { width: w, height: h };
+    markNeedsReflow(builder);
+    builder._performReflow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
     <div
       ref={itemRef}

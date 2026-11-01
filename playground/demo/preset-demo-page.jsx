@@ -33,7 +33,7 @@ import {
   DialogCell, DividerCell, DocumentCell, DrawerCell, EditorCell, EmptyCell,
   FieldCell, FloatingPanelCell, FooterCell, FormCell, GridCell, GroupCell, IconCell,
   IndexBarCell, InputCell, JoyConCell, KanbanCell, ListCell, LoadingCell,
-  LoginCell, MediaCell, MenuCell, MessageCell, ModalCell, NavBarCell, NoticeCell,
+  LoginCell, MediaCell, MenuCell, MessageCell, ModalCell, MultiSwitchCell, NavBarCell, NoticeCell,
   OrderCell, PageCell, PaginationCell, PanelCell, PickerCell, PopoverCell,
   ProcessCell, ProfileCell, ProgressCell, RadioCell, RateCell, ResultCell,
   RowCell, SearchCell, SectionCell, SelectCell, SettingsCell, SkeletonCell, SliderCell,
@@ -271,6 +271,37 @@ class DemoHeroCell extends CellBaseBuilder {
   }
 }
 
+/**
+ * 并排按钮组视图：三个按钮无间距拼接，连接处取 4px 小圆角、外侧保留
+ * 胶囊半圆角，整体看起来像一个分段控件（四角独立圆角的典型用法）。
+ * @returns {JSX.Element} 视图元素
+ */
+function ButtonGroupView() {
+  const seg = (key, label, corners) => (
+    <div style={{ flex: 1, display: 'flex' }} key={key}>
+      <ButtonImpl label={label} variant="filled" block corners={corners} />
+    </div>
+  );
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex' }}>
+      {seg('copy', '复制', [16, 4, 4, 16])}
+      {seg('paste', '粘贴', [4, 4, 4, 4])}
+      {seg('more', '更多', [4, 16, 16, 4])}
+    </div>
+  );
+}
+
+/** 按钮组展示 Cell：并排按钮组（仅展示台使用，无 schema） */
+class ButtonGroupDemoCell extends CellBaseBuilder {
+  /**
+   * @param {string} id Cell 标识
+   */
+  constructor(id) {
+    super(id);
+    this.renderContent(ButtonGroupView);
+  }
+}
+
 // =========================================================================
 //  快捷构建
 // =========================================================================
@@ -342,49 +373,56 @@ function buildPresetDemo() {
     .setText('确定要删除这条数据吗？')
     .posX(260).posY(260)
     .onOk(() => toastCell.open());
+  // 对话框（窗口变体 'dialog'）：标题栏由 chrome 渲染（标题 + 最小化 + 关闭），
+  // 内部内容一律填 body 插槽——不再自己塞 header，避免"有的弹窗没有统一标题栏"
   const dialogCell = new DialogCell('dialog')
-    .fill('header', T('dlgTitle', '操作确认', { size: 13, bold: true, color: 'text' }))
+    .setTitle('操作确认')
+    .posX(240).posY(220)
     .fill('body', [
-      T('dlgBody', '对话框容器：header 单插槽 + body 列表插槽。', { size: 12, color: 'text-secondary' }),
-      new ButtonCell('dlgOk').setLabel('dlg.ok').onPress(() => dialogCell.close()),
+      T('dlgBody', '标题栏由 chrome 统一渲染，内容填 body 插槽。', { size: 12, color: 'text-secondary' })
+        .fixedHeight(32),
+      new ButtonCell('dlgOk').setLabel('确认').fixedHeight(32).onPress(() => dialogCell.close()),
     ]);
   const drawerCell = new DrawerCell('drawer')
     .setTitle('侧滑抽屉').setText('抽屉正文内容，可经 posX/posY 贴屏幕右缘展示。')
     .posX(760).posY(0);
+  // 浮动面板（窗口变体 'panel'）：主色标题栏 + 最小化/关闭，可拖拽缩放
   const floatPanelCell = new FloatingPanelCell('floatPanel')
-    .posX(380).posY(120)
-    .fill('header', T('fpTitle', '浮动面板（可拖拽缩放）', { size: 12, bold: true, color: 'on-primary' }))
+    .posX(300).posY(140).fixedWidth(300).fixedHeight(210)
+    .setTitle('浮动面板')
     .fill('body', [
       new ListCell('fpList').setItems([
         { id: 'f1', title: '浮动面板示例项一' },
         { id: 'f2', title: '浮动面板示例项二' },
         { id: 'f3', title: '浮动面板示例项三' },
-      ]),
-      new ButtonCell('fpClose').setLabel('关闭').onPress(() => floatPanelCell.close()),
+      ]).fixedHeight(110),
+      new ButtonCell('fpMin').setLabel('最小化').setVariant('tonal').fixedHeight(30)
+        .onPress(() => floatPanelCell.setMinimized(true)),
     ]);
   // 独立窗口（可拖拽 + 可缩放，标题栏为拖拽点，含最小化/最大化/关闭）
   const windowCell = new WindowCell('windowMain')
     .setTitle('独立窗口 · 可拖拽缩放')
-    .posX(420).posY(72)
+    .posX(420).posY(72).fixedHeight(230)
     .fill('body', [
-      T('winBody1', '标题栏可拖拽移动，右下角可调整尺寸；内容区独立滚动。', { size: 12, color: 'text-secondary' }),
+      T('winBody1', '标题栏可拖拽移动，四边/四角可缩放；内容区独立滚动。', { size: 12, color: 'text-secondary' })
+        .fixedHeight(32),
       new ListCell('winList').setItems([
         { id: 'w1', title: '窗口内列表项一' },
         { id: 'w2', title: '窗口内列表项二' },
-      ]),
-      new ButtonCell('winClose').setLabel('关闭窗口').setVariant('tonal')
+      ]).fixedHeight(80),
+      new ButtonCell('winClose').setLabel('关闭窗口').setVariant('tonal').fixedHeight(30)
         .onPress(() => windowCell.close()),
     ]);
   // 固定窗口（不可拖拽/缩放）：与可拖拽窗口对照展示窗口能力组合
   const windowPinned = new WindowCell('windowPinned')
     .setTitle('固定窗口 · 不可拖拽')
     .movable(false).resizable(false)
-    .fixedWidth(260).fixedHeight(150)
+    .fixedWidth(260).fixedHeight(168)
     .posX(700).posY(280)
     .fill('body', [
-      T('pinBody', '位置与尺寸锁定，仅内容可滚动。', { size: 12, color: 'text-secondary' }),
-      new ProgressCell('pinProgress').setPercent(64),
-      new ButtonCell('pinClose').setLabel('关闭').setVariant('outlined')
+      T('pinBody', '位置与尺寸锁定，仅内容可滚动。', { size: 12, color: 'text-secondary' }).fixedHeight(28),
+      new ProgressCell('pinProgress').setPercent(64).fixedHeight(20),
+      new ButtonCell('pinClose').setLabel('关闭').setVariant('outlined').fixedHeight(30)
         .onPress(() => windowPinned.close()),
     ]);
   // 模态窗口（固定尺寸、仅关闭控件，标题栏 44 高）
@@ -392,9 +430,10 @@ function buildPresetDemo() {
     .setTitle('模态窗口')
     .posX(300).posY(180)
     .fill('body', [
-      T('modalBody', '模态窗口固定尺寸，仅保留关闭控件，常用于确认与短表单。', { size: 12, color: 'text-secondary' }),
-      new InputCell('modalInput').setPlaceholder('输入一行内容'),
-      new ButtonCell('modalOk').setLabel('确定').onPress(() => {
+      T('modalBody', '固定尺寸，仅保留关闭控件，常用于确认与短表单。', { size: 12, color: 'text-secondary' })
+        .fixedHeight(32),
+      new InputCell('modalInput').setPlaceholder('输入一行内容').fixedHeight(40),
+      new ButtonCell('modalOk').setLabel('确定').fixedHeight(30).onPress(() => {
         modalCell.close();
         toastCell.setText('模态窗口已确认').setType('success').setDuration(1500).open();
       }),
@@ -464,9 +503,10 @@ function buildPresetDemo() {
     ]],
   ]);
 
-  // ---------- 03 表单与输入（9） ----------
-  // 行高 84 / 104 / 128：输入类 40、ColorPicker 64、Textarea 88
-  const secForm = buildSection('sec-form', '03', '表单与输入', 9, [
+  // ---------- 03 表单与输入（10） ----------
+  // 行高 84 / 94 / 84 / 128：输入类 40（含 ColorPicker/DatePicker 的输入条 40，
+  // 取色与月历在伪窗口内展开，不占行高）、Slider/MultiSwitch 56、Textarea 88
+  const secForm = buildSection('sec-form', '03', '表单与输入', 10, [
     ['f-row1', 84, [
       U('f-input', 'InputCell', new InputCell('f_input').setPlaceholder('请输入用户名').setValue('')),
       U('f-search', 'SearchCell', new SearchCell('f_search').setPlaceholder('搜索…').onSearch(v => {
@@ -479,13 +519,18 @@ function buildPresetDemo() {
         { id: 'x', title: '北京' }, { id: 'y', title: '上海' }, { id: 'z', title: '广州' },
       ]).setPlaceholder('请选择城市')),
     ]],
-    ['f-row2', 104, [
+    ['f-row2', 94, [
       U('f-slider', 'SliderCell', new SliderCell('f_slider').setLabel('亮度').setMin(0).setMax(100).setValue(60)),
+      U('f-multi', 'MultiSwitchCell', new MultiSwitchCell('f_multi')
+        .setLabel('档位').setOptions(['低', '中', '高']).setIndex(1)),
       U('f-stepper', 'StepperCell', new StepperCell('f_stepper').setLabel('数量').setValue(3).setMin(0).setMax(10)),
-      U('f-date', 'DatePickerCell', new DatePickerCell('f_date').setValue('2026-08-11').setPlaceholder('选择日期')),
-      U('f-color', 'ColorPickerCell', new ColorPickerCell('f_color').setColor('#1a8a4a')),
     ]],
-    ['f-row3', 128, [
+    ['f-row3', 84, [
+      U('f-date', 'DatePickerCell', new DatePickerCell('f_date').setValue('2026-08-11').setPlaceholder('选择日期')),
+      // 色值以 HSL 存储（示例值即为存储格式；输入条显示推导出的 hex）
+      U('f-color', 'ColorPickerCell', new ColorPickerCell('f_color').setColor('hsl(150, 67%, 32%)')),
+    ]],
+    ['f-row4', 128, [
       U('f-textarea', 'TextareaCell', new TextareaCell('f_textarea').setLabel('备注').setPlaceholder('请输入补充说明…')),
     ]],
   ]);
@@ -515,9 +560,9 @@ function buildPresetDemo() {
     ]],
   ]);
 
-  // ---------- 05 按钮变体（11） ----------
+  // ---------- 05 按钮变体（12） ----------
   // 行高 84：瓦片装饰 38 + 组件 32/40（large 取 40 高，恰好放下）
-  const secButton = buildSection('sec-button', '05', '按钮变体', 11, [
+  const secButton = buildSection('sec-button', '05', '按钮变体', 12, [
     ['bt-row1', 84, [
       U('bt-filled', 'ButtonImpl · filled',
         new ButtonCell('bt_filled').setLabel('主按钮').setVariant('filled')),
@@ -545,6 +590,8 @@ function buildPresetDemo() {
         new ButtonCell('bt_sm_tonal').setLabel('小号柔和').setVariant('tonal').setSize('small').fixedHeight(24)),
       U('bt-text-danger', 'danger · text',
         new ButtonCell('bt_txt_danger').setLabel('危险文字按钮').setType('danger').setVariant('text')),
+      U('bt-group', '四角独立圆角 · 并排连接处 4px',
+        new ButtonGroupDemoCell('bt_group')),
     ]],
   ]);
 
@@ -797,9 +844,22 @@ function buildPresetDemo() {
       ])),
     ]],
     ['c-row6', 242, [
-      U('c-split', 'SplitCell', new SplitCell('c_split')
-        .fill('side', T('c_split_s', '侧栏', { size: 12, color: 'text-secondary' }))
-        .fill('_default', T('c_split_m', '主区', { size: 12, color: 'text' }))),
+      // Split 的两块区域用不同底色（主区 surface / 侧栏 surface-muted），
+      // 侧栏放多条导航项、主区放标题 + 多段正文，拖拽分界线即可看出宽度变化
+      U('c-split', 'SplitCell', new SplitCell('c_split').color('surface')
+        .fill('side', new DemoColumn('c_split_side').fixedHeight(200).padding(12).gap(4).fill('_default', [
+          T('c_split_s0', '导航', { size: 12, bold: true, color: 'text' }).fixedHeight(28),
+          T('c_split_s1', '● 概览', { size: 12, bold: true, color: 'primary' }).fixedHeight(28),
+          T('c_split_s2', '○ 数据看板', { size: 12, color: 'text-secondary' }).fixedHeight(28),
+          T('c_split_s3', '○ 成员管理', { size: 12, color: 'text-secondary' }).fixedHeight(28),
+          T('c_split_s4', '○ 系统设置', { size: 12, color: 'text-secondary' }).fixedHeight(28),
+        ]))
+        .fill('_default', new DemoColumn('c_split_main').padding(16).gap(8).fill('_default', [
+          T('c_split_m1', '主区 · 概览', { size: 14, bold: true, color: 'text' }).fixedHeight(28),
+          T('c_split_m2', '侧栏默认宽 200（140–320），可拖拽分界线调宽。', { size: 12, color: 'text-secondary' }).fixedHeight(24),
+          T('c_split_m3', '主区弹性占满剩余宽度，与侧栏底色区分开。', { size: 12, color: 'text-muted' }).fixedHeight(24),
+          new ButtonCell('c_split_btn').setLabel('主区操作').setVariant('tonal'),
+        ]))),
       U('c-board', 'BoardCell', new BoardCell('c_board').fill('_default', [
         T('c_board_t1', '板块自带样式（形状 + 描边）', { size: 12, color: 'text' }).fixedHeight(32),
         T('c_board_t2', '内部 padding/gap 保持内容间距', { size: 12, color: 'text-secondary' }).fixedHeight(32),

@@ -55,7 +55,7 @@ function OrderAssembledView({ cell }) {
     <div style={{ width: '100%' }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 4, padding: '3px 4px',
-        backgroundColor: surfaceMuted, position: 'sticky', top: 0,
+        backgroundColor: surfaceMuted, position: 'sticky', top: 0, userSelect: 'none',
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <ButtonImpl
@@ -80,7 +80,7 @@ function OrderAssembledView({ cell }) {
         </div>
       </div>
       {sorted.map((item) => (
-        <div key={item.id} style={{ display: 'flex', boxSizing: 'border-box', borderTop: `1px solid ${rowBorder}` }}>
+        <div key={item.id} style={{ display: 'flex', boxSizing: 'border-box', borderTop: `1px solid ${rowBorder}`, userSelect: 'none' }}>
           <div style={{
             flex: 1, height: 30, display: 'flex', alignItems: 'center', padding: '0 10px',
             fontSize: 13, color: text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',

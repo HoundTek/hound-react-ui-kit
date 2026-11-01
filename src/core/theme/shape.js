@@ -60,16 +60,48 @@ function resolveElementRadius(theme, decl, fallback) {
 
 /** @type {boolean|null} corner-shape 能力检测结果（惰性缓存） */
 
+/** 圆角 CSS 简写的四角顺序（上左 → 上右 → 下右 → 下左） */
+const CORNER_ORDER = ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'];
+
+/**
+ * 单个角落半径值归一为 CSS 长度：数值补 px、'capsule' 取全圆角值、
+ * 空值回落 0。
+ * @param {number|string|undefined|null} v 角落半径声明
+ * @returns {string} CSS 长度
+ */
+function cornerLength(v) {
+  if (v === 'capsule') return CAPSULE_RADIUS;
+  if (typeof v === 'number') return `${v}px`;
+  return v == null || v === '' ? '0' : String(v);
+}
+
 /**
  * 生成圆角样式（g1 border-radius）。
  * 跨浏览器约束：不使用 CSS corner-shape（g2 曲率平滑仅 Chromium 支持，
  * 各系统 webview 未普及，已按一致性约定舍弃）；cornerType 参数保留仅为
  * 调用点兼容，不再产生任何差异。
+ *
+ * 半径支持三种声明，用于表达「并排组件的连接处取小圆角、外侧取大圆角」：
+ * - 数值 / CSS 长度：四角同值
+ * - 对象 `{ topLeft, topRight, bottomRight, bottomLeft, all? }`：四角独立设置，
+ *   缺省角落回落 `all`（再回落到 0），值可为数值 / CSS 长度 / 'capsule'
+ * - 数组 `[topLeft, topRight, bottomRight, bottomLeft]`：与 CSS 简写同序
  * @param {'g1'|'g2'} cornerType 圆角类型（已忽略，恒按 g1 渲染）
- * @param {string|number} radius 圆角半径（px 数值或 CSS 长度）
+ * @param {number|string|Object|Array} radius 圆角半径（数值 / CSS 长度 / 四角声明）
  * @returns {Object} 圆角样式片段
  */
 function cornerStyle(cornerType, radius) {
+  if (Array.isArray(radius)) {
+    return { borderRadius: CORNER_ORDER.map((_, i) => cornerLength(radius[i])).join(' ') };
+  }
+  if (radius && typeof radius === 'object') {
+    const all = radius.all ?? radius.allCorners ?? 0;
+    return {
+      borderRadius: CORNER_ORDER
+        .map(key => cornerLength(radius[key] ?? all))
+        .join(' '),
+    };
+  }
   return { borderRadius: typeof radius === 'number' ? `${radius}px` : radius };
 }
 
@@ -165,6 +197,12 @@ function resolveBoxShape(builder, theme) {
       if (layer.opacity != null) shellStyle.opacity = layer.opacity;
       shells.push({ key: i, style: shellStyle });
     }
+  }
+
+  // 四角独立圆角（builder.corners）：并排相连组件的连接处可单独取小圆角，
+  // 优先级高于形状与角色层规范给出的统一圆角
+  if (builder._corners) {
+    Object.assign(selfStyle, cornerStyle(corner, builder._corners));
   }
 
   return { selfStyle, shells };

@@ -1,36 +1,40 @@
 /**
  * @file dialog.jsx —— DialogCell（对话框容器）预设
  *
- * 浮动对话框容器：浮动视口、固定 320x200、可整体移动、不可缩放、
- * 白色底、纵向排列。header（单插槽，浅灰横向页眉，固定高 40）与
- * body（列表插槽，最小高 120、可纵向滚动）两个插槽由页面作者填充。
- * 用法：fill('header', [TitleCell, CloseButtonCell])、fill('body', 内容)；
- * 标题栏拖拽由页面作者在 header 插槽的 Cell 上配置 dragHandle，
- * 或直接拖动容器（movable 默认开启）；关闭按钮可经 closable() 开启。
+ * 浮动对话框：窗口变体 'dialog'（见 FloatingWindowCellBase#windowVariant）——
+ * 可移动、不可缩放、浅灰标题栏 40 高（chrome：标题 + 最小化 + 关闭）、
+ * 可操作遮罩。标题栏由 chrome 统一渲染（与 WindowCell / ModalCell 同一套控件），
+ * 不再是各写各的页眉；内容一律是 body 插槽。
+ *
+ * 用法：
+ *   new DialogCell('dlg').setTitle('操作确认')
+ *     .fill('body', [内容 Cell, 按钮 Cell])
+ *   // 需要自定义标题栏时用 fill('header', ...) 整体替换 chrome（单插槽覆盖）
+ *
+ * 标题栏即窗口拖拽点（dragHandle），无需页面作者再配置。
  */
-import CellBaseBuilder from '../core/cell/cell-base';
+import { FloatingWindowCellBase } from '../core/builtin-cells/builtin-cells';
 
 /**
- * DialogCell：对话框容器。header 单插槽（固定高 40 横向页眉，浅灰底），
- * body 列表插槽（最小高 120、可纵向滚动）。页面作者经 fill 填充。
+ * DialogCell：对话框（窗口变体 'dialog'）。title 为标题（i18n key 或纯文本），
+ * body 为内容插槽（最小高 100、可纵向滚动）。位置/尺寸可用 posX/posY/fixedWidth
+ * 等链式覆盖。
+ *
+ * Schema（数据契约）：title / maximized / minimized。
  */
-class DialogCell extends CellBaseBuilder {
+class DialogCell extends FloatingWindowCellBase {
   /**
    * @param {string} id Cell 标识
    */
   constructor(id) {
     super(id);
-    this.floatingViewport().operable()
-      .movable(true).resizable(false)
-      .fixedWidth(320).fixedHeight(200).styleRole('window').layout('vertical')
-      .defineSlot('header', {
-        fixedHeight: 40, color: 'surface-muted',
-        layout: 'horizontal', moveX: false, moveY: false, single: true,
+    this.fixedWidth(320).fixedHeight(200)
+      .schema({
+        title: { type: 'string', default: '' },
+        maximized: { type: 'boolean', default: false },
+        minimized: { type: 'boolean', default: false },
       })
-      .defineSlot('body', {
-        minHeight: 120, moveY: true, layout: 'vertical',
-        color: 'surface',
-      });
+      .windowVariant('dialog');
   }
 }
 

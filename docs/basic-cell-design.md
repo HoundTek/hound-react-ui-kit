@@ -75,7 +75,33 @@
 | MultiSwitchCell 多档开关 | 多档滑块（step1、0..n-1、档标记刻点）+ 当前档位文本 | label / options / index / disabled |
 | ProgressCell 进度条 | 只读滑块（interactive:false、无滑块）+ 百分比文本 | percent / showText / color / trackColor |
 
-其中 SwitchCell 附带组件级重写示例：`registerCellImpl('switch', 'md3-switch', Md3SwitchImpl)`（MD3 风格 52×32 胶囊开关），演示主题经 `components: { switch: 'md3-switch' }` 启用。
+其中 SwitchCell 附带组件级重写示例：`registerCellImpl('switch', 'md3-switch', Md3SwitchImpl)`（MD3 风格开关），演示主题经 `components: { switch: 'md3-switch' }` 启用。两种实现共用同一轨道几何（轨道 44×24、滑块 18、内缩 3px），Cell 高度统一 40，避免早期 56px 轨道与 MD3 轨道尺寸互不协调。
+
+**开关的拖动中间过程**（两态滑块与多档进度条同理）：滑块尺寸在开/关两态保持
+恒定（18px），只改变位置与配色，不再"开态大、关态小"。按下时先用 `.hk-slide`
+过渡把滑块动画移到点击处（`drag.pos` + `live:false`）；指针移动进入连续拖动后
+去掉过渡（`live:true`）保证跟手，每移动到一个新位置都重新落点；松开时清空拖动
+预览、交回数据驱动的静止位置，由 `.hk-slide` 过渡动画吸附到目标端——即「按下的
+一次动画 → 拖动中反复跟随 → 松开后动画归位」三段过程。多档开关 / 滑块 / 进度
+条同样由 `SliderTrackImpl` 的 `following`（是否已进入连续拖动）+ `preview`
+（滑块视觉位置）两个状态实现同一套节奏：`preview` 存的是**指针处的连续比例**，
+不是吸附后的取值——因此按下的一瞬间滑块会先动画**移到指针处**（连续量本身
+也如此，不吸附到下一个刻点），拖动时逐帧跟手；数据按吸附值写入，松手后清空
+预览，再由取值驱动动画吸附到档位。多档进度条在按下阶段只走预览、不写数据
+（`tapMode='step'`），进入拖动（位移 >4px）后才按指针位置连续换档。
+
+**短按语义**（<4px 位移且 <300ms 的一次点击）与拖动分开处理：
+- 开关：短按**直接切换**开关状态（不按点击位置推断开/关）；按住或拖动仍按
+  落点是否越过轨道中线判定
+- 多档位进度条（MultiSwitchCell）：短按的**邻近区间**界定为「当前档点 → 左右
+  相邻档点的中点」之间（首/末档外侧没有邻居，该侧不设限）。落在区间内时朝指针
+  所在的一侧移动**相邻一档**（点击位置本身不作为取值，也不跨档跳跃，避免误触）；
+  落在区间外时**按离点击位置最近的状态切换**（按档点圆心的像素距离取最近档位），
+  因此快速点向轨道另一侧会直接跳到最近档位。只有按住拖动才按指针位置连续换档
+  （`SliderTrackImpl` 的 `tapMode='step'`，滑块 / 摇杆等连续量仍为默认 `'jump'`，
+  短按即跳到点击处）。
+  档标记刻点的内缩取**轨道高一半**（端部圆角半径）：两端的档点圆心与色条两侧
+  胶囊圆角的圆心重合，档点既不贴边也不越界（md3 内缩 2px / classic 3px）。
 
 ### 离散取值族（直接点选）
 
@@ -83,8 +109,9 @@
 组装 fallback 为一排 SVG 五角星（固定几何，不用 ★/☆ 文本字形，避免浏览器
 回退字体的尺寸/粗细差异），每颗星是独立 `button`（`aria-label` + `aria-pressed`，
 28×28 热区）：悬停预览到光标所在星、点击直接写 `value`；键盘走按钮原生
-Enter/Space。Schema 不变（value / count / color / disabled），主题仍可经
-`theme.components.rate` 整体重写。
+Enter/Space。亮/暗两态都用**实心**星形，未点亮星取主题 `outline-variant`
+（与点亮星同形不同色，暗色主题自动跟随），不再用空心描边。Schema 不变
+（value / count / color / disabled），主题仍可经 `theme.components.rate` 整体重写。
 
 ### 按钮族（ButtonImpl 多级组装）
 
@@ -128,8 +155,8 @@ theme.elements 元素级样式表 > 内建默认**（见 docs/theme-shape-design
 - **离散取值族**（直接点选，无滑块轨道）：rate✓（一排可点击星，悬停预览 + 点击写值）
 - **按钮族**（ButtonImpl）：checkbox✓、radio✓、tag✓、stepper✓、pagination✓、index-bar✓、breadcrumb✓、nav-bar✓、accordion✓、carousel✓、upload✓、login✓
 - **菜单/列表族**（ButtonImpl/ListImpl，多级）：menu✓ → tab-bar✓ / select✓ / picker✓ → tab✓ / table✓ / tree✓ / kanban✓ / order✓ / date-picker✓ / calendar✓
-- **输入族**（InputImpl/TextareaImpl）：textarea✓、editor✓、search✓、chat✓、color-picker✓、login✓
-- **展示族**（TextImpl/主题色容器）：avatar✓、badge✓、title✓、divider✓、stat✓、icon✓、skeleton✓、empty✓、result✓、loading✓、timeline✓、process✓、chart✓、bar✓、document✓、profile✓
+- **输入族**（InputImpl/TextareaImpl）：textarea✓、editor✓、search✓、chat✓、color-picker✓（输入条 + 色相环伪窗口，不用浏览器取色器）、login✓
+- **展示族**（TextImpl/主题色容器）：avatar✓、badge✓、title✓、divider✓、stat✓、icon✓、skeleton✓、empty✓、result✓、loading✓、timeline✓、process✓（圆点与连线同一水平面，标题在下）、chart✓、bar✓、document✓、profile✓
 - **容器族**：section✓、settings✓、card◆、group◆、grid◆、tiling◆、dashboard◆、form◆、field◆、control◆、page◆、app-bar◆、split◆、footer◆、row◆、board◆（纯 slot 容器，经 Box 配方与 styleRole 走普适性配置，无需内容分发器；后五种为页面结构容器——顶栏/分栏/页脚/横向行/布局板块）
 - **浮层族**（NoticeImpl + 主题色容器）：toast✓、message✓、notice✓、alert✓、popover✓、tooltip✓、confirm✓、drawer✓、dialog◆、floating-panel◆
 
@@ -148,17 +175,28 @@ theme.elements 元素级样式表 > 内建默认**（见 docs/theme-shape-design
    `boxSizing: 'border-box'` 配对；状态切换不得改变 border 宽度（选中/未选、
    有/无）——用恒定宽度（未选 transparent）、outline 或 boxShadow 内环替代。
    focus 反馈一律用 outline（不参与布局，见 core/theme/state-layer.js）。
+3. **非法布局的柔和错误卡片**：reflow 判定主轴约束不可满足时（固定子项合计
+   超过容器、或剩余空间低于非固定子项最小值合计），不再用红底闪烁提示，而是
+   在内容层渲染 `LayoutErrorCard`——danger 8% 浅底 + 28% 内描边 + 「布局错误」
+   标题与 `需要 Npx · 可用 Mpx` 明细（尺寸来自 `box._layoutError` 的
+   required/available 诊断）。按容器宽高分三档变种：small（紧凑内边距、明细仅在
+   宽 ≥150 且高 ≥46 时显示、无图标）/ medium（宽 ≥180、图标 14）/ large（宽 ≥320
+   且高 ≥110、图标 16、明细常显），保证大中小尺寸下都读得清、不裁切；卡片
+   自身 `user-select: none`。
 
 ## 视觉一致性约定
 
-预设 Cell 的外观由主题令牌统一，不在实现组件内自造样式。四条落地规则：
+预设 Cell 的外观由主题令牌统一，不在实现组件内自造样式。以下落地规则：
 
 1. **背景归容器，组件不自套底与描边**：预设 Cell 的内容视图一律透明底、无描边，
    随父容器（`styleRole` / `material` / `color` 声明处）的背景呈现。只有两类例外：
    浮层（toast / message / tooltip / popover / 各窗口预设）与其底色即是语义一部分的
    卡片容器（panel / section / card / kanban 列与卡 / chat 气泡 / table 表头）。
    早期"每个组件自带 surface 底 + 外框"的做法已全量清理——嵌套后层层底色与外框
-   与页面背景不融洽，且让瓦片/卡片的内外层级失真。
+   与页面背景不融洽，且让瓦片/卡片的内外层级失真。**浮层（`styleRole('overlay')`）
+   与伪窗口只保留底色 + 投影、不画边框**，其内部多个 Cell 也不再各自套一层方框
+   （`getWindowFrameStyle`/`getOverlayShadowStyle` 统一负责外框样式，内部视图
+   一律透明），否则弹窗里会看到"层层方框套娃"。
 2. **描边用内阴影，不用 border**：描边改 `boxShadow: inset 0 0 0 <w>px` 与既有
    投影合并，不参与盒模型——边框粗细变化不会再挤压文字（按钮 outlined 变体、
    notice/alert tonal 描边均如此）。确需 border 时同 style 内配 `boxSizing: 'border-box'`。
@@ -169,6 +207,8 @@ theme.elements 元素级样式表 > 内建默认**（见 docs/theme-shape-design
    10/16/16/4 递减，不再一律 16px）。同一思路适用于其他带按钮的预设：密度高的
    格子（日历日格、翻页页码、图标位）用 `size="icon"`，工具栏用 `small/default`，
    主操作才用 `large`。数据色经 `color` 传入时按变体落地（实底/浅底/描边/文字）。
+   带前置字形且左对齐的按钮（勾选行、列表项），左内边距取
+   `max(8, 圆角半径 − 字形半宽)`，使字形中心与按钮圆角圆心对齐。
 4. **数字一律等宽**：所有会变化的数值与对齐比较用的数字（滑块值、进度百分比、
    badge 计数、stat 值/涨跌、stepper 值、金额列、表头与表格数字、图表轴标签、
    时间轴时间、日期年月、页码、日历日格）必须用 `TABULAR_NUMS`
@@ -180,6 +220,47 @@ theme.elements 元素级样式表 > 内建默认**（见 docs/theme-shape-design
    `left: min(calc(中心 + 断口), 100%)`。滑块与档位刻点的中心位置一律用
    `clamp()` 钳制到轨道内（`[半宽, 100% - 半宽]`），保证取值为 0% / 100% 时
    滑块与两端刻点**完整包含在色条内部**，不出界、不被裁切。
+6. **可交互元素限制文本选择**：按压/切换类元素（按钮、选项与菜单行、开关行、
+   索引字符等）一律 `user-select: none`——core 注入的全局规则覆盖
+   `[data-hk-scope] button` 与 `[role="option"]`，自绘行加 `.hk-noselect`，组件内联
+   兜底；纯阅读文本、输入/文本域保持可选中，避免拖拽操作误选文字。
+7. **颜色选择器自绘 + 弹窗**：不使用浏览器原生 `<input type="color">`（各平台
+   取色弹窗样式与交互不一致）。`ColorPickerCell` 本身只是 40 高的输入条（色块 +
+   hex 读数 + 展开箭头），点击以**伪窗口**（浮动视口 overlay）弹出面板：色相环
+   （`conic-gradient` 环带，0 度 = 右侧 = 色相 0，顺时针递进）+ 环内**斜 45°
+   正方形取色块**（正方形旋转 45° 后外接框恰为环内圆，形成"钻石"观感）+ 常用
+   色板 + hex 读数。拖动色相环写色相、拖动方块写饱和度/明度，取值经
+   `cell.emit('pick')` 回传宿主，宿主只暴露 `color` 数据。
+   **色值以 HSL 字符串存储**（`hsl(150, 67%, 32%)`）：HSL 是取色的原生表达，
+   色相/饱和度/明度彼此独立，不会像 hex 那样每次写值都经 RGB 取整再反解、
+   把色相抖到相邻值（灰阶、极暗、极亮时 hex 往返甚至会丢色相）；hex 仅用于
+   输入解析（兼容旧数据）、读数显示与色板。方块**内部坐标取 HSV**（横轴饱和度、
+   纵轴自下而上明度，旋转后四角依次为顶部白、右侧纯色相、底部黑、左侧黑）：
+   纯 HSL 的 S/L 平面旋转 45° 后有两角为白、两角为黑，视觉发白不适合作取色块；
+   指针落点先按 `rotate(45deg)` 逆变换回方块本地坐标，再由 HSV 经 `hsvToHsl`
+   落成 HSL 存储值。色相直接读自 HSL 字符串（无彩色时读不到有意义的值，只在
+   改色相时以 `s=1 / v=1` 作基准），因此不需要"记忆色相"状态，指针也不会随
+   写值往返归零。
+   `DatePickerCell` 同构：输入条 + 伪窗口月历（标题栏「年 月」+ 上下月 + 周历
+   网格），`open` 由 schema 数据驱动，`navigate`/`pick` 事件回传宿主。
+   两个弹窗的落点统一走 `builtin-cells/popover-anchor.js` 的 `placePopover`
+   （默认在触发器下方 4px，空间不足翻到上方，水平方向钳制在视口内），
+   与 `SelectCell`/`PickerCell` 共用同一套落点规则。
+8. **窄内容按钮形态**：IndexBar 是一列**颜色不同的可点击字符**（选中项主色加粗、
+   其余 `text-muted`，等分高度），不再让按钮撑破外壳；Pagination 页数超一屏时
+   **固定输出 7 个槽位**（首末页常显 + 当前页邻域 + 至多两个省略占位，省略占位
+   与页码同宽 24），槽位数恒定 = 页码区总宽恒定，翻页不会因省略号数量变化而抖动
+   整行宽度；页码按钮用 `size="icon"` + `aria-label`；
+   Breadcrumb 祖先项用 `text/small` 按钮、分隔符与当前页为纯文本 span。按钮统一
+   `flexShrink: 0`，兜住父容器意外收缩导致的文字截断。
+9. **文字颜色取主题角色**：表格行、列表项等正文不再硬编码深色值，统一取
+   `text`（表头与行同理），暗色主题下自动切换为浅色文字。
+10. **浮层外壳形状跟随内容**：浮动视口（伪窗口）的定位容器/包壳承载投影与圆角
+    裁剪，其形状必须与内容一致——胶囊内容（toast / notification）声明
+    `shape('capsule')`，圆角浮层（tooltip / popover / 下拉层 / 取色面板）声明
+    `styleRole('overlay')`（圆角取主题 overlay 尺度）。未声明形状的浮层按直角
+    矩形绘制投影，内容若是胶囊/圆角，四周就会露出一圈"方框"（矩形轮廓的投影
+    与圆角内容不匹配）。
 
 ## 跨浏览器一致性约定
 
@@ -216,14 +297,57 @@ theme.elements 元素级样式表 > 内建默认**（见 docs/theme-shape-design
   拦截后累积为滚动目标位置，经 rAF 指数衰减平滑逼近，覆盖层经 scroll
   镜像天然跟随，无需额外同步。外部滚动源（浮动滚动条拖拽、键盘、程序化
   写入）经 scroll 事件检测后动画目标立即对齐实际位置，不与外部写入拉扯
-- **嵌套滚动手势路由**（scroll-damping.js 的 `routeWheel`）：**以光标所在的
-  最内层可滚容器为准**，一次连续手势（相邻 wheel 间隔 < `GESTURE_GAP_MS` =
-  280ms 且方向不变）只服务一个容器、只滚动一层。该容器在当前方向上已到边界
-  时，本轮手势的剩余增量（含惯性）一律 `preventDefault + stopPropagation`
-  吞掉，**不连锁滚动外层**；用户停顿（间隔超过阈值）后重新滚动的**新一轮手势**
-  才允许上移一层到下一个可滚容器。手势 owner 与方向记录在模块级共享对象，
-  同一原生事件在冒泡链路中经 `lastEvent` 去重，只判定一次归属——因此内层
-  放行、外层接管的判定对每一层都是一致的
+- **嵌套滚动手势路由**（scroll-damping.js 的 `routeWheel`）：**一次滚动 = 一次
+  手势**，从用户开始滚动（首个 wheel 事件）到**滚轮输入静止 0.3s** 为一个手势。
+  这里的「静止」**只指滚轮静止**（0.3s 内没有新的 wheel 事件）——与页面是否静止、
+  阻尼动画是否收敛、滚动量是否变化都无关：用户停手就算这次滚动结束，即使动画
+  还在走、甚至已经到底。手势开始时**以光标所在处为起点**（wheel 事件沿冒泡链先
+  到达最内层容器）沿父链选定「滚动归属层」——第一个当前方向还能滚的容器
+  （已到边界的层被跳过）。手势期间增量只交给当前归属层，**手势内绝不换层**：
+  该层在本方向上**到底**后仍继续滚，就转成过度滚动（见下）——**滚轮没停就不往
+  外层跳**，免得多滚一下整块界面就跳到外层（在浮层面板里滚到列表尽头时也不会
+  突然把外层顶走）。滚轮静止（手势结束）后手势重置，用户**再次滚动**才重新从
+  光标处选层，已经到底的内层被跳过、自然交给外层。方向反转视为新手势，立即
+  重新选层。同一原生事件在冒泡链路中经 `lastEvent` 去重，只判定一次归属；链路里
+  已没有还能滚的容器、且页面（浏览器原生滚动链）也到底或不滚时，才轮到过滚
+- **到底后的过滚回弹**：本层到底、滚轮却还在滚时，把「到底后被吞掉的滚轮位移」
+  累积起来，按下式映射成**纯视觉位移**：
+
+  ```
+  位移 = -sign(累积输入) × ln(1 + |累积输入|)
+  ```
+
+  映射在 0 处连续、导数为 1：**触发过滚的那一下不会突然跳出一大段**（位移从 0
+  连续长出，与正常滚动的位移尺度一致；系数只作为可调的全局标量，放大它同时也会
+  放大起手那一下的跳变，故保持 1）。对数的增量随累积递减（输入 ×10，位移才多约
+  2.3px），因此**越拉越紧**、不需要
+  硬上限，体感上最后就是"拉不动了只剩张力"；位移写容器 `transform`，不动
+  `scrollTop`、不影响布局，方向与正常滚动同向（向下滚时内容继续上移，
+  `translateY` 为负，就像"再往下拽一点"）。**滚轮静止（手势结束）后按帧指数
+  衰减（0.16/帧）回弹归零**并还原容器原有 transform；回弹期间按对数反函数同步
+  累积量，途中的新输入从当前位移继续拉，不跳位。过滚期间反向滚：先把过滚位移
+  抵消回 0，越过 0 的余量再滚内容（不丢增量、不跳位）
+- **轴能力门控（非滚动方向一律不滚）**：每个阻尼控制器带轴能力（Box 的
+  `moveX`/`moveY`：`false` 锁定、未声明视为可滚；`ViewScrollArea` 只沿 orientation
+  方向）。非滚动方向的滚轮输入**既不滚内容、也不产生过滚位移、也不抢归属**——
+  选层（`canConsume`）与兜底过滚目标都只在「允许该轴」的层里挑，落不到任何层
+  就放行给外层/浏览器（不静默吞掉）。于是双轴锁定（`moveX(false).moveY(false)`）
+  的容器（如 SplitCell）永远不会被滚轮拽出位移：它的分界线在覆盖层、不跟随内容
+  层的 transform，一旦被拽就会与内容错位（"SplitCell 位置错乱"的根因）
+- **端部判定与收敛兜底**：选层判「是否还能滚」用**实际滚动位置**，且距端部不足 1px
+  即视为到底——引擎会把滚动偏移量化到整/半像素，钳制后的极限读数可能比
+  `scrollHeight - clientHeight` 小 1px 以内，否则「已经到底」的层会被误判成还能滚、
+  一直白吞增量（既不滚也不出过滚）。同理，末段阻尼插值写可能被引擎截断回原值
+  （位置不再靠近目标），此时直接落到目标（目标本身是钳制后的合法值），仍到不了就
+  把目标对齐实际位置并停止动画——否则 rAF 永远不收敛（表现为「到底了却不出过滚」）
+- **过滚期间的浮动滚动条**：滚动条挂在容器的 **wrapper 内、容器外**（不能放在容器里：
+  过滚写的 `transform` 会把容器变成其绝对定位后代的包含块，滚动条会在过滚那一下被
+  重新定位到内容起点，肉眼即"滚动条消失/跳走"）。过滚位移经 `subscribeOverScroll`
+  广播给滚动条：**滑块按位移缩短，过滚方向指向的那一端固定不动**（越过末端时
+  末端贴住轨道末端、起点后移缩短量；越过起点时起点不动，末端前移）
+  （内容每移 1px，滑块缩 `track/main` px，最多缩掉自身一半且不短于最小长度），
+  回弹归零后长度与位置自动复原。滚动条不在容器内时，指针落在滚动条上的滚轮经
+  `routeWheelEvent` 转发回容器，滚动语义与内容层一致
 
 ## 解耦边界
 

@@ -2,10 +2,12 @@
  * @file rate.jsx —— RateCell（评分）高级 Cell
  *
  * 离散取值族：评分 = 一排可点击的五角星（见 docs/basic-cell-design.md）。
- * 组装 fallback：SVG 星形直接点击（实心点亮 / 描边未点亮——SVG 固定几何
- * 绘制，避免 ★/☆ 文本字形随浏览器字体渲染产生尺寸差异）；悬停时预览
- * 到光标所在星，点击即写入 value。不再挂滑块轨道：评分是离散选择，
- * 直接点星才符合直觉（键盘用每颗星自身的按钮语义，Enter/Space 触发）。
+ * 组装 fallback：SVG 星形直接点击（点亮星为数据色实心，未点亮星为
+ * 主题 outline-variant 实心——两种状态都用实心填充，只差颜色，避免空心
+ * 描边在暗色模式下变成一圈细线；SVG 固定几何绘制，避免 ★/☆ 文本字形随
+ * 浏览器字体渲染产生尺寸差异）；悬停时预览到光标所在星，点击即写入 value。
+ * 不再挂滑块轨道：评分是离散选择，直接点星才符合直觉（键盘用每颗星
+ * 自身的按钮语义，Enter/Space 触发）。
  * 主题可经 theme.components.rate 整体重写。
  *
  * Schema（数据契约，与旧版一致）：value / count / color / disabled。
@@ -25,11 +27,12 @@ const STAR_SIZE = 20;
 const STAR_GAP = 4;
 
 /**
- * 单颗星（SVG）：lit 为实心填充，未点亮为描边空心。
- * @param {{lit: boolean, color: string, size: number}} props 组件属性
+ * 单颗星（SVG）：两种状态都是实心填充，只用颜色区分——点亮取数据色，
+ * 未点亮取主题 outline-variant（暗色模式随之变亮，不会出现空心描边细线）。
+ * @param {{lit: boolean, color: string, dimColor: string, size: number}} props 组件属性
  * @returns {JSX.Element} 星形元素
  */
-function RateStar({ lit, color, size }) {
+function RateStar({ lit, color, dimColor, size }) {
   return (
     <svg
       width={size}
@@ -38,13 +41,7 @@ function RateStar({ lit, color, size }) {
       style={{ display: 'block', flexShrink: 0 }}
       aria-hidden="true"
     >
-      <path
-        d={STAR_PATH}
-        fill={lit ? color : 'none'}
-        stroke={color}
-        strokeWidth={lit ? 0 : 2}
-        strokeLinejoin="round"
-      />
+      <path d={STAR_PATH} fill={lit ? color : dimColor} />
     </svg>
   );
 }
@@ -61,6 +58,8 @@ function RateAssembledView({ cell }) {
   // 数据色可传颜色角色名（如 'warning'），未定义角色按裸色值使用
   const colorRole = useCellData(cell, 'color');
   const color = useThemeColor(colorRole, colorRole);
+  // 未点亮星的实心色：主题 outline-variant（暗色模式自动提亮）
+  const dimColor = useThemeColor('outline-variant', '#d5cfe0');
   const disabled = useCellData(cell, 'disabled');
   const [hover, setHover] = useState(0);
   const stars = Array.from({ length: Math.max(0, count) }, (_, i) => i + 1);
@@ -98,7 +97,7 @@ function RateAssembledView({ cell }) {
               ...(layer ? { ...layer.style, '--hk-focus': color } : {}),
             }}
           >
-            <RateStar lit={on} color={color} size={STAR_SIZE} />
+            <RateStar lit={on} color={color} dimColor={dimColor} size={STAR_SIZE} />
           </button>
         );
       })}

@@ -47,11 +47,14 @@ const tint = (color, alpha) => {
  * @param {'filled'|'tonal'|'outlined'|'text'} [props.variant] 样式变体
  * @param {'primary'|'default'|'danger'} [props.type='primary'] 语义配色（兼容旧接口）
  * @param {'small'|'default'|'large'|'icon'} [props.size='default'] 尺寸变体：
- *   small 24 / default 32 / large 40 / icon 28×28（纯图标或短数字按钮，
+ *   small 24 / default 32 / large 40 / icon 24×24（纯图标或短数字按钮，
  *   如日历日格、翻页箭头、页码——水平内边距按档位递减，不再一律 16px）
  * @param {boolean} [props.disabled=false] 是否禁用
  * @param {boolean} [props.block=false] 是否撑满父宽
  * @param {'left'|'center'} [props.align='center'] 文字对齐
+ * @param {Object|Array} [props.corners] 四角独立圆角（并排相连的按钮组：连接处
+ *   取小圆角、外侧保留胶囊，见 shape.js#cornerStyle）；缺省取 elements.button.radius
+ * @param {string} [props.ariaLabel] 读屏名称（纯图标/短数字按钮必填，如翻页箭头）
  * @param {string} [props.color] 数据色覆盖（如标签色）：按变体染色——
  *   filled 取实底 + on-primary 文字、tonal 取同色浅底、outlined 取描边与
  *   文字色、text 仅文字色
@@ -60,7 +63,7 @@ const tint = (color, alpha) => {
  */
 function ButtonImpl({
   label, icon, variant, type = 'primary', size = 'default', disabled = false,
-  block = false, align = 'center', color, onPress,
+  block = false, align = 'center', color, corners, ariaLabel, onPress,
 }) {
   const text = useText(label);
   const theme = useTheme();
@@ -97,6 +100,15 @@ function ButtonImpl({
   const t = variantMap[v] || variantMap.filled;
   const radius = resolveElementRadius(theme, elStyle?.radius, CAPSULE_RADIUS);
   const elevation = elStyle?.elevation ?? 0;
+  // 左对齐带前置字形时，字形中心与按钮圆角圆心对齐（MD3 列表项/复选行形态）：
+  // 左内边距 = 圆角半径 − 字形半宽，胶囊（半径 = 高度一半）下即 height/2 − 8
+  const iconBox = 16;
+  const cornerR = radius === CAPSULE_RADIUS
+    ? s.height / 2
+    : (typeof radius === 'number' ? radius : s.height / 2);
+  const padLeft = (icon && align === 'left')
+    ? Math.max(8, Math.round(cornerR - iconBox / 2))
+    : s.padX;
   // 数据色可传颜色角色名（如 'success'），经主题解析后落到具体色值；
   // 未定义角色时按裸色值使用（保持既有接口的硬编码色兼容）
   const dataColor = color ? (theme?.resolveColor(color) ?? color) : color;
@@ -117,18 +129,22 @@ function ButtonImpl({
   return (
     <button
       disabled={disabled}
+      aria-label={ariaLabel || undefined}
       onClick={() => { if (!disabled) onPress?.(); }}
       className={state.className ? `${state.className} hk-focus hk-press` : undefined}
       style={{
         height: s.height, minWidth: s.minWidth,
-        padding: `0 ${s.padX}px`,
+        padding: `0 ${s.padX}px 0 ${padLeft}px`,
         fontSize: s.fontSize, gap: s.gap,
         display: 'flex', alignItems: 'center',
         ...(block ? { width: '100%' } : {}),
         justifyContent: align === 'left' ? 'flex-start' : 'center',
         textAlign: align,
-        ...cornerStyle(corner, radius), cursor: disabled ? 'not-allowed' : 'pointer',
+        // 圆角：四角独立声明（并排连接处小圆角）优先，否则取元素级统一半径
+        ...(corners ? cornerStyle(corner, corners) : cornerStyle(corner, radius)),
+        cursor: disabled ? 'not-allowed' : 'pointer',
         border: 'none',
+        flexShrink: 0,
         backgroundColor: disabled ? surfaceMuted : (dataPaint ? dataPaint.background : t.background),
         color: disabled ? textMuted : (dataPaint ? dataPaint.color : t.color),
         whiteSpace: 'nowrap',
@@ -156,6 +172,7 @@ function ButtonView({ cell }) {
   const type = useCellData(cell, 'type');
   const variant = useCellData(cell, 'variant');
   const size = useCellData(cell, 'size');
+  const corners = useCellData(cell, 'corners');
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <ButtonImpl
@@ -163,6 +180,7 @@ function ButtonView({ cell }) {
         type={type}
         variant={variant}
         size={size}
+        corners={Array.isArray(corners) && corners.length === 4 ? corners : undefined}
         disabled={disabled}
         onPress={() => {
           cell.setPressed(true);
@@ -193,6 +211,8 @@ class ButtonCell extends CellBaseBuilder {
         type: { type: 'string', default: 'primary' },
         variant: { type: 'string', default: '' },
         size: { type: 'string', default: 'default' },
+        // 四角独立圆角（并排相连的按钮组）：[上左, 上右, 下右, 下左]，单位 px
+        corners: { type: 'array', default: [] },
       })
       .renderContent(ButtonView);
   }

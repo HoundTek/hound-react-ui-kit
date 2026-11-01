@@ -59,6 +59,9 @@ class TooltipCell extends CellBaseBuilder {
     this.floatingViewport()
       .movable(false).resizable(false)
       .defaultWidth(140)
+      // 组件角色 overlay：定位容器/包壳圆角取主题 overlay 尺度（与气泡自身
+      // useShapeRadius('overlay') 一致），投影轮廓贴合圆角气泡，不露出方框
+      .styleRole('overlay')
       .schema({
         text: { type: 'string', default: '' },
       })

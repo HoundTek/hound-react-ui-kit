@@ -184,7 +184,7 @@ Cell 类型在定义时声明数据依赖。系统在实例化时自动建立绑
 | `closable(enabled)` | 浮动视口是否可关闭（默认 false；右上角渲染关闭按钮） |
 | `close()` | 关闭浮动视口（置为不可见，FloatingLayer 跳过渲染） |
 | `open()` | 重新打开已关闭的浮动视口 |
-| 尺寸系列 | 沿用现有 `min/max/default/fixed`（Width/Height） |
+| 尺寸系列 | 沿用现有 `min/max/default/fixed`（Width/Height）；**显式 fixed（min === max）优先于 default**——预设用 defaultWidth/defaultHeight 给默认尺寸，页面作者再调 fixedWidth/fixedHeight 时以后者为准（容器尺寸与浮动包壳视觉尺寸同一口径） |
 
 移动与缩放规则：
 - **移动**：可移动的浮动视口，在 `dragHandle()` 标记的拖拽点区域按下拖动，整体移动浮动视口（更新 posX/posY）
@@ -256,7 +256,7 @@ const win = new BoxBuilder('@float/win')
 |------|------|-----------|
 | 独立窗口 | 可移动、可缩放、可最大化/最小化、可关闭 | Box 层：移动（dragHandle 拖拽点）、缩放（边缘/角手柄）、最大化/最小化（toggleMaximize/toggleMinimize）、关闭（close/open）；Cell 层：`WindowCell` 预设（标题栏拖拽点插槽 + 内建窗口控件结构 chrome） |
 | 通知 | 屏幕角落短暂出现后自动消失 | `NotificationCell` 预设：浮动视口 + duration 定时自动关闭 |
-| 弹出菜单 | 点击触发、点外部关闭 | Box 层提供浮动视口与显隐（open/close）；点外部关闭由 Cell 层封装 |
+| 弹出菜单 | 点击触发、点外部关闭 | Box 层提供浮动视口与显隐（open/close）；`SelectCell` / `PickerCell` / `ColorPickerCell` / `DatePickerCell` 的下拉即**伪窗口**：以浮动视口（`styleRole('overlay')` + `color('surface')`，不可移动/缩放）在触发器下方展开，空间不足翻到上方、水平钳制到可视区域（统一走 `builtin-cells/popover-anchor.js` 的 `placePopover`），窗口滚动/缩放时跟随重定位；点外部、Escape（capture）关闭，关闭即销毁窗口 |
 | 模态对话框 | 遮罩 + 阻塞下层 | `ModalCell` 预设：子窗口对话框（`setParent(父窗口)` 声明父子关系）+ header/body 插槽；遮罩由 `setOperable` 启用 |
 
 ## 内置 Cell 预设（builtin-cells）
@@ -284,6 +284,27 @@ const win = new BoxBuilder('@float/win')
 - `NotificationCell`：通知条（浮动视口，可关闭；`duration` 非空时定时 `close()` 自动消失）
 - `ModalCell`：子窗口对话框（`setParent(父 Cell)` 声明父子关系 + header/body 插槽，默认不可移动/缩放；遮罩由父窗口 `operable()` 启用；header 内建 chrome：标题 + 关闭控件）
 - `WindowCell`：独立窗口（movable + resizable + 标题栏 `dragHandle` 拖拽点 + title/body 插槽；title 内建窗口控件结构 chrome——schema `title` 标题文本 + 最小化/最大化/关闭控件，窗口状态 `maximized`/`minimized` 数据驱动；样式控制经 `windowControls`/`titleBarColor`/`titleBarHeight`/`titleColor` 链式配置，主题级默认走 `theme.elements.window`；`fill('title', ...)` 可整体替换默认 chrome）
+
+**窗口变体预设**（`FloatingWindowCellBase.windowVariant(name)`）：带标题栏的窗口类
+Cell 一律复用同一标题栏（chrome：标题文本 + 最小化/最大化/关闭控件），不再各自
+手写页眉——否则会出现「有的有最小化/关闭、有的只有一个干标题」的不一致。四种预设：
+
+| 变体 | 标题栏插槽 | 标题栏高 | 移动/缩放 | 模态 | 控件 | 内容插槽 |
+|------|-----------|---------|----------|------|------|---------|
+| `window` | `title` | 36 | 可移动 / 可缩放 | 否 | 最小化 + 最大化 + 关闭 | `body`（minHeight 120） |
+| `panel` | `header` | 36 | 可移动 / 可缩放 | 否 | 最小化 + 关闭 | `body`（minHeight 80） |
+| `dialog` | `header` | 40 | 可移动 / 不可缩放 | 是 | 最小化 + 关闭 | `body`（minHeight 100） |
+| `modal` | `header` | 44 | 不可移动 / 不可缩放 | 是 | 仅关闭 | `body`（minHeight 100） |
+
+- **内部内容是 slot**：变体只定义标题栏与 `body` 插槽，页面作者用
+  `fill('body', cells)` 放窗口内部内容；标题栏保持由 chrome 渲染，
+  `fill(titleSlot, ...)` 可整体替换 chrome（高级用法）
+- **body 留白**：内容插槽自带内边距与间距（window/panel 12/8、dialog/modal 16/8，
+  经 `bodyPadding`/`bodyGap` 覆盖），窗口内容不再与标题栏、边框贴死
+- **最小化只显示标题栏**：标题栏以外的插槽在最小化时经 `BoxBuilder.collapsed()`
+  收起（布局按 0 尺寸、渲染 `display: none`），窗口高度卷成标题栏高度；
+  最小化期间关闭纵向缩放分量（N/S 手柄移除、四角 cursor 改 `ew-resize`、
+  startFloatingResize 钳死高度），只允许横向调整
 
 配套机制：
 - 浮动窗口层级采用"父子窗口树 + 可操作窗口"模型（见 floating-window-tree-design.md）：

@@ -42,6 +42,9 @@ class BoxBuilder extends Reflowable {
 
     /** @type {boolean} 布局标记是否有效（reflow 后重置） */
     this._layoutValid = true;
+    /** @type {{axis: 'horizontal'|'vertical', required: number, available: number}|null}
+     * 最近一次主轴布局非法时的诊断信息（错误占位卡片展示「需要 / 可用」尺寸） */
+    this._layoutError = null;
     /** @type {{width: number, height: number}} 容器实际尺寸（视口取可视区域，其余由 ResizeObserver 提供） */
     this._containerSize = { width: 0, height: 0 };
     /** @type {boolean|undefined} Edge 覆盖层（拖拽分界线）显示开关；undefined = 继承父级，全链未设置时默认隐藏。
@@ -95,6 +98,29 @@ class BoxBuilder extends Reflowable {
     this._material = null;
     /** @type {number|null} 不透明度（0~1） */
     this._opacity = null;
+    /**
+     * @type {boolean} 是否收起（不参与布局、不渲染）：窗口最小化时把标题栏以外
+     * 的内容插槽收起，使布局只需容纳标题栏高度（否则 body 的最小高度会让
+     * 卷起后的窗口判定为布局非法）。收起期间子 Box 仍保留在树中，解除后恢复。
+     */
+    this._collapsed = false;
+  }
+
+  /**
+   * 设置是否收起本 Box（不参与父级布局、不渲染内容），仅影响布局与渲染，
+   * 不改变尺寸约束与子树数据。用于窗口最小化时收起标题栏以外的内容插槽。
+   * @param {boolean} [enabled=true] 是否收起
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  collapsed(enabled = true) {
+    const next = !!enabled;
+    if (this._collapsed === next) return this;
+    this._collapsed = next;
+    // 收起/恢复改变父级的主轴可用尺寸，沿祖先链请求 reflow；并通知结构订阅
+    // 使内容层重渲染（收起项在内容层以 display:none 渲染）
+    this._requestReflow();
+    this.runtime.notifyStructural();
+    return this;
   }
 
   /**
@@ -240,6 +266,19 @@ class BoxBuilder extends Reflowable {
    */
   opacity(value) {
     this._opacity = value;
+    return this;
+  }
+
+  /**
+   * 四角独立圆角（覆盖形状/角色层规范给出的统一圆角）。用于并排相连的组件：
+   * 连接处取小圆角（如 4）、外侧保留大圆角或胶囊，相邻两块看起来是一体的。
+   * 声明形式：`{ topLeft, topRight, bottomRight, bottomLeft, all }`（数值 px /
+   * CSS 长度 / 'capsule'；缺省角落回落 all）或 `[tl, tr, br, bl]` 数组。
+   * @param {Object|Array} corners 四角圆角声明
+   * @returns {BoxBuilder} self（链式调用）
+   */
+  corners(corners) {
+    this._corners = corners;
     return this;
   }
 
@@ -793,6 +832,11 @@ class BoxBuilder extends Reflowable {
 
     for (let i = 0; i < count; i++) {
       const child = children[i];
+      // 收起项不占空间：按固定 0 尺寸参与（不进入非固定分配，也不计入最小尺寸合计）
+      if (child._collapsed) {
+        fixedSizes[i] = 0;
+        continue;
+      }
       const childMin = child[minKey];
       const childMax = child[maxKey];
 
@@ -838,7 +882,8 @@ class BoxBuilder extends Reflowable {
     // 以亚像素渲染），真实溢出（超过容差）仍判定非法。
     const EPSILON = 0.5;
     if (fixedTotal > containerSize + EPSILON) {
-      return { sizes: [], isValid: false, error: true };
+      // required/available 随结果返回：错误占位卡片据此展示「需要 / 可用」尺寸
+      return { sizes: [], isValid: false, error: true, required: fixedTotal, available: containerSize };
     }
 
     const remainingSpace = containerSize - fixedTotal;
@@ -896,7 +941,10 @@ class BoxBuilder extends Reflowable {
     // 与 fixedTotal 检查同源的亚像素容差：固定子项总和略超容器时
     // remainingSpace 微负，非固定子项的最小值合计可能因此被判超界
     if (remainingSpace < minPossible - EPSILON) {
-      return { sizes: [], isValid: false, error: true };
+      return {
+        sizes: [], isValid: false, error: true,
+        required: fixedTotal + Math.max(0, minPossible), available: containerSize,
+      };
     }
 
     if (remainingSpace > maxPossible) {
@@ -963,6 +1011,11 @@ class BoxBuilder extends Reflowable {
 
     this._children.forEach(child => {
       let size;
+
+      if (child._collapsed) {
+        sizes.push(0);
+        return;
+      }
 
       if (this._hasDefault(child, dimension)) {
         size = child[def];
@@ -1056,6 +1109,7 @@ class BoxBuilder extends Reflowable {
       const result = this._calculateLayout(Math.max(0, width - mainPadX), 'Width');
       if (!result.isValid) {
         isValid = false;
+        this._layoutError = { axis: 'horizontal', required: result.required, available: result.available };
       } else {
         this._children.forEach((child, i) => {
           child._layoutWidth = result.sizes[i];
@@ -1067,6 +1121,7 @@ class BoxBuilder extends Reflowable {
       const result = this._calculateLayout(Math.max(0, height - mainPadX), 'Height');
       if (!result.isValid) {
         isValid = false;
+        this._layoutError = { axis: 'vertical', required: result.required, available: result.available };
       } else {
         this._children.forEach((child, i) => {
           child._layoutHeight = result.sizes[i];
@@ -1129,6 +1184,7 @@ class BoxBuilder extends Reflowable {
     }
 
     this._layoutValid = isValid;
+    if (isValid) this._layoutError = null;
 
     this._children.forEach(child => {
       // 子项容器尺寸：优先父级 reflow 分配的主轴尺寸（_layoutWidth/_layoutHeight）；
@@ -1139,12 +1195,13 @@ class BoxBuilder extends Reflowable {
       //（200 而非 36）。与 CSS 口径一致：元素自身显式尺寸优先于 flex 拉伸。
       const prev = child._containerSize;
       const next = {
-        width: (child._layoutWidth || child._defaultWidth)
-          ?? (child._minWidth === child._maxWidth && child._minWidth > 0 ? child._minWidth : null)
-          ?? width,
-        height: (child._layoutHeight || child._defaultHeight)
-          ?? (child._minHeight === child._maxHeight && child._minHeight > 0 ? child._minHeight : null)
-          ?? height,
+        // 显式固定尺寸（min === max）优先于 defaultWidth/defaultHeight：页面作者在
+        // 预设默认尺寸之上再调 fixedWidth/fixedHeight 时应以后者为准，否则
+        // fixed 声明的窗口仍按预设 default 尺寸布局（改尺寸不生效）
+        width: (child._layoutWidth || (child._minWidth === child._maxWidth && child._minWidth > 0
+          ? child._minWidth : null) || child._defaultWidth) ?? width,
+        height: (child._layoutHeight || (child._minHeight === child._maxHeight && child._minHeight > 0
+          ? child._minHeight : null) || child._defaultHeight) ?? height,
       };
       child._containerSize = next;
       // 脏区优化：子树重算仅发生在「容器尺寸实际变化」或「子项自身待重排」时。

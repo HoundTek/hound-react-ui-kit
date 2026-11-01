@@ -15,9 +15,18 @@ import { useText } from '../core/i18n/i18n-react';
 import { useThemeColor, useCornerType } from '../core/theme/theme-react';
 import { cornerStyle, CAPSULE_RADIUS } from '../core/theme/shape';
 
+/** 步骤圆点直径（px）；连线所在行高与之相同，保证圆心与连线共面 */
+const DOT_SIZE = 12;
+/** 圆点与标题的间距（px） */
+const DOT_TITLE_GAP = 6;
+/** 连线与相邻圆点的水平留白（px） */
+const LINE_GAP = 8;
+
 /**
  * 单个步骤：订阅 item.title 的 i18n 翻译；圆点与连线颜色由下标关系决定，
- * 当前步标题加粗。index/total/current 由父视图经 props 传入。
+ * 当前步标题加粗。几何：上半部是「圆点 + 连线」同一 flex 行（同高同行，
+ * 圆心与连线中心严格共面），下半部是标题——标题不再把圆点顶偏。
+ * index/total/current 由父视图经 props 传入。
  * @param {{item: object, index: number, total: number, current: number}} props 组件属性
  * @returns {JSX.Element} 视图元素
  */
@@ -31,24 +40,25 @@ function StepItem({ item, index, total, current }) {
   const borderLine = useThemeColor('border', '#e0e0e0');
   const textMuted = useThemeColor('text-muted', '#999');
   return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', height: '100%' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'center', height: DOT_SIZE }}>
         <div style={{
-          width: 12, height: 12, ...cornerStyle(corner, CAPSULE_RADIUS), flexShrink: 0,
+          width: DOT_SIZE, height: DOT_SIZE, ...cornerStyle(corner, CAPSULE_RADIUS), flexShrink: 0,
           backgroundColor: index <= current ? primary : border,
         }} />
-        <div style={{
-          fontSize: 12, whiteSpace: 'nowrap',
-          fontWeight: isActive ? 'bold' : 'normal',
-          color: isDone || isActive ? primary : textMuted,
-        }}>{title}</div>
+        {index < total - 1 && (
+          <div style={{
+            flex: 1, height: 2, marginLeft: LINE_GAP,
+            backgroundColor: isDone ? primary : borderLine,
+          }} />
+        )}
       </div>
-      {index < total - 1 && (
-        <div style={{
-          flex: 1, height: 2, margin: '0 6px',
-          backgroundColor: isDone ? primary : borderLine,
-        }} />
-      )}
+      <div style={{
+        marginTop: DOT_TITLE_GAP, fontSize: 12, whiteSpace: 'nowrap',
+        overflow: 'hidden', textOverflow: 'ellipsis',
+        fontWeight: isActive ? 'bold' : 'normal',
+        color: isDone || isActive ? primary : textMuted,
+      }}>{title}</div>
     </div>
   );
 }

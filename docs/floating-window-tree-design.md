@@ -130,6 +130,38 @@ win.fill('title', [...]);      // 单插槽覆盖：整体替换默认 chrome（
                                // 关闭按钮可经 CloseButtonCell 自行嵌入）
 ```
 
+### 窗口变体预设（windowVariant）
+
+带标题栏的窗口 Cell 一律经 `windowVariant(name)` 一次性声明浮动视口、
+移动/缩放/可操作、标题栏插槽（预填 chrome）与 body 内容插槽，避免各预设各写一套
+页眉。预设见 docs/ui-kit-design-document.md 的变体表：
+`window`（title 36，最小化+最大化+关闭）、`panel`（header 36，最小化+关闭）、
+`dialog`（header 40，模态，最小化+关闭）、`modal`（header 44，模态，仅关闭）。
+`options` 覆盖预设项（`controls` 逐项合并）：
+`windowVariant('dialog', { titleBarHeight: 44, controls: { maximize: false } })`。
+窗口内部内容一律作为 `body` 插槽由页面作者 `fill`，标题栏保持由 chrome 渲染。
+
+### 最小化语义与缩放约束
+
+- 最小化 = 只保留标题栏：chrome 视图 effect 先把标题栏以外的插槽 `collapsed(true)`
+  （`BoxBuilder.collapsed()`：布局尺寸按 0，渲染 `display: none`），再
+  `toggleMinimize(标题栏高度)`。收起插槽这一步是必需的——否则 body 插槽的最小高度
+  会让卷起后的窗口布局约束不可满足（出现布局错误卡片）
+- 最小化期间**不允许调整高度**：`startFloatingResize` 关闭纵向分量并把高度钳死为
+  标题栏高度；`renderResizeHandles` 移除 N/S 边手柄，四角 cursor 改为 `ew-resize`，
+  横向缩放任可用
+- 缩放期间内容恒按布局起点（上/左）排列，不做"对边锚定"：拖 W/N 时被调整的正是
+  起点侧，内容（标题栏）随窗口边缘一起移动、始终贴住窗口顶边；拖 E/S 时起点侧
+  静止，内容不动、余量留在被调整的一侧。曾按"所调整边缘的对边"锚定（`flex-end`），
+  结果 N 向缩放时标题栏脱离窗口顶边、松手瞬间跳回复位
+- 还原时插槽重新展开（`collapsed(false)`）再 `toggleMinimize` 还原
+
+### 伪窗口首帧尺寸对齐
+
+伪窗口（overlay/panel）在 React 首帧渲染前经 `useLayoutEffect` 把 Box 的
+`_containerSize` 与浮动视口视觉尺寸同步并触发 reflow，避免入场动画期间
+「边框先出现、内容后出现」以及弹出过程中内容按错误尺寸排版、动画结束才跳变。
+
 ## 7. 与旧模型的对照
 
 | 旧模型 | 新模型 |

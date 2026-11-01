@@ -1,33 +1,37 @@
 /**
  * @file floating-panel.jsx —— FloatingPanelCell（浮动面板）预设
  *
- * 浮动面板容器：浮动视口、可移动可缩放（最小 240x140）、白底、纵向排列。
- * header（单插槽，主色底横向标题栏，固定高 36，dragHandle 拖拽点）与
- * body（列表插槽，最小高 80、可纵向滚动）两个插槽由页面作者填充。
- * 用法：fill('header', new TitleCell(...))、fill('body', 内容)。
+ * 浮动面板：窗口变体 'panel'（见 FloatingWindowCellBase#windowVariant）——
+ * 可移动、可缩放（最小 240×140）、主色标题栏 36 高（chrome：标题 + 最小化 +
+ * 关闭）、不可操作（无遮罩，不阻塞主内容）。标题栏由 chrome 统一渲染并作为
+ * 拖拽点，内容一律是 body 插槽。
+ *
+ * 用法：
+ *   new FloatingPanelCell('panel').setTitle('属性面板')
+ *     .fill('body', [内容 Cell...])
  */
-import CellBaseBuilder from '../core/cell/cell-base';
+import { FloatingWindowCellBase } from '../core/builtin-cells/builtin-cells';
 
 /**
- * FloatingPanelCell：浮动面板。header 单插槽为主色底拖拽标题栏（dragHandle），
- * body 列表插槽可纵向滚动。可移动/缩放，页面作者经 fill 填充。
+ * FloatingPanelCell：浮动面板（窗口变体 'panel'）。title 为标题（i18n key 或
+ * 纯文本），body 为内容插槽（最小高 80、可纵向滚动）。默认下限 240×140，
+ * 可拖动标题栏移动、拖四边/四角缩放。
+ *
+ * Schema（数据契约）：title / maximized / minimized。
  */
-class FloatingPanelCell extends CellBaseBuilder {
+class FloatingPanelCell extends FloatingWindowCellBase {
   /**
    * @param {string} id Cell 标识
    */
   constructor(id) {
     super(id);
-    this.floatingViewport().movable(true).resizable(true)
-      .minWidth(240).minHeight(140).styleRole('window').layout('vertical')
-      .defineSlot('header', {
-        fixedHeight: 36, color: 'primary', dragHandle: true,
-        layout: 'horizontal', moveX: false, moveY: false, single: true,
+    this.minWidth(240).minHeight(140).defaultWidth(280).defaultHeight(180)
+      .schema({
+        title: { type: 'string', default: '' },
+        maximized: { type: 'boolean', default: false },
+        minimized: { type: 'boolean', default: false },
       })
-      .defineSlot('body', {
-        minHeight: 80, moveY: true, layout: 'vertical',
-        color: 'surface',
-      });
+      .windowVariant('panel');
   }
 }
 
